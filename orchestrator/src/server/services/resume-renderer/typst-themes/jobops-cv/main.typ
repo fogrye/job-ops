@@ -139,23 +139,18 @@
   let level = item.at("level", default: 0)
   let keywords = list-of(item.at("keywords", default: ()))
   let tags = keywords.join(", ")
-  block(
-    breakable: false,
-    inset: 4pt,
-    stroke: 0.3pt + rgb("dddddd"),
-    radius: 2pt,
-  )[
-    #grid(
-      columns: (1fr, auto),
-      column-gutter: 4pt,
-      [#text(weight: "bold")[#name]],
-      [#if level > 0 { skill-dots(level) }],
-    )
-    #text(size: 8pt, fill: rgb("444444"))[
-      #if proficiency != "" { proficiency } else { "Level " + str(level) + "/5" }
-    ]
+  let proficiency-label = if proficiency != "" { proficiency } else { "Level " + str(level) + "/5" }
+  [
+    #text(weight: "bold")[#name]
+    #linebreak()
+    #text(size: 8pt, fill: rgb("444444"))[#proficiency-label]
     #if tags != "" [
+      #linebreak()
       #text(size: 8pt, fill: rgb("666666"))[#tags]
+    ]
+    #if level > 0 [
+      #linebreak()
+      #skill-dots(level)
     ]
   ]
 }
