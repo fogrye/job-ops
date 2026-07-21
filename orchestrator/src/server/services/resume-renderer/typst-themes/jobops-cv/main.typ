@@ -149,7 +149,7 @@
       columns: (1fr, auto),
       column-gutter: 4pt,
       [#text(weight: "bold")[#name]],
-      [#skill-dots(level)],
+      [#if level > 0 { skill-dots(level) }],
     )
     #text(size: 8pt, fill: rgb("444444"))[
       #if proficiency != "" { proficiency } else { "Level " + str(level) + "/5" }
