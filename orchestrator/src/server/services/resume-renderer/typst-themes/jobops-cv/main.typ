@@ -110,65 +110,95 @@
 #if contacts.len() > 0 [#contact-style(contacts.join([ #h(7pt)|#h(7pt) ]))]
 
 #let skill-groups = list-of(source.at("skillGroups", default: ()))
-#if skill-groups.len() > 0 [
-  #v(7pt)
-  #label-style("SKILLS:")
-  #h(4pt)
-  #text(size: 10.5pt, weight: 700)[
-    #for group in skill-groups.enumerate() {
-      let index = group.at(0)
-      let item = group.at(1)
-      if index > 0 { [, ] }
-      [#text-of-item(item, "name"): #list-of(item.at("keywords", default: ())).join(", ")]
-    }
-  ]
-]
-
+#let skill-columns = {
+  let columns = source.at("skillColumns", default: 1)
+  if columns < 1 { 1 } else if columns > 3 { 3 } else { columns }
+}
 #let languages = list-of(source.at("languages", default: ()))
-#if languages.len() > 0 [
-  #v(4pt)
-  #label-style("LANGUAGES:")
-  #h(4pt)
-  #body-style(
-    languages.map(item => {
-      let language = text-of-item(item, "language")
-      let fluency = text-of-item(item, "fluency")
-      if fluency == "" { language } else { fluency + " in " + language }
-    }).join(", "),
-  )
-]
-
+#let language-columns = source.at("languageColumns", default: 1)
 #let summary = text-of(source.at("summary", default: ""))
-#if summary != "" [
-  #section(text-of(section-titles.at("summary", default: "Summary")))
-  #body-style(markup-text(summary))
-]
-
 #let education = list-of(source.at("education", default: ()))
-#if education.len() > 0 [
-  #section(text-of(section-titles.at("education", default: "Education")))
-  #for entry in education [#timeline-entry(entry)]
-]
-
 #let experience = list-of(source.at("experience", default: ()))
-#if experience.len() > 0 [
-  #section("Professional " + text-of(section-titles.at("experience", default: "Experience")))
-  #for entry in experience [
-    #timeline-entry(
-      entry,
-      lead: text-of-item(entry, "title"),
-      heading: text-of-item(entry, "subtitle"),
+
+#let skill-dots(level) = {
+  range(5).map(index => {
+    let filled = index < level
+    box(
+      circle(
+        radius: 2pt,
+        fill: if filled { ink } else { white },
+        stroke: 0.5pt + rgb("666666"),
+      ),
+    )
+  }).join(h(2pt))
+}
+
+#let render-skill(item) = {
+  let name = text-of-item(item, "name")
+  let proficiency = text-of(item.at("proficiency", default: ""))
+  let level = item.at("level", default: 0)
+  let keywords = list-of(item.at("keywords", default: ()))
+  let tags = keywords.join(", ")
+  block(
+    breakable: false,
+    inset: 4pt,
+    stroke: 0.3pt + rgb("dddddd"),
+    radius: 2pt,
+  )[
+    #grid(
+      columns: (1fr, auto),
+      column-gutter: 4pt,
+      [#text(weight: "bold")[#name]],
+      [#skill-dots(level)],
+    )
+    #text(size: 8pt, fill: rgb("444444"))[
+      #if proficiency != "" { proficiency } else { "Level " + str(level) + "/5" }
+    ]
+    #if tags != "" [
+      #text(size: 8pt, fill: rgb("666666"))[#tags]
+    ]
+  ]
+}
+
+#let render-skills() = {
+  if skill-groups.len() > 0 [
+    #section(text-of(section-titles.at("skills", default: "Skills")))
+    #grid(
+      columns: skill-columns,
+      column-gutter: 10pt,
+      row-gutter: 6pt,
+      ..skill-groups.map(render-skill),
     )
   ]
-]
+}
 
-#let projects = list-of(source.at("projects", default: ()))
-#if projects.len() > 0 [
-  #section(text-of(section-titles.at("projects", default: "Projects")))
-  #for entry in projects [#timeline-entry(entry)]
-]
+#let render-languages() = {
+  if languages.len() > 0 [
+    #section(text-of(section-titles.at("languages", default: "Languages")))
+    #grid(
+      columns: language-columns,
+      column-gutter: 10pt,
+      row-gutter: 4pt,
+      ..languages.map(item => [
+        #text(weight: "bold")[#text-of-item(item, "language")]
+        #if text-of-item(item, "fluency") != "" [
+          #text(size: 8pt, fill: rgb("444444"))[#text-of-item(item, "fluency")]
+        ]
+      ]),
+    )
+  ]
+}
 
-#let simple-entry-section(key, fallback) = {
+#let render-summary() = {
+  if summary != "" [
+    #section(text-of(section-titles.at("summary", default: "Summary")))
+    #body-style(markup-text(summary))
+  ]
+}
+
+#let render-profiles() = {}
+
+#let render-entry-section(key, fallback) = {
   let entries = list-of(source.at(key, default: ()))
   if entries.len() > 0 [
     #section(text-of(section-titles.at(key, default: fallback)))
@@ -176,18 +206,99 @@
   ]
 }
 
-#simple-entry-section("awards", "Awards")
-#simple-entry-section("certifications", "Certifications")
-#simple-entry-section("publications", "Publications")
-#simple-entry-section("volunteer", "Volunteer")
-#simple-entry-section("references", "References")
-
-#if custom-field-items.len() > 0 [
-  #section(text-of(section-titles.at("customFields", default: "Additional Information")))
-  #for item in custom-field-items [
-    #row-title(text-of-item(item, "title"))
-    #if text-of-item(item, "title") != "" [#body-style(": ")]
-    #link-or-text(text-of-item(item, "text"), text-of-item(item, "url"))
-    #v(3pt)
+#let render-experience() = {
+  let title = text-of(section-titles.at("experience", default: "Experience"))
+  let title = if title == "Experience" { "Professional Experience" } else { title }
+  if experience.len() > 0 [
+    #section(title)
+    #for entry in experience [
+      #timeline-entry(
+        entry,
+        lead: text-of-item(entry, "title"),
+        heading: text-of-item(entry, "subtitle"),
+      )
+    ]
   ]
-]
+}
+
+#let render-interests() = {
+  let items = list-of(source.at("interests", default: ()))
+  if items.len() > 0 [
+    #section(text-of(section-titles.at("interests", default: "Interests")))
+    #grid(
+      columns: 2,
+      column-gutter: 10pt,
+      row-gutter: 4pt,
+      ..items.map(item => [
+        #text(weight: "bold")[#text-of-item(item, "name")]
+        #let keywords = list-of(item.at("keywords", default: ()))
+        #if keywords.len() > 0 [
+          #text(size: 8pt, fill: rgb("666666"))[#keywords.join(", ")]
+        ]
+      ]),
+    )
+  ]
+}
+
+#let render-custom-fields() = {
+  if custom-field-items.len() > 0 [
+    #section(text-of(section-titles.at("customFields", default: "Additional Information")))
+    #for item in custom-field-items [
+      #row-title(text-of-item(item, "title"))
+      #if text-of-item(item, "title") != "" [#body-style(": ")]
+      #link-or-text(text-of-item(item, "text"), text-of-item(item, "url"))
+      #v(3pt)
+    ]
+  ]
+}
+
+#let default-section-order = (
+  "profiles",
+  "experience",
+  "education",
+  "projects",
+  "skills",
+  "languages",
+  "interests",
+  "awards",
+  "certifications",
+  "publications",
+  "volunteer",
+  "references",
+)
+#let section-order = list-of(source.at("sectionOrder", default: ()))
+#let section-order = if section-order.len() == 0 {
+  default-section-order
+} else {
+  section-order
+}
+
+#render-summary()
+#render-custom-fields()
+#for key in section-order {
+  if key == "profiles" {
+    render-profiles()
+  } else if key == "experience" {
+    render-experience()
+  } else if key == "education" {
+    render-entry-section("education", "Education")
+  } else if key == "projects" {
+    render-entry-section("projects", "Projects")
+  } else if key == "skills" {
+    render-skills()
+  } else if key == "languages" {
+    render-languages()
+  } else if key == "interests" {
+    render-interests()
+  } else if key == "awards" {
+    render-entry-section("awards", "Awards")
+  } else if key == "certifications" {
+    render-entry-section("certifications", "Certifications")
+  } else if key == "publications" {
+    render-entry-section("publications", "Publications")
+  } else if key == "volunteer" {
+    render-entry-section("volunteer", "Volunteer")
+  } else if key == "references" {
+    render-entry-section("references", "References")
+  }
+}

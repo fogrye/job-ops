@@ -115,6 +115,16 @@ describe("typst resume renderer", () => {
     }
   });
 
+  it("uses the normalized section order and skill layout controls", async () => {
+    const template = await readTypstTemplate("jobops-cv");
+
+    expect(template).toContain("#let section-order");
+    expect(template).toContain("#for key in section-order");
+    expect(template).toContain("columns: skill-columns");
+    expect(template).toContain("columns: language-columns");
+    expect(template).toContain("circle(");
+  });
+
   it("uses the TYPST_BIN override when present", () => {
     const previous = process.env.TYPST_BIN;
     process.env.TYPST_BIN = "/tmp/custom-typst";
@@ -475,9 +485,49 @@ describe("typst resume renderer", () => {
       const outputPath = join(tempDir, "jobops-cv.pdf");
 
       await renderTypstPdf({
-        document: baseDocument,
+        document: {
+          ...baseDocument,
+          skillGroups: [
+            {
+              name: "Backend",
+              proficiency: "Expert",
+              level: 5,
+              keywords: ["TypeScript"],
+            },
+            {
+              name: "Shell",
+              proficiency: "Basic",
+              level: 0,
+              keywords: [],
+            },
+          ],
+          skillColumns: 2,
+          languageColumns: 2,
+          sectionOrder: ["education", "experience", "languages", "skills"],
+        },
         outputPath,
         jobId: "job-render-jobops-cv",
+        typstTheme: "jobops-cv",
+      });
+
+      const stats = spawnSync("sh", ["-lc", `test -s "${outputPath}"`], {
+        stdio: "ignore",
+      });
+      expect(stats.status).toBe(0);
+    },
+  );
+
+  it.skipIf(!typstAvailable())(
+    "renders the JobOps CV default order when sectionOrder is absent",
+    async () => {
+      const tempDir = await createTempDir();
+      tempDirs.push(tempDir);
+      const outputPath = join(tempDir, "jobops-cv-default-order.pdf");
+
+      await renderTypstPdf({
+        document: baseDocument,
+        outputPath,
+        jobId: "job-render-jobops-cv-default-order",
         typstTheme: "jobops-cv",
       });
 

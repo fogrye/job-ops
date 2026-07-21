@@ -232,20 +232,25 @@ function getOrderedSectionKeys(
   const metadata = asRecord(resumeJson.metadata);
   const layout = asRecord(metadata?.layout);
   const pages = asArray(layout?.pages);
-  const firstPage = asRecord(pages[0]);
-  const mainSections = asArray(firstPage?.main);
-
   const order: LatexResumeOrderedSectionKey[] = [];
   const allowed = new Set<LatexResumeOrderedSectionKey>(ORDERABLE_SECTION_KEYS);
 
-  for (const key of mainSections) {
-    if (
-      typeof key === "string" &&
-      allowed.has(key as LatexResumeOrderedSectionKey) &&
-      !order.includes(key as LatexResumeOrderedSectionKey)
-    ) {
-      order.push(key as LatexResumeOrderedSectionKey);
+  const addKeys = (value: unknown) => {
+    for (const key of asArray(value)) {
+      if (
+        typeof key === "string" &&
+        allowed.has(key as LatexResumeOrderedSectionKey) &&
+        !order.includes(key as LatexResumeOrderedSectionKey)
+      ) {
+        order.push(key as LatexResumeOrderedSectionKey);
+      }
     }
+  };
+
+  for (const page of pages) {
+    const pageRecord = asRecord(page);
+    addKeys(pageRecord?.main);
+    addKeys(pageRecord?.sidebar);
   }
 
   for (const key of ORDERABLE_SECTION_KEYS) {
@@ -381,12 +386,19 @@ function buildProjectEntries(resumeJson: RecordLike): LatexResumeEntry[] {
 }
 
 function buildSkillGroups(resumeJson: RecordLike): LatexResumeSkillGroup[] {
-  return getVisibleSectionItems(resumeJson, "skills").map((item, index) => ({
-    name: toText(item.name, `Skills ${index + 1}`),
-    keywords: asArray(item.keywords)
-      .map((keyword) => toText(keyword).trim())
-      .filter(Boolean),
-  }));
+  return getVisibleSectionItems(resumeJson, "skills").map((item, index) => {
+    const rawLevel = toNumber(item.level, 0);
+    const level = Math.min(5, Math.max(0, Math.round(rawLevel)));
+
+    return {
+      name: toText(item.name, `Skills ${index + 1}`),
+      keywords: asArray(item.keywords)
+        .map((keyword) => toText(keyword).trim())
+        .filter(Boolean),
+      proficiency: toText(item.proficiency).trim() || null,
+      level,
+    };
+  });
 }
 
 function buildLanguageItems(resumeJson: RecordLike): LatexResumeLanguageItem[] {
@@ -480,6 +492,10 @@ export function normalizeResumeJsonToLatexDocument(
   const basics = (asRecord(record.basics) ?? {}) as RecordLike;
   const summary = (asRecord(record.summary) ?? {}) as RecordLike;
   const titles = getLatexResumeSectionTitles(options.language);
+  const sectionColumns = (key: string, fallback: number): number => {
+    const raw = toNumber(getSectionRecord(record, key).columns, fallback);
+    return Math.min(6, Math.max(1, Math.round(raw)));
+  };
 
   return {
     name: toText(basics.name, "Your Name"),
@@ -497,7 +513,9 @@ export function normalizeResumeJsonToLatexDocument(
     education: buildEducationEntries(record),
     projects: buildProjectEntries(record),
     skillGroups: buildSkillGroups(record),
+    skillColumns: sectionColumns("skills", 1),
     languages: buildLanguageItems(record),
+    languageColumns: sectionColumns("languages", 1),
     interests: buildInterestItems(record),
     awards: buildAwardsEntries(record),
     certifications: buildCertificationEntries(record),
