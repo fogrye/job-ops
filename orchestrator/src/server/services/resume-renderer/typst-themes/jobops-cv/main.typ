@@ -202,15 +202,21 @@
       #let degreeLabel = degree + ":"
       #let field = parts.slice(1).join(", ")
       #let school = text-of-item(entry, "title")
+      #let schoolUrl = text-of-item(entry, "url")
       #let location = text-of-item(entry, "secondarySubtitle")
-      #let detail = (if field != "" { field + ", " } else { "" }) + school
-      #let detail = if location != "" { detail + ", " + location } else { detail }
       #grid(
         columns: (1fr, auto),
         column-gutter: 12pt,
-        [#text(weight: 700)[#degreeLabel] #body-style(detail)],
+        [
+          #text(weight: 700)[#degreeLabel]
+          #body-style(if field != "" { field + ", " } else { "" })
+          #body-style(link-or-text(school, schoolUrl))
+          #if location != "" [#body-style(", " + location)]
+        ],
         [#date-style(text-of-item(entry, "date"))],
       )
+      #bullets(entry)
+      #v(4pt)
     ]
   ]
 }
