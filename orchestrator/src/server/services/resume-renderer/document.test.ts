@@ -107,18 +107,22 @@ describe("normalizeResumeJsonToLatexDocument", () => {
         },
         skills: {
           title: "Skills",
+          columns: 6,
           hidden: false,
           items: [
             {
               id: "skill-1",
               hidden: false,
               name: "Backend",
+              proficiency: "Expert",
+              level: 5,
               keywords: ["TypeScript", "Node.js"],
             },
           ],
         },
         languages: {
           title: "Languages",
+          columns: 3,
           hidden: false,
           items: [
             {
@@ -230,6 +234,13 @@ describe("normalizeResumeJsonToLatexDocument", () => {
     expect(document.education).toHaveLength(1);
     expect(document.projects).toHaveLength(1);
     expect(document.skillGroups).toHaveLength(1);
+    expect(document.skillGroups[0]).toMatchObject({
+      name: "Backend",
+      proficiency: "Expert",
+      level: 5,
+    });
+    expect(document.skillColumns).toBe(6);
+    expect(document.languageColumns).toBe(3);
     expect(document.languages).toHaveLength(1);
     expect(document.interests).toHaveLength(1);
     expect(document.awards).toHaveLength(1);
@@ -264,6 +275,29 @@ describe("normalizeResumeJsonToLatexDocument", () => {
     expect(document.profileItems).toHaveLength(0);
     expect(document.awards).toHaveLength(1);
     expect(document.awards[0]?.title).toBe("Visible award");
+  });
+
+  it("preserves declared main and sidebar section order", () => {
+    const document = normalizeResumeJsonToLatexDocument({
+      basics: { name: "Jane Doe" },
+      metadata: {
+        layout: {
+          pages: [
+            {
+              main: ["education", "experience"],
+              sidebar: ["languages", "skills"],
+            },
+          ],
+        },
+      },
+    });
+
+    expect(document.sectionOrder?.slice(0, 4)).toEqual([
+      "education",
+      "experience",
+      "languages",
+      "skills",
+    ]);
   });
 
   it("preserves basic formatting tags and strips other HTML tags", () => {

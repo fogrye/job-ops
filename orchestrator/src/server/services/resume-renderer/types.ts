@@ -20,6 +20,8 @@ export interface LatexResumeEntry {
 export interface LatexResumeSkillGroup {
   name: string;
   keywords: string[];
+  proficiency?: string | null;
+  level?: number | null;
 }
 
 export interface LatexResumeProfileItem {
@@ -104,7 +106,9 @@ export interface LatexResumeDocument {
   education: LatexResumeEntry[];
   projects: LatexResumeEntry[];
   skillGroups: LatexResumeSkillGroup[];
+  skillColumns?: number;
   languages: LatexResumeLanguageItem[];
+  languageColumns?: number;
   interests: LatexResumeInterestItem[];
   awards: LatexResumeEntry[];
   certifications: LatexResumeEntry[];
