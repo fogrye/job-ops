@@ -59,10 +59,11 @@
   ]
 }
 
-#let timeline-entry(entry, lead: none, heading: none) = {
+#let timeline-entry(entry, lead: none, heading: none, show-responsibilities: false) = {
   let title = if heading != none { heading } else { entry-line(entry) }
   let link = text-of-item(entry, "url")
   let date = text-of-item(entry, "date")
+  let entry-bullets = list-of(entry.at("bullets", default: ()))
   [
     #grid(
       columns: (1fr, auto),
@@ -74,6 +75,9 @@
       ],
       [#date-style(date)],
     )
+    #if show-responsibilities and entry-bullets.len() > 0 [
+      #text(size: 10.5pt)[Key responsibilities:]
+    ]
     #bullets(entry)
     #v(4pt)
   ]
@@ -141,12 +145,14 @@
   let tags = keywords.join(", ")
   let proficiency-label = if proficiency != "" { proficiency } else { "Level " + str(level) + "/5" }
   let skill-label = if keywords.len() > 0 {
-    name + " — " + proficiency-label + " (" + tags + ")"
+    proficiency-label + " (" + tags + ")"
   } else {
-    name + " — " + proficiency-label
+    proficiency-label
   }
   [
-    #text(weight: "bold")[#skill-label]
+    #text(weight: "bold")[#name:]
+    #h(3pt)
+    #text(fill: rgb("444444"))[#skill-label]
     #if level > 0 [
       #linebreak()
       #skill-dots(level)
@@ -210,6 +216,7 @@
         entry,
         lead: text-of-item(entry, "title"),
         heading: text-of-item(entry, "subtitle"),
+        show-responsibilities: true,
       )
     ]
   ]
