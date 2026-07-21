@@ -99,11 +99,27 @@
 #v(4pt)
 #let contacts = ()
 #if location != "" { contacts.push(location) }
+#let email-contacts = ()
+#let phone-contacts = ()
+#let other-contacts = ()
 #for item in contact-items {
   let label = text-of-item(item, "text")
   let url = text-of-item(item, "url")
-  if label != "" { contacts.push(link-or-text(label, url)) }
+  let kind = text-of-item(item, "kind")
+  if label != "" {
+    let contact = link-or-text(label, url)
+    if kind == "email" {
+      email-contacts.push(contact)
+    } else if kind == "phone" {
+      phone-contacts.push(contact)
+    } else {
+      other-contacts.push(contact)
+    }
+  }
 }
+#for contact in email-contacts { contacts.push(contact) }
+#for contact in phone-contacts { contacts.push(contact) }
+#for contact in other-contacts { contacts.push(contact) }
 #for item in profile-items {
   let url = text-of-item(item, "url")
   let username = text-of-item(item, "username")
@@ -134,7 +150,13 @@
   if languages.len() > 0 [
     #text(weight: "bold")[LANGUAGES:]
     #h(3pt)
-    #text[Fluent in #languages.map(item => text-of-item(item, "language")).join(", ")]
+    #text[
+      #languages.map(item => {
+        let language = text-of-item(item, "language")
+        let fluency = text-of-item(item, "fluency")
+        if fluency == "" { language } else { language + " (" + fluency + ")" }
+      }).join(", ")
+    ]
     #v(4pt)
   ]
 }
@@ -164,9 +186,30 @@
     #for entry in experience [
       #timeline-entry(
         entry,
-        lead: text-of-item(entry, "title"),
+        lead: row-title(text-of-item(entry, "title")),
         heading: text-of-item(entry, "subtitle"),
         show-responsibilities: true,
+      )
+    ]
+  ]
+}
+#let render-education() = {
+  if education.len() > 0 [
+    #section(text-of(section-titles.at("education", default: "Education")))
+    #for entry in education [
+      #let parts = text-of-item(entry, "subtitle").split(", ")
+      #let degree = parts.at(0, default: "")
+      #let degreeLabel = degree + ":"
+      #let field = parts.slice(1).join(", ")
+      #let school = text-of-item(entry, "title")
+      #let location = text-of-item(entry, "secondarySubtitle")
+      #let detail = (if field != "" { field + ", " } else { "" }) + school
+      #let detail = if location != "" { detail + ", " + location } else { detail }
+      #grid(
+        columns: (1fr, auto),
+        column-gutter: 12pt,
+        [#text(weight: 700)[#degreeLabel] #body-style(detail)],
+        [#date-style(text-of-item(entry, "date"))],
       )
     ]
   ]
@@ -232,7 +275,7 @@
   } else if key == "experience" {
     render-experience()
   } else if key == "education" {
-    render-entry-section("education", "Education")
+    render-education()
   } else if key == "projects" {
     render-entry-section("projects", "Projects")
   } else if key == "skills" {
