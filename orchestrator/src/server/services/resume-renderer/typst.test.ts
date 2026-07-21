@@ -468,6 +468,27 @@ describe("typst resume renderer", () => {
   );
 
   it.skipIf(!typstAvailable())(
+    "renders the JobOps CV theme when typst is installed",
+    async () => {
+      const tempDir = await createTempDir();
+      tempDirs.push(tempDir);
+      const outputPath = join(tempDir, "jobops-cv.pdf");
+
+      await renderTypstPdf({
+        document: baseDocument,
+        outputPath,
+        jobId: "job-render-jobops-cv",
+        typstTheme: "jobops-cv",
+      });
+
+      const stats = spawnSync("sh", ["-lc", `test -s "${outputPath}"`], {
+        stdio: "ignore",
+      });
+      expect(stats.status).toBe(0);
+    },
+  );
+
+  it.skipIf(!typstAvailable())(
     "renders the clean-print-cv theme when typst is installed",
     async () => {
       const tempDir = await createTempDir();

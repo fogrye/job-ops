@@ -1,0 +1,7 @@
+{
+  "id": "jobops-cv",
+  "label": "JobOps CV",
+  "description": "A compact A4 Liberation Sans CV layout adapted from a personal Typst template.",
+  "kind": "adapted",
+  "entrypoint": "main.typ"
+}
