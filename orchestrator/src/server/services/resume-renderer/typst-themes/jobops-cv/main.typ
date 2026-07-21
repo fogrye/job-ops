@@ -154,7 +154,13 @@
       #languages.map(item => {
         let language = text-of-item(item, "language")
         let fluency = text-of-item(item, "fluency")
-        if fluency == "" { language } else { language + " (" + fluency + ")" }
+        if fluency == "Fluent" {
+          "Fluent in " + language
+        } else if fluency == "" {
+          language
+        } else {
+          language + " (" + fluency + ")"
+        }
       }).join(", ")
     ]
     #v(4pt)
