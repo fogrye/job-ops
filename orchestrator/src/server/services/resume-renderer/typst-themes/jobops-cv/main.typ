@@ -114,78 +114,28 @@
 #if contacts.len() > 0 [#contact-style(contacts.join([ #h(7pt)|#h(7pt) ]))]
 
 #let skill-groups = list-of(source.at("skillGroups", default: ()))
-#let skill-columns = {
-  let columns = source.at("skillColumns", default: 1)
-  if columns < 1 { 1 } else if columns > 3 { 3 } else { columns }
-}
 #let languages = list-of(source.at("languages", default: ()))
-#let language-columns = source.at("languageColumns", default: 1)
 #let summary = text-of(source.at("summary", default: ""))
 #let education = list-of(source.at("education", default: ()))
 #let experience = list-of(source.at("experience", default: ()))
 
-#let skill-dots(level) = {
-  range(5).map(index => {
-    let filled = index < level
-    box(
-      circle(
-        radius: 2pt,
-        fill: if filled { ink } else { white },
-        stroke: 0.5pt + rgb("666666"),
-      ),
-    )
-  }).join(h(2pt))
-}
 
-#let render-skill(item) = {
-  let name = text-of-item(item, "name")
-  let proficiency = text-of(item.at("proficiency", default: ""))
-  let level = item.at("level", default: 0)
-  let keywords = list-of(item.at("keywords", default: ()))
-  let tags = keywords.join(", ")
-  let proficiency-label = if proficiency != "" { proficiency } else { "Level " + str(level) + "/5" }
-  let skill-label = if keywords.len() > 0 {
-    proficiency-label + " (" + tags + ")"
-  } else {
-    proficiency-label
-  }
-  [
-    #text(weight: "bold")[#name:]
-    #h(3pt)
-    #text(fill: rgb("444444"))[#skill-label]
-    #if level > 0 [
-      #linebreak()
-      #skill-dots(level)
-    ]
-  ]
-}
 
 #let render-skills() = {
   if skill-groups.len() > 0 [
-    #section(text-of(section-titles.at("skills", default: "Skills")))
-    #grid(
-      columns: skill-columns,
-      column-gutter: 10pt,
-      row-gutter: 6pt,
-      ..skill-groups.map(render-skill),
-    )
+    #text(weight: "bold")[SKILLS:]
+    #h(3pt)
+    #skill-groups.map(item => text-of-item(item, "name")).join(", ")
+    #v(4pt)
   ]
 }
 
 #let render-languages() = {
   if languages.len() > 0 [
-    #section(text-of(section-titles.at("languages", default: "Languages")))
-    #grid(
-      columns: language-columns,
-      column-gutter: 10pt,
-      row-gutter: 4pt,
-      ..languages.map(item => [
-        #text(weight: "bold")[#text-of-item(item, "language")]
-        #if text-of-item(item, "fluency") != "" [
-          #text(size: 8pt, fill: rgb("444444"))[#text-of-item(item, "fluency")]
-        ]
-      ]),
-    )
+    #text(weight: "bold")[LANGUAGES:]
+    #h(3pt)
+    #text[Fluent in #languages.map(item => text-of-item(item, "language")).join(", ")]
+    #v(4pt)
   ]
 }
 
