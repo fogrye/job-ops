@@ -140,14 +140,13 @@
   let keywords = list-of(item.at("keywords", default: ()))
   let tags = keywords.join(", ")
   let proficiency-label = if proficiency != "" { proficiency } else { "Level " + str(level) + "/5" }
+  let skill-label = if keywords.len() > 0 {
+    name + " — " + proficiency-label + " (" + tags + ")"
+  } else {
+    name + " — " + proficiency-label
+  }
   [
-    #text(weight: "bold")[#name]
-    #linebreak()
-    #text(size: 8pt, fill: rgb("444444"))[#proficiency-label]
-    #if tags != "" [
-      #linebreak()
-      #text(size: 8pt, fill: rgb("666666"))[#tags]
-    ]
+    #text(weight: "bold")[#skill-label]
     #if level > 0 [
       #linebreak()
       #skill-dots(level)
