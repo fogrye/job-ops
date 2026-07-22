@@ -110,6 +110,40 @@ describe("generateTailoring", () => {
     );
   });
 
+  it("keeps grouped skills as the default contract", async () => {
+    await generateTailoring("Build APIs", {
+      sections: {
+        skills: {
+          items: [
+            {
+              id: "backend",
+              name: "Backend",
+              description: "",
+              level: 4,
+              keywords: ["TypeScript"],
+              visible: true,
+            },
+          ],
+        },
+      },
+    });
+
+    const request = callJsonMock.mock.calls.at(-1)?.[0];
+    expect(request?.jsonSchema.schema.properties.skills).toMatchObject({
+      type: "array",
+      items: {
+        type: "object",
+        properties: {
+          name: { type: "string" },
+          keywords: { type: "array" },
+        },
+      },
+    });
+    expect(request?.messages?.[0]?.content).toContain(
+      "Keep my original skill levels and categories",
+    );
+  });
+
   it("removes language directives from constraints so explicit language settings win", async () => {
     vi.mocked(getWritingStyle).mockResolvedValue({
       tone: "friendly",
@@ -335,5 +369,51 @@ describe("generateTailoring", () => {
     expect(prompt).toContain("Maximum 8 keywords per category");
     // "keep under 90 words" is stripped from constraints because summaryMaxWords (35) takes precedence
     expect(prompt).not.toContain("keep under 90 words");
+  });
+
+  it("uses ranked flat skills when the profile has no skill keywords", async () => {
+    callJsonMock.mockResolvedValueOnce({
+      success: true,
+      data: {
+        summary: "Tailored summary",
+        headline: "Platform Engineer",
+        skills: ["Kubernetes", "Unknown", "PHP", "Kubernetes"],
+      },
+    });
+
+    const result = await generateTailoring("Kubernetes platform role", {
+      sections: {
+        skills: {
+          items: [
+            {
+              id: "php",
+              name: "PHP",
+              description: "",
+              level: 5,
+              keywords: [],
+              visible: true,
+            },
+            {
+              id: "k8s",
+              name: "Kubernetes",
+              description: "",
+              level: 4,
+              keywords: [],
+              visible: true,
+            },
+          ],
+        },
+      },
+    });
+
+    const request = callJsonMock.mock.calls.at(-1)?.[0];
+    expect(request?.jsonSchema.schema.properties.skills).toMatchObject({
+      type: "array",
+      items: { type: "string" },
+    });
+    expect(request?.messages?.[0]?.content).toContain(
+      "every existing item name is an actual technology",
+    );
+    expect(result.data?.skills).toEqual(["Kubernetes", "PHP"]);
   });
 });

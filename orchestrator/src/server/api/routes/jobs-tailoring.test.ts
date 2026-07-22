@@ -75,6 +75,28 @@ describe.sequential("Jobs tailoring PATCH route", () => {
     expect(body.data?.tailoredSkills).toBe(skills);
   });
 
+  it("accepts flat tailored skill names", async () => {
+    const jobId = await createManualJobId();
+    const skills = JSON.stringify(["Kubernetes", "Terraform"]);
+
+    const response = await fetch(`${baseUrl}/api/jobs/${jobId}`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        Connection: "close",
+      },
+      body: JSON.stringify({ tailoredSkills: skills }),
+    });
+
+    expect(response.status).toBe(200);
+    const body = (await response.json()) as {
+      ok: boolean;
+      data?: { tailoredSkills: string };
+    };
+    expect(body.ok).toBe(true);
+    expect(body.data?.tailoredSkills).toBe(skills);
+  });
+
   it("rejects malformed tailoredSkills payload with 400", async () => {
     const jobId = await createManualJobId();
 

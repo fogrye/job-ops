@@ -39,6 +39,7 @@ Writing style formality: {{formality}}.
       "maxKeywordsPerSkillLine",
       "constraintsBullet",
       "avoidTermsBullet",
+      "skillModeInstructions",
     ] as const,
     defaultTemplate: `
 You are an expert resume writer tailoring a profile for a specific job application.
@@ -64,11 +65,8 @@ INSTRUCTIONS:
    - Use the profile to add context.
    - Write the summary in {{outputLanguage}}.
 
-3. "skills" (Array of Objects):
-   - Review my existing skills section structure.
-   - Keyword Stuffing: Swap synonyms to match the JD exactly (e.g. "TDD" -> "Unit Testing", "ReactJS" -> "React").
-   - Keep my original skill levels and categories, just rename/reorder keywords to prioritize JD terms.{{maxKeywordsPerSkillLine}}
-   - Return the full "items" array for the skills section, preserving the structure: { "name": "Frontend", "keywords": [...] }.
+3. "skills":
+   {{skillModeInstructions}}{{maxKeywordsPerSkillLine}}
    - Write user-visible skill text in {{outputLanguage}} when natural, but keep exact JD terms, acronyms, and technology names when that helps ATS matching.
 
 WRITING STYLE PREFERENCES:
