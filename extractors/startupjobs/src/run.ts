@@ -78,6 +78,78 @@ function inferJobType(disciplines: string | undefined): string | undefined {
   return segments.length > 1 ? segments[segments.length - 1] : undefined;
 }
 
+type JsonRecord = Record<string, unknown>;
+
+function toDescriptionText(value: unknown): string | undefined {
+  if (typeof value !== "string") return undefined;
+  const text = value
+    .replace(/<[^>]*>/g, " ")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/\s+/g, " ")
+    .trim();
+  return text || undefined;
+}
+
+function findJobPosting(value: unknown): JsonRecord | undefined {
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const posting = findJobPosting(item);
+      if (posting) return posting;
+    }
+    return undefined;
+  }
+  if (!value || typeof value !== "object") return undefined;
+
+  const record = value as JsonRecord;
+  const type = record["@type"];
+  if (
+    type === "JobPosting" ||
+    (Array.isArray(type) && type.includes("JobPosting"))
+  ) {
+    return record;
+  }
+
+  for (const child of Object.values(record)) {
+    const posting = findJobPosting(child);
+    if (posting) return posting;
+  }
+  return undefined;
+}
+
+export function extractStartupJobsDescription(
+  html: string,
+): string | undefined {
+  const scripts = html.matchAll(
+    /<script\b[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi,
+  );
+  for (const script of scripts) {
+    try {
+      const posting = findJobPosting(JSON.parse(script[1]));
+      const description = toDescriptionText(posting?.description);
+      if (description) return description;
+    } catch {}
+  }
+  return undefined;
+}
+
+async function fetchStartupJobsDescription(
+  jobUrl: string,
+): Promise<string | undefined> {
+  try {
+    const response = await fetch(jobUrl, {
+      headers: { "user-agent": "JobOps/1.0" },
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (!response.ok) return undefined;
+    return extractStartupJobsDescription(await response.text());
+  } catch {
+    return undefined;
+  }
+}
+
 function mapStartupJob(row: StartupJobRecord): CreateJobInput | null {
   if (!row.jobUrl) return null;
 
@@ -169,7 +241,17 @@ export async function runStartupJobs(
 
         let jobsFoundTerm = 0;
         for (const record of records) {
-          const mapped = mapStartupJob(record);
+          if (seen.has(record.jobUrl)) continue;
+          let recordWithDescription = record;
+          if (!record.jobDescription) {
+            const jobDescription = await fetchStartupJobsDescription(
+              record.jobUrl,
+            );
+            if (jobDescription) {
+              recordWithDescription = { ...record, jobDescription };
+            }
+          }
+          const mapped = mapStartupJob(recordWithDescription);
           if (!mapped) continue;
           const dedupeKey = mapped.jobUrl;
           if (seen.has(dedupeKey)) continue;
