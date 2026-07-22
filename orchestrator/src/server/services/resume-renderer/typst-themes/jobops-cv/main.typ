@@ -170,7 +170,8 @@
 #let render-summary() = {
   if summary != "" [
     #section(text-of(section-titles.at("summary", default: "Summary")))
-    #body-style(markup-text(summary))
+    #set par(justify: true)
+    #body-style(summary)
   ]
 }
 
