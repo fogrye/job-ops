@@ -139,6 +139,7 @@
 #let render-skills() = {
   if renderable-skill-groups.len() > 0 [
     #section(text-of(section-titles.at("skills", default: "Skills")))
+    #set par(leading: 0.62em)
     #for item in renderable-skill-groups [
       #text(weight: "bold")[#item.at("name"):]
       #h(3pt)
