@@ -1,4 +1,6 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { scrapeStartupJobsViaAlgolia } from "startup-jobs-scraper";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { runStartupJobs } from "../src/run";
 
 vi.mock("startup-jobs-scraper", () => ({
   scrapeStartupJobsViaAlgolia: vi.fn(),
@@ -6,7 +8,12 @@ vi.mock("startup-jobs-scraper", () => ({
 
 describe("runStartupJobs", () => {
   beforeEach(() => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false }));
     vi.clearAllMocks();
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
   });
 
   it("falls back to the default max jobs per term when options.maxJobsPerTerm is NaN", async () => {
@@ -136,5 +143,27 @@ describe("runStartupJobs", () => {
     });
 
     expect(result.jobs[0]?.datePosted).toBe("2026-05-22T08:41:29Z");
+  });
+
+  it("falls back to a posting's JSON-LD description", async () => {
+    vi.mocked(scrapeStartupJobsViaAlgolia).mockResolvedValueOnce([
+      {
+        title: "Platform Engineer",
+        employer: "Example Startup",
+        jobUrl: "https://startup.jobs/platform-engineer-example-1",
+      },
+    ]);
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        text: async () =>
+          '<script type="application/ld+json">{"@graph":[{"@type":"JobPosting","description":"<p>Build <strong>reliable</strong> platforms.</p>"}]}</script>',
+      }),
+    );
+
+    const result = await runStartupJobs({ searchTerms: ["platform engineer"] });
+
+    expect(result.jobs[0]?.jobDescription).toBe("Build reliable platforms.");
   });
 });
