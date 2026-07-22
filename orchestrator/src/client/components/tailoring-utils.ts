@@ -5,6 +5,10 @@ export interface TailoredSkillGroup {
   keywords: string[];
 }
 
+export type TailoredSkillsDraft =
+  | { mode: "flat"; skills: string[] }
+  | { mode: "grouped"; groups: TailoredSkillGroup[] };
+
 export interface EditableSkillGroup {
   id: string;
   name: string;
@@ -20,21 +24,23 @@ export function createTailoredSkillDraftId(): string {
 
 export function parseTailoredSkills(
   raw: string | null | undefined,
-): TailoredSkillGroup[] {
-  if (!raw || raw.trim().length === 0) return [];
+): TailoredSkillsDraft {
+  if (!raw || raw.trim().length === 0) return { mode: "grouped", groups: [] };
 
   try {
     const parsed = JSON.parse(raw) as unknown;
-    if (!Array.isArray(parsed)) return [];
+    if (!Array.isArray(parsed)) return { mode: "grouped", groups: [] };
+
+    const flatSkills = parsed
+      .filter((item): item is string => typeof item === "string")
+      .map((item) => item.trim())
+      .filter(Boolean);
+    if (parsed.every((item) => typeof item === "string")) {
+      return { mode: "flat", skills: flatSkills };
+    }
 
     const groups: TailoredSkillGroup[] = [];
-    const legacyKeywords: string[] = [];
     for (const item of parsed) {
-      if (typeof item === "string") {
-        const keyword = item.trim();
-        if (keyword.length > 0) legacyKeywords.push(keyword);
-        continue;
-      }
       if (!item || typeof item !== "object") continue;
       const record = item as Record<string, unknown>;
       const name = typeof record.name === "string" ? record.name.trim() : "";
@@ -51,25 +57,27 @@ export function parseTailoredSkills(
       if (!name && keywords.length === 0) continue;
       groups.push({ name, keywords });
     }
-
-    if (legacyKeywords.length > 0) {
-      groups.push({ name: "Skills", keywords: legacyKeywords });
+    if (flatSkills.length > 0) {
+      groups.push({ name: "Skills", keywords: flatSkills });
     }
 
-    return groups;
+    return { mode: "grouped", groups };
   } catch {
-    return [];
+    return { mode: "grouped", groups: [] };
   }
 }
 
-export function serializeTailoredSkills(groups: TailoredSkillGroup[]): string {
-  if (groups.length === 0) return "";
-  return JSON.stringify(groups);
+export function serializeTailoredSkills(skills: TailoredSkillsDraft): string {
+  return JSON.stringify(skills.mode === "flat" ? skills.skills : skills.groups);
 }
 
 export function toEditableSkillGroups(
-  groups: TailoredSkillGroup[],
+  skills: TailoredSkillsDraft,
 ): EditableSkillGroup[] {
+  const groups =
+    skills.mode === "flat"
+      ? [{ name: "Skills", keywords: skills.skills }]
+      : skills.groups;
   return groups.map((group) => ({
     id: createTailoredSkillDraftId(),
     name: group.name,
@@ -79,7 +87,8 @@ export function toEditableSkillGroups(
 
 export function fromEditableSkillGroups(
   groups: EditableSkillGroup[],
-): TailoredSkillGroup[] {
+  mode: TailoredSkillsDraft["mode"] = "grouped",
+): TailoredSkillsDraft {
   const normalized: TailoredSkillGroup[] = [];
 
   for (const group of groups) {
@@ -93,7 +102,13 @@ export function fromEditableSkillGroups(
     normalized.push({ name, keywords });
   }
 
-  return normalized;
+  if (mode === "flat") {
+    return {
+      mode,
+      skills: normalized.flatMap((group) => group.keywords),
+    };
+  }
+  return { mode, groups: normalized };
 }
 
 export function getOriginalSummary(profile: ResumeProfile | null): string {

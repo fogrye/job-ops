@@ -132,6 +132,7 @@ export const TailoringWorkspace: React.FC<TailoringWorkspaceProps> = (
     selectedIdsCsv,
     tracerLinksEnabled,
     setTracerLinksEnabled,
+    setSkillsMode,
     skillsDraft,
     setSkillsDraft,
     openSkillGroupId,
@@ -167,12 +168,19 @@ export const TailoringWorkspace: React.FC<TailoringWorkspaceProps> = (
     useTracerReadiness();
 
   const originalValues = useMemo(() => {
-    const skillsDraft = toEditableSkillGroups(getOriginalSkills(profile));
+    const skills = {
+      mode: "grouped" as const,
+      groups: getOriginalSkills(profile),
+    };
+    const skillsDraft = toEditableSkillGroups(skills);
     return {
       summary: getOriginalSummary(profile),
       headline: getOriginalHeadline(profile),
+      skillsMode: skills.mode,
       skillsDraft,
-      skillsJson: serializeTailoredSkills(fromEditableSkillGroups(skillsDraft)),
+      skillsJson: serializeTailoredSkills(
+        fromEditableSkillGroups(skillsDraft, skills.mode),
+      ),
     };
   }, [profile]);
   const canUseOriginalValues = Boolean(profile) && !profileError;
@@ -444,8 +452,9 @@ export const TailoringWorkspace: React.FC<TailoringWorkspaceProps> = (
   }, [originalValues.headline, setHeadline]);
 
   const handleUndoSkills = useCallback(() => {
+    setSkillsMode(originalValues.skillsMode);
     setSkillsDraft(originalValues.skillsDraft);
-  }, [originalValues.skillsDraft, setSkillsDraft]);
+  }, [originalValues, setSkillsMode, setSkillsDraft]);
 
   const handleRedoSummary = useCallback(() => {
     setSummary(aiBaseline.summary);
@@ -456,10 +465,10 @@ export const TailoringWorkspace: React.FC<TailoringWorkspaceProps> = (
   }, [aiBaseline.headline, setHeadline]);
 
   const handleRedoSkills = useCallback(() => {
-    setSkillsDraft(
-      toEditableSkillGroups(parseTailoredSkills(aiBaseline.skillsJson)),
-    );
-  }, [aiBaseline.skillsJson, setSkillsDraft]);
+    const skills = parseTailoredSkills(aiBaseline.skillsJson);
+    setSkillsMode(skills.mode);
+    setSkillsDraft(toEditableSkillGroups(skills));
+  }, [aiBaseline.skillsJson, setSkillsMode, setSkillsDraft]);
 
   const disableInputs = Boolean(generateTarget) || isGeneratingPdf;
   const isDraftReady = textHasValue(summary) && textHasValue(headline);

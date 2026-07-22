@@ -7,6 +7,7 @@ import {
   fromEditableSkillGroups,
   parseTailoredSkills,
   serializeTailoredSkills,
+  type TailoredSkillsDraft,
   toEditableSkillGroups,
 } from "../tailoring-utils";
 
@@ -51,11 +52,10 @@ const parseIncomingDraft = (incomingJob: Job) => {
   const headline = incomingJob.tailoredHeadline || "";
   const description = incomingJob.jobDescription || "";
   const selectedIds = parseSelectedIds(incomingJob.selectedProjectIds);
-  const skillsDraft = toEditableSkillGroups(
-    parseTailoredSkills(incomingJob.tailoredSkills),
-  );
+  const tailoredSkills = parseTailoredSkills(incomingJob.tailoredSkills);
+  const skillsDraft = toEditableSkillGroups(tailoredSkills);
   const skillsJson = serializeTailoredSkills(
-    fromEditableSkillGroups(skillsDraft),
+    fromEditableSkillGroups(skillsDraft, tailoredSkills.mode),
   );
   const tracerLinksEnabled = Boolean(incomingJob.tracerLinksEnabled);
 
@@ -64,6 +64,7 @@ const parseIncomingDraft = (incomingJob: Job) => {
     headline,
     description,
     selectedIds,
+    tailoredSkills,
     skillsDraft,
     skillsJson,
     tracerLinksEnabled,
@@ -88,6 +89,9 @@ export function useTailoringDraft({
   );
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() =>
     parseSelectedIds(job.selectedProjectIds),
+  );
+  const [skillsMode, setSkillsMode] = useState<TailoredSkillsDraft["mode"]>(
+    () => parseTailoredSkills(job.tailoredSkills).mode,
   );
   const [skillsDraft, setSkillsDraft] = useState<EditableSkillGroup[]>(() =>
     toEditableSkillGroups(parseTailoredSkills(job.tailoredSkills)),
@@ -118,8 +122,9 @@ export function useTailoringDraft({
   const jobRef = useRef(job);
 
   const skillsJson = useMemo(
-    () => serializeTailoredSkills(fromEditableSkillGroups(skillsDraft)),
-    [skillsDraft],
+    () =>
+      serializeTailoredSkills(fromEditableSkillGroups(skillsDraft, skillsMode)),
+    [skillsDraft, skillsMode],
   );
 
   const selectedIdsCsv = useMemo(
@@ -175,6 +180,7 @@ export function useTailoringDraft({
     setHeadline(next.headline);
     setJobDescription(next.description);
     setSelectedIds(next.selectedIds);
+    setSkillsMode(next.tailoredSkills.mode);
     setSkillsDraft(next.skillsDraft);
     setSavedSummary(next.summary);
     setSavedHeadline(next.headline);
@@ -305,6 +311,8 @@ export function useTailoringDraft({
     setJobDescription,
     selectedIds,
     selectedIdsCsv,
+    skillsMode,
+    setSkillsMode,
     skillsDraft,
     setSkillsDraft,
     openSkillGroupId,
