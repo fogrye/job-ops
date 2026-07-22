@@ -68,6 +68,7 @@ export function parseTailoredSkills(
 }
 
 export function serializeTailoredSkills(skills: TailoredSkillsDraft): string {
+  if (skills.mode === "grouped" && skills.groups.length === 0) return "";
   return JSON.stringify(skills.mode === "flat" ? skills.skills : skills.groups);
 }
 
