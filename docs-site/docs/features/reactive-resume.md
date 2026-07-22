@@ -220,6 +220,17 @@ The generated shared metadata powers the settings dropdowns, so theme PRs do not
 
 For package-backed themes, set `kind` to `adapted` and read the normalized resume document with `json(__RESUME_DATA_PATH__)` from the Typst entrypoint.
 
+#### JobOps CV skill groups
+
+The adapted `jobops-cv` theme renders each non-empty skill group on its own line. The group name is bold, followed by its keywords in source order:
+
+```text
+Backend: TypeScript, Node.js.
+Shell: Bash, Zsh.
+```
+
+Groups without a name or keywords are omitted. The `Skills` section uses the same section header treatment as the other CV sections.
+
 ## Common problems
 
 - Import fails:
