@@ -709,6 +709,7 @@ export async function summarizeJob(
           options?.force)
       ) {
         jobLogger.info("Generating tailoring content");
+        await reserveTailoringUsage();
         const tailoringResult = await generateTailoring(
           job.jobDescription || "",
           profile,
