@@ -1,6 +1,4 @@
-import { scrapeStartupJobsViaAlgolia } from "startup-jobs-scraper";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { runStartupJobs } from "../src/run";
 
 vi.mock("startup-jobs-scraper", () => ({
   scrapeStartupJobsViaAlgolia: vi.fn(),
@@ -146,6 +144,11 @@ describe("runStartupJobs", () => {
   });
 
   it("falls back to a posting's JSON-LD description", async () => {
+    // Runtime imports ensure the module observes the hoisted scraper mock.
+    const { scrapeStartupJobsViaAlgolia } = await import(
+      "startup-jobs-scraper"
+    );
+    const { runStartupJobs } = await import("../src/run");
     vi.mocked(scrapeStartupJobsViaAlgolia).mockResolvedValueOnce([
       {
         title: "Platform Engineer",
