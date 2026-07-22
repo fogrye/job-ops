@@ -1,9 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
+  fromEditableSkillGroups,
   getOriginalHeadline,
   getOriginalSkills,
   getOriginalSummary,
   parseTailoredSkills,
+  serializeTailoredSkills,
+  toEditableSkillGroups,
 } from "./tailoring-utils";
 
 describe("parseTailoredSkills", () => {
@@ -14,19 +17,25 @@ describe("parseTailoredSkills", () => {
       ]),
     );
 
-    expect(parsed).toEqual([
-      { name: "Backend", keywords: ["Node.js", "TypeScript"] },
-    ]);
+    expect(parsed).toEqual({
+      mode: "grouped",
+      groups: [{ name: "Backend", keywords: ["Node.js", "TypeScript"] }],
+    });
   });
 
-  it("maps legacy string arrays into a default skills group", () => {
-    const parsed = parseTailoredSkills(
-      JSON.stringify(["React", " TypeScript ", "", "Vitest"]),
-    );
+  it("round-trips flat skill arrays without creating a synthetic group", () => {
+    const raw = JSON.stringify(["React", " TypeScript ", "", "Vitest"]);
+    const parsed = parseTailoredSkills(raw);
 
-    expect(parsed).toEqual([
-      { name: "Skills", keywords: ["React", "TypeScript", "Vitest"] },
-    ]);
+    expect(parsed).toEqual({
+      mode: "flat",
+      skills: ["React", "TypeScript", "Vitest"],
+    });
+    expect(
+      serializeTailoredSkills(
+        fromEditableSkillGroups(toEditableSkillGroups(parsed), parsed.mode),
+      ),
+    ).toBe(JSON.stringify(["React", "TypeScript", "Vitest"]));
   });
 
   it("keeps object groups and legacy string values in mixed arrays", () => {
@@ -37,17 +46,21 @@ describe("parseTailoredSkills", () => {
       ]),
     );
 
-    expect(parsed).toEqual([
-      { name: "Platform", keywords: ["APIs"] },
-      { name: "Skills", keywords: ["Observability"] },
-    ]);
+    expect(parsed).toEqual({
+      mode: "grouped",
+      groups: [
+        { name: "Platform", keywords: ["APIs"] },
+        { name: "Skills", keywords: ["Observability"] },
+      ],
+    });
   });
 
-  it("returns an empty list for invalid or non-array JSON", () => {
-    expect(parseTailoredSkills("{")).toEqual([]);
-    expect(parseTailoredSkills(JSON.stringify({ name: "Backend" }))).toEqual(
-      [],
-    );
+  it("returns empty grouped skills for invalid or non-array JSON", () => {
+    expect(parseTailoredSkills("{")).toEqual({ mode: "grouped", groups: [] });
+    expect(parseTailoredSkills(JSON.stringify({ name: "Backend" }))).toEqual({
+      mode: "grouped",
+      groups: [],
+    });
   });
 
   it("extracts original summary and headline from profile basics", () => {
