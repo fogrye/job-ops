@@ -132,7 +132,7 @@ export function applyTailoredSkills(
         ? [{ ...match }]
         : [];
     });
-    if (ordered.length > 0) skillsSection.items = ordered;
+    skillsSection.items = ordered;
     return;
   }
 

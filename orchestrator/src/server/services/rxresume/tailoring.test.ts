@@ -51,4 +51,18 @@ describe("rxresume tailoring", () => {
       { id: "php", name: "PHP", level: 5, keywords: [] },
     ]);
   });
+
+  it("clears flat skills when no supplied skill is available", () => {
+    const resume = {
+      sections: {
+        skills: {
+          items: [{ id: "php", name: "PHP", level: 5, keywords: [] }],
+        },
+      },
+    };
+
+    applyTailoredSkills(resume, ["Unknown technology"]);
+
+    expect(resume.sections.skills.items).toEqual([]);
+  });
 });
