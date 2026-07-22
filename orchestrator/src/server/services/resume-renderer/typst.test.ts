@@ -115,14 +115,16 @@ describe("typst resume renderer", () => {
     }
   });
 
-  it("uses the normalized section order and skill layout controls", async () => {
+  it("uses the normalized section order and rich skill layout", async () => {
     const template = await readTypstTemplate("jobops-cv");
 
     expect(template).toContain("#let section-order");
     expect(template).toContain("#for key in section-order");
-    expect(template).toContain("columns: skill-columns");
-    expect(template).toContain("columns: language-columns");
-    expect(template).toContain("circle(");
+    expect(template).toContain(
+      '#section(text-of(section-titles.at("skills", default: "Skills")))',
+    );
+    expect(template).toContain('#item.at("keywords").join(", ").');
+    expect(template).not.toContain("circle(");
   });
 
   it("uses the TYPST_BIN override when present", () => {
