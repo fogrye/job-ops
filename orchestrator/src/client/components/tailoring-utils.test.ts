@@ -38,6 +38,11 @@ describe("parseTailoredSkills", () => {
     ).toBe(JSON.stringify(["React", "TypeScript", "Vitest"]));
   });
 
+  it("preserves absent tailored skills without turning them into a clear list", () => {
+    expect(serializeTailoredSkills(parseTailoredSkills(null))).toBe("");
+    expect(serializeTailoredSkills(parseTailoredSkills("[]"))).toBe("[]");
+  });
+
   it("keeps object groups and legacy string values in mixed arrays", () => {
     const parsed = parseTailoredSkills(
       JSON.stringify([
