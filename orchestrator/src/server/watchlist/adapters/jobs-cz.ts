@@ -244,7 +244,7 @@ async function fetchJobsCzDetail(
   }
   const scriptText = await scriptResponse.text();
   const widget = scriptText.match(
-    /"main-(?:en|cs)":\{"id":"([^"]+)","apiKey":"([^"]+)"/,
+    /"(?:main|main-(?:en|cs))"\s*:\s*\{\s*"id"\s*:\s*"([^"]+)"\s*,\s*"apiKey"\s*:\s*"([^"]+)"/,
   );
   if (!widget)
     throw upstreamError(

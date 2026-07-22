@@ -62,4 +62,64 @@ describe("jobsCzWatchlistAdapter", () => {
       ],
     });
   });
+
+  it("loads detail data from the current Capybara widget bootstrap", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        url: "https://t-mobile.jobs.cz/detail-pozice?r=detail&id=2000215646",
+        arrayBuffer: async () =>
+          new TextEncoder().encode(
+            `<div id="vacancy-detail"></div><script src="/assets/js/script.min.js"></script>`,
+          ).buffer,
+      })
+      .mockResolvedValueOnce(
+        new Response(
+          `{"widgets":{"main":{"id":"widget-id","apiKey":"widget-key"}}}`,
+          { headers: { "content-type": "application/javascript" } },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            data: {
+              widget: {
+                jobAd: {
+                  id: "2000215646",
+                  title: "Senior Network Engineer",
+                  validFrom: "2026-07-22",
+                  content: { htmlContent: "<p>Build resilient networks.</p>" },
+                  locations: [{ city: "Prague", country: "Czechia" }],
+                  employer: { companyName: "T-Mobile Czech Republic a.s." },
+                  parameters: {
+                    employmentTypesObjects: [{ label: "Full-time" }],
+                  },
+                },
+              },
+            },
+          }),
+          { headers: { "content-type": "application/json" } },
+        ),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      jobsCzWatchlistAdapter.prepareImportDraft({
+        source,
+        jobRef: "https://t-mobile.jobs.cz/detail-pozice?r=detail&id=2000215646",
+      }),
+    ).resolves.toMatchObject({
+      draft: {
+        source: "jobs.cz",
+        sourceJobId: "2000215646",
+        title: "Senior Network Engineer",
+        employer: "T-Mobile Czech Republic a.s.",
+        location: "Prague, Czechia",
+        jobDescription: "Build resilient networks.",
+        jobType: "Full-time",
+      },
+    });
+  });
 });
