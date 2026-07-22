@@ -6,6 +6,7 @@ type RecordLike = Record<string, unknown>;
 
 export type TailoredSkillsInput =
   | Array<{ name: string; keywords: string[] }>
+  | string[]
   | string
   | null
   | undefined;
@@ -36,17 +37,22 @@ function asArray(value: unknown): unknown[] | null {
 
 function parseTailoredSkills(
   skills: TailoredSkillsInput,
-): Array<RecordLike> | null {
+): Array<RecordLike | string> | null {
   if (!skills) return null;
-  const parsed = Array.isArray(skills)
-    ? skills
-    : typeof skills === "string"
-      ? (JSON.parse(skills) as unknown)
-      : null;
-  if (!Array.isArray(parsed)) return null;
-  return parsed.filter(
-    (item) => item && typeof item === "object",
-  ) as RecordLike[];
+
+  try {
+    const parsed = Array.isArray(skills)
+      ? skills
+      : typeof skills === "string"
+        ? (JSON.parse(skills) as unknown)
+        : null;
+    if (!Array.isArray(parsed)) return null;
+    return parsed.filter(
+      (item) => typeof item === "string" || (item && typeof item === "object"),
+    ) as Array<RecordLike | string>;
+  } catch {
+    return null;
+  }
 }
 
 export function applyTailoredHeadline(
@@ -110,7 +116,30 @@ export function applyTailoredSkills(
   const template = existing[0] ?? null;
   if (!template) return;
 
-  skillsSection.items = skills.map((newSkill) => {
+  if (skills.every((skill) => typeof skill === "string")) {
+    const selected = new Set(
+      skills.map((skill) => skill.trim().toLocaleLowerCase()),
+    );
+    const ordered = skills.flatMap((skill) => {
+      const match = existing.find(
+        (item) =>
+          (typeof item.name === "string"
+            ? item.name
+            : ""
+          ).toLocaleLowerCase() === skill.trim().toLocaleLowerCase(),
+      );
+      return match && selected.delete(skill.trim().toLocaleLowerCase())
+        ? [{ ...match }]
+        : [];
+    });
+    if (ordered.length > 0) skillsSection.items = ordered;
+    return;
+  }
+
+  const groupedSkills = skills.filter(
+    (skill): skill is RecordLike => typeof skill !== "string",
+  );
+  skillsSection.items = groupedSkills.map((newSkill) => {
     const match =
       existing.find((item) => item.name === newSkill.name) ?? template;
     const next: RecordLike = { ...match };

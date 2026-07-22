@@ -29,12 +29,15 @@ import { z } from "zod";
 
 export const JOB_ACTION_CONCURRENCY = 4;
 
-const tailoredSkillsPayloadSchema = z.array(
-  z.object({
-    name: z.string(),
-    keywords: z.array(z.string()),
-  }),
-);
+const tailoredSkillsPayloadSchema = z.union([
+  z.array(z.string().trim().min(1)),
+  z.array(
+    z.object({
+      name: z.string(),
+      keywords: z.array(z.string()),
+    }),
+  ),
+]);
 
 export const jobNoteSchema = z.object({
   title: z.string().trim().min(1).max(120),
@@ -154,7 +157,7 @@ export const updateJobSchema = z.object({
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
           message:
-            "tailoredSkills must be a JSON array of { name, keywords } objects",
+            "tailoredSkills must be a JSON array of skill names or { name, keywords } objects",
         });
         return;
       }
@@ -165,7 +168,7 @@ export const updateJobSchema = z.object({
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
           message:
-            "tailoredSkills must be a JSON array of { name, keywords } objects",
+            "tailoredSkills must be a JSON array of skill names or { name, keywords } objects",
         });
       }
     }),

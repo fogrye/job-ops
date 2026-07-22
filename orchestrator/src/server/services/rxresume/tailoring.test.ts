@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { extractProjectsFromResume } from "./tailoring";
+import { applyTailoredSkills, extractProjectsFromResume } from "./tailoring";
 
 describe("rxresume tailoring", () => {
   it("strips html from project catalog descriptions", () => {
@@ -24,5 +24,31 @@ describe("rxresume tailoring", () => {
     expect(selectionItems[0].summaryText).toBe(
       "Built analytics using FastAPI.",
     );
+  });
+
+  it("applies a ranked flat skill list without inventing template entries", () => {
+    const resume = {
+      sections: {
+        skills: {
+          items: [
+            { id: "php", name: "PHP", level: 5, keywords: [] },
+            { id: "docker", name: "Docker", level: 5, keywords: [] },
+            { id: "k8s", name: "Kubernetes", level: 4, keywords: [] },
+          ],
+        },
+      },
+    };
+
+    applyTailoredSkills(resume, [
+      "Kubernetes",
+      "Unknown technology",
+      "PHP",
+      "Kubernetes",
+    ]);
+
+    expect(resume.sections.skills.items).toEqual([
+      { id: "k8s", name: "Kubernetes", level: 4, keywords: [] },
+      { id: "php", name: "PHP", level: 5, keywords: [] },
+    ]);
   });
 });

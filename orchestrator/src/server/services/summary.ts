@@ -20,12 +20,16 @@ import {
   stripKeywordLimitFromConstraints,
   stripLanguageDirectivesFromConstraints,
   stripWordLimitFromConstraints,
+  type WritingStyle,
 } from "./writing-style";
+
+export type TailoredSkillGroups = Array<{ name: string; keywords: string[] }>;
+export type TailoredSkills = TailoredSkillGroups | string[];
 
 export interface TailoredData {
   summary: string;
   headline: string;
-  skills: Array<{ name: string; keywords: string[] }>;
+  skills: TailoredSkills;
 }
 
 export interface TailoringResult {
@@ -35,44 +39,81 @@ export interface TailoringResult {
 }
 
 /** JSON schema for resume tailoring response */
-const TAILORING_SCHEMA: JsonSchemaDefinition = {
-  name: "resume_tailoring",
-  schema: {
-    type: "object",
-    properties: {
-      headline: {
-        type: "string",
-        description: "Job title headline matching the JD exactly",
-      },
-      summary: {
-        type: "string",
-        description: "Tailored resume summary paragraph",
-      },
-      skills: {
-        type: "array",
-        description: "Skills sections with keywords tailored to the job",
-        items: {
-          type: "object",
-          properties: {
-            name: {
-              type: "string",
-              description: "Skill category name (e.g., Frontend, Backend)",
-            },
-            keywords: {
-              type: "array",
-              items: { type: "string" },
-              description: "List of skills/technologies in this category",
-            },
-          },
-          required: ["name", "keywords"],
-          additionalProperties: false,
+function getTailoringSchema(flatSkills: boolean): JsonSchemaDefinition {
+  return {
+    name: "resume_tailoring",
+    schema: {
+      type: "object",
+      properties: {
+        headline: {
+          type: "string",
+          description: "Job title headline matching the JD exactly",
         },
+        summary: {
+          type: "string",
+          description: "Tailored resume summary paragraph",
+        },
+        skills: flatSkills
+          ? {
+              type: "array",
+              description:
+                "Ranked subset of existing flat skill names tailored to the job",
+              items: { type: "string" },
+            }
+          : {
+              type: "array",
+              description: "Skills sections with keywords tailored to the job",
+              items: {
+                type: "object",
+                properties: {
+                  name: {
+                    type: "string",
+                    description:
+                      "Skill category name (e.g., Frontend, Backend)",
+                  },
+                  keywords: {
+                    type: "array",
+                    items: { type: "string" },
+                    description: "List of skills/technologies in this category",
+                  },
+                },
+                required: ["name", "keywords"],
+                additionalProperties: false,
+              },
+            },
       },
+      required: ["headline", "summary", "skills"],
+      additionalProperties: false,
     },
-    required: ["headline", "summary", "skills"],
-    additionalProperties: false,
-  },
-};
+  };
+}
+
+function normalizeFlatSkills(
+  skills: TailoredSkills,
+  profile: ResumeProfile,
+): string[] {
+  if (
+    !Array.isArray(skills) ||
+    !skills.every((skill) => typeof skill === "string")
+  ) {
+    return [];
+  }
+
+  const names = new Map(
+    (profile.sections?.skills?.items ?? []).map((skill) => [
+      skill.name.toLocaleLowerCase(),
+      skill.name,
+    ]),
+  );
+  const seen = new Set<string>();
+
+  return skills.flatMap((skill) => {
+    const name = names.get(skill.trim().toLocaleLowerCase());
+    if (!name || seen.has(name)) return [];
+    seen.add(name);
+    return [name];
+  });
+}
 
 /**
  * Generate tailored resume content (summary, headline, skills) for a job.
@@ -85,17 +126,23 @@ export async function generateTailoring(
     resolveLlmModel("tailoring"),
     getWritingStyle(),
   ]);
+  const profileSkills = profile.sections?.skills?.items;
+  const flatSkills =
+    profileSkills !== undefined &&
+    profileSkills.length > 0 &&
+    profileSkills.every((skill) => !skill.keywords?.length);
   const prompt = await buildTailoringPrompt(
     profile,
     jobDescription,
     writingStyle,
+    flatSkills,
   );
 
   const llm = await createConfiguredLlmService("tailoring");
   const result = await llm.callJson<TailoredData>({
     model,
     messages: [{ role: "user", content: prompt }],
-    jsonSchema: TAILORING_SCHEMA,
+    jsonSchema: getTailoringSchema(flatSkills),
   });
 
   if (!result.success) {
@@ -112,8 +159,6 @@ export async function generateTailoring(
   }
 
   const { summary, headline, skills } = result.data;
-
-  // Basic validation
   if (!summary || !headline || !Array.isArray(skills)) {
     logger.warn("AI response missing required tailoring fields", result.data);
   }
@@ -123,7 +168,9 @@ export async function generateTailoring(
     data: {
       summary: sanitizeText(summary || ""),
       headline: sanitizeText(headline || ""),
-      skills: skills || [],
+      skills: flatSkills
+        ? normalizeFlatSkills(skills || [], profile)
+        : skills || [],
     },
   };
 }
@@ -147,7 +194,8 @@ export async function generateSummary(
 async function buildTailoringPrompt(
   profile: ResumeProfile,
   jd: string,
-  writingStyle: Awaited<ReturnType<typeof getWritingStyle>>,
+  writingStyle: WritingStyle,
+  flatSkills: boolean,
 ): Promise<string> {
   const jobDescription = stripHtmlTags(jd);
   const resolvedLanguage = resolveWritingOutputLanguage({
@@ -162,7 +210,7 @@ async function buildTailoringPrompt(
   if (writingStyle.summaryMaxWords != null) {
     effectiveConstraints = stripWordLimitFromConstraints(effectiveConstraints);
   }
-  if (writingStyle.maxKeywordsPerSkill != null) {
+  if (!flatSkills && writingStyle.maxKeywordsPerSkill != null) {
     effectiveConstraints =
       stripKeywordLimitFromConstraints(effectiveConstraints);
   }
@@ -200,9 +248,15 @@ async function buildTailoringPrompt(
         ? ` Maximum ${writingStyle.summaryMaxWords} ${writingStyle.summaryMaxWords === 1 ? "word" : "words"}.`
         : "",
     maxKeywordsPerSkillLine:
-      writingStyle.maxKeywordsPerSkill != null
+      !flatSkills && writingStyle.maxKeywordsPerSkill != null
         ? `\n   - Maximum ${writingStyle.maxKeywordsPerSkill} ${writingStyle.maxKeywordsPerSkill === 1 ? "keyword" : "keywords"} per category. If a category has more, keep only the most JD-relevant ones.`
         : "",
+    skillModeInstructions: flatSkills
+      ? `- My skills are a flat list: every existing item name is an actual technology, not a category.\n   - Return a ranked JSON array of only exact existing skill names, highest relevance to this employer/JD first.\n   - Remove unrelated skills. Do not add, rename, group, assign levels, or emit keywords.`
+      : `- Review my existing skills section structure.
+   - Keyword Stuffing: Swap synonyms to match the JD exactly (e.g. "TDD" -> "Unit Testing", "ReactJS" -> "React").
+   - Keep my original skill levels and categories, just rename/reorder keywords to prioritize JD terms.
+   - Return the full "items" array for the skills section, preserving the structure: { "name": "Frontend", "keywords": [...] }.`,
     constraintsBullet: effectiveConstraints
       ? `- Additional constraints: ${effectiveConstraints}`
       : "",
