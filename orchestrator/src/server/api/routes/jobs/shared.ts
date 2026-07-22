@@ -44,6 +44,33 @@ export const jobNoteSchema = z.object({
   content: z.string().trim().min(1).max(20000),
 });
 
+const tailoredExperienceGroupPayloadSchema = z
+  .object({
+    id: z.string().trim().min(1),
+    unitIds: z.array(z.string().trim().min(1)),
+  })
+  .strict();
+const tailoredExperienceEntryPayloadSchema = z
+  .object({
+    id: z.string().trim().min(1),
+    groups: z.array(tailoredExperienceGroupPayloadSchema),
+    roles: z
+      .array(
+        z
+          .object({
+            id: z.string().trim().min(1),
+            groups: z.array(tailoredExperienceGroupPayloadSchema),
+          })
+          .strict(),
+      )
+      .optional(),
+  })
+  .strict();
+const tailoredExperiencePayloadSchema = z
+  .object({
+    entries: z.array(tailoredExperienceEntryPayloadSchema),
+  })
+  .strict();
 export async function hydrateJobPdfFreshness<T extends Job>(
   job: T,
 ): Promise<T> {
@@ -169,6 +196,30 @@ export const updateJobSchema = z.object({
           code: z.ZodIssueCode.custom,
           message:
             "tailoredSkills must be a JSON array of skill names or { name, keywords } objects",
+        });
+      }
+    }),
+  tailoredExperience: z
+    .string()
+    .nullable()
+    .optional()
+    .superRefine((value, ctx) => {
+      if (value === undefined || value === null || value.trim() === "") return;
+      let parsed: unknown;
+      try {
+        parsed = JSON.parse(value);
+      } catch {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "tailoredExperience must be a valid JSON selection payload",
+        });
+        return;
+      }
+      const result = tailoredExperiencePayloadSchema.safeParse(parsed);
+      if (!result.success) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "tailoredExperience must contain source unit IDs only",
         });
       }
     }),

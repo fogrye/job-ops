@@ -27,6 +27,7 @@ describe("settings constants", () => {
           stopSlopEnabled: { effective: false, default: false },
           summaryMaxWords: { effective: null, default: null },
           maxKeywordsPerSkill: { effective: null, default: null },
+          tailorWorkHistory: { effective: false, default: false },
         },
       }),
     ).toEqual({
@@ -59,6 +60,7 @@ describe("settings constants", () => {
           stopSlopEnabled: { effective: false, default: false },
           summaryMaxWords: { effective: null, default: null },
           maxKeywordsPerSkill: { effective: null, default: null },
+          tailorWorkHistory: { effective: false, default: false },
         },
       }),
     ).toEqual({

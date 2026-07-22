@@ -37,6 +37,7 @@ export type ChatValues = {
   stopSlopEnabled: EffectiveDefault<boolean>;
   summaryMaxWords: EffectiveDefault<number | null>;
   maxKeywordsPerSkill: EffectiveDefault<number | null>;
+  tailorWorkHistory: EffectiveDefault<boolean>;
 };
 
 export type EnvSettingsValues = {

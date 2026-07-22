@@ -34,6 +34,7 @@ import {
   sql,
 } from "drizzle-orm";
 import { db, schema } from "../db/index";
+import { normalizeTailoredExperienceJson } from "../services/rxresume/tailoring";
 import {
   getPrivateDataScope,
   privateDataScopeFilter,
@@ -67,6 +68,7 @@ export type JobListItemWithPdfFreshnessInput = JobListItem &
     | "tailoredSummary"
     | "tailoredHeadline"
     | "tailoredSkills"
+    | "tailoredExperience"
     | "selectedProjectIds"
     | "jobDescription"
     | "jobBrief"
@@ -156,6 +158,7 @@ export async function getJobListItems(
     tailoredSummary: jobs.tailoredSummary,
     tailoredHeadline: jobs.tailoredHeadline,
     tailoredSkills: jobs.tailoredSkills,
+    tailoredExperience: jobs.tailoredExperience,
     selectedProjectIds: jobs.selectedProjectIds,
     jobDescription: jobs.jobDescription,
     jobBrief: jobs.jobBrief,
@@ -868,6 +871,7 @@ function mapRowToJob(row: typeof jobs.$inferSelect): Job {
     tailoredSummary: row.tailoredSummary,
     tailoredHeadline: row.tailoredHeadline ?? null,
     tailoredSkills: row.tailoredSkills ?? null,
+    tailoredExperience: normalizeTailoredExperienceJson(row.tailoredExperience),
     selectedProjectIds: row.selectedProjectIds ?? null,
     pdfPath: row.pdfPath,
     pdfSource: row.pdfSource ?? null,

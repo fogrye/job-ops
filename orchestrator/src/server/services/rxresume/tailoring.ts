@@ -1,6 +1,8 @@
+import { createHash } from "node:crypto";
 import { createId } from "@paralleldrive/cuid2";
 import type { ResumeProjectCatalogItem } from "@shared/types";
 import { stripHtmlTags } from "@shared/utils/string";
+import { JSDOM } from "jsdom";
 
 type RecordLike = Record<string, unknown>;
 
@@ -11,10 +13,123 @@ export type TailoredSkillsInput =
   | null
   | undefined;
 
+export type TailoredExperienceGroup = {
+  id: string;
+  unitIds: string[];
+};
+
+export type TailoredExperienceRole = {
+  id: string;
+  groups: TailoredExperienceGroup[];
+};
+
+export type TailoredExperienceEntry = {
+  id: string;
+  groups: TailoredExperienceGroup[];
+  roles?: TailoredExperienceRole[];
+};
+
+export type TailoredExperienceInput = {
+  entries: TailoredExperienceEntry[];
+};
+
+export type TailoredExperienceSourceGroup = {
+  id: string;
+  units: Array<{ id: string; content: string }>;
+};
+
+export type TailoredExperienceSourceRole = {
+  id: string;
+  groups: TailoredExperienceSourceGroup[];
+};
+
+export type TailoredExperienceSourceEntry = {
+  id: string;
+  groups: TailoredExperienceSourceGroup[];
+  roles: TailoredExperienceSourceRole[];
+};
+
+export type TailoredExperienceSource = {
+  entries: TailoredExperienceSourceEntry[];
+};
+
+function parseTailoredExperienceGroups(
+  value: unknown,
+): TailoredExperienceGroup[] | null {
+  if (!Array.isArray(value)) return null;
+  const groups: TailoredExperienceGroup[] = [];
+  for (const rawGroup of value) {
+    const group = asRecord(rawGroup);
+    const groupId = typeof group?.id === "string" ? group.id.trim() : "";
+    if (!group || !groupId || !Array.isArray(group.unitIds)) return null;
+    const unitIds = group.unitIds.filter(
+      (unitId): unitId is string =>
+        typeof unitId === "string" && unitId.trim().length > 0,
+    );
+    if (unitIds.length !== group.unitIds.length) return null;
+    groups.push({ id: groupId, unitIds });
+  }
+  return groups;
+}
+export function parseTailoredExperienceInput(
+  value: unknown,
+): TailoredExperienceInput | null {
+  let parsed = value;
+  if (typeof value === "string") {
+    try {
+      parsed = JSON.parse(value);
+    } catch {
+      return null;
+    }
+  }
+  const root = parsed && typeof parsed === "object" ? parsed : null;
+  const rawEntries = Array.isArray((root as RecordLike | null)?.entries)
+    ? ((root as RecordLike).entries as unknown[])
+    : null;
+  if (!rawEntries) return null;
+
+  const entries: TailoredExperienceEntry[] = [];
+  for (const rawEntry of rawEntries) {
+    const entry = asRecord(rawEntry);
+    const id = typeof entry?.id === "string" ? entry.id.trim() : "";
+    if (!entry || !id) return null;
+    const groups = parseTailoredExperienceGroups(entry.groups);
+    if (!groups) return null;
+
+    const roles =
+      entry.roles === undefined
+        ? undefined
+        : Array.isArray(entry.roles)
+          ? entry.roles.map((rawRole) => {
+              const role = asRecord(rawRole);
+              const roleId = typeof role?.id === "string" ? role.id.trim() : "";
+              const groups = parseTailoredExperienceGroups(role?.groups);
+              return role && roleId && groups ? { id: roleId, groups } : null;
+            })
+          : null;
+    if (roles === null || roles?.some((role): role is null => role === null)) {
+      return null;
+    }
+    entries.push({
+      id,
+      groups,
+      roles: roles as TailoredExperienceRole[] | undefined,
+    });
+  }
+
+  return { entries };
+}
+
+export function normalizeTailoredExperienceJson(value: unknown): string | null {
+  const parsed = parseTailoredExperienceInput(value);
+  return parsed ? JSON.stringify(parsed) : null;
+}
+
 export type TailorChunkInput = {
   headline?: string | null;
   summary?: string | null;
   skills?: TailoredSkillsInput;
+  experience?: TailoredExperienceInput | null;
 };
 
 export type ResumeProjectSelectionItem = ResumeProjectCatalogItem & {
@@ -33,6 +148,311 @@ function asRecord(value: unknown): RecordLike | null {
 
 function asArray(value: unknown): unknown[] | null {
   return Array.isArray(value) ? value : null;
+}
+type ExperienceUnitGroup = {
+  id: string;
+  units: Array<{ id: string; content: string }>;
+  render: (unitIds: readonly string[]) => string | null;
+};
+
+type ExperienceDescriptionModel = {
+  groups: ExperienceUnitGroup[];
+  render: (
+    selections: ReadonlyMap<string, TailoredExperienceGroup>,
+  ) => string | null;
+};
+
+function contentId(...parts: string[]): string {
+  return createHash("sha256").update(parts.join("\0")).digest("base64url");
+}
+
+function createExperienceGroup(args: {
+  ownerId: string;
+  groupIndex: number;
+  source: Element;
+  unitNodes: Element[];
+  list: boolean;
+}): ExperienceUnitGroup {
+  const groupId = contentId(
+    args.ownerId,
+    "group",
+    String(args.groupIndex),
+    args.source.outerHTML,
+  );
+  const units = args.unitNodes.map((node) => ({
+    id: contentId(groupId, "unit", node.outerHTML),
+    content: node.outerHTML,
+  }));
+  const unitById = new Map(units.map((unit) => [unit.id, unit.content]));
+
+  return {
+    id: groupId,
+    units,
+    render(selectedIds) {
+      if (
+        selectedIds.length === 0 ||
+        new Set(selectedIds).size !== selectedIds.length ||
+        selectedIds.some((unitId) => !unitById.has(unitId))
+      ) {
+        return null;
+      }
+
+      const selected = selectedIds.map((unitId) => unitById.get(unitId));
+      if (selected.some((unit) => unit === undefined)) return null;
+      if (!args.list) return selected.join("");
+
+      const clone = args.source.cloneNode(false) as Element;
+      clone.innerHTML = selected.join("");
+      return clone.outerHTML;
+    },
+  };
+}
+
+function serializeNode(node: ChildNode): string {
+  return node.nodeType === node.ELEMENT_NODE
+    ? (node as Element).outerHTML
+    : (node.textContent ?? "");
+}
+
+function extractExperienceDescription(
+  ownerId: string,
+  description: string,
+): ExperienceDescriptionModel | null {
+  const document = new JSDOM(`<body>${description}</body>`).window.document;
+  const nodes = [...document.body.childNodes];
+  if (nodes.length === 0) return null;
+
+  const groups: ExperienceUnitGroup[] = [];
+  const segments: Array<{ source: string; group?: ExperienceUnitGroup }> = [];
+  for (let index = 0; index < nodes.length; ) {
+    const node = nodes[index];
+    if (node.nodeType !== node.ELEMENT_NODE) {
+      segments.push({ source: serializeNode(node) });
+      index += 1;
+      continue;
+    }
+
+    const element = node as Element;
+    const tagName = element.tagName.toLowerCase();
+    if (tagName === "ul" || tagName === "ol") {
+      const unitNodes = [...element.children].filter(
+        (child) => child.tagName.toLowerCase() === "li",
+      );
+      const hasUnsupportedDirectChild = [...element.children].some(
+        (child) => child.tagName.toLowerCase() !== "li",
+      );
+      const hasUnsupportedDirectText = [...element.childNodes].some(
+        (child) =>
+          child.nodeType === child.TEXT_NODE && child.textContent?.trim(),
+      );
+      if (
+        unitNodes.length === 0 ||
+        hasUnsupportedDirectChild ||
+        hasUnsupportedDirectText
+      ) {
+        segments.push({ source: element.outerHTML });
+        index += 1;
+        continue;
+      }
+
+      const group = createExperienceGroup({
+        ownerId,
+        groupIndex: groups.length,
+        source: element,
+        unitNodes,
+        list: true,
+      });
+      groups.push(group);
+      segments.push({ source: element.outerHTML, group });
+      index += 1;
+      continue;
+    }
+
+    if (tagName === "p") {
+      const paragraphNodes = [element];
+      let nextIndex = index + 1;
+      while (nextIndex < nodes.length) {
+        while (
+          nextIndex < nodes.length &&
+          nodes[nextIndex].nodeType === nodes[nextIndex].TEXT_NODE &&
+          !nodes[nextIndex].textContent?.trim()
+        ) {
+          nextIndex += 1;
+        }
+        const next = nodes[nextIndex];
+        if (
+          !next ||
+          next.nodeType !== next.ELEMENT_NODE ||
+          (next as Element).tagName.toLowerCase() !== "p"
+        ) {
+          break;
+        }
+        paragraphNodes.push(next as Element);
+        nextIndex += 1;
+      }
+      const source = document.createElement("div");
+      source.innerHTML = paragraphNodes
+        .map((paragraph) => paragraph.outerHTML)
+        .join("");
+      const group = createExperienceGroup({
+        ownerId,
+        groupIndex: groups.length,
+        source,
+        unitNodes: paragraphNodes,
+        list: false,
+      });
+      groups.push(group);
+      segments.push({
+        source: nodes.slice(index, nextIndex).map(serializeNode).join(""),
+        group,
+      });
+      index = nextIndex;
+      continue;
+    }
+
+    segments.push({ source: element.outerHTML });
+    index += 1;
+  }
+
+  if (groups.length === 0) return null;
+  return {
+    groups,
+    render(selections) {
+      const expectedIds = new Set(groups.map((group) => group.id));
+      if (selections.size !== expectedIds.size) return null;
+      for (const id of expectedIds) {
+        if (!selections.has(id)) return null;
+      }
+
+      return segments
+        .map((segment) => {
+          if (!segment.group) return segment.source;
+          const selection = selections.get(segment.group.id);
+          const rendered = selection
+            ? segment.group.render(selection.unitIds)
+            : null;
+          return rendered ?? segment.source;
+        })
+        .join("");
+    },
+  };
+}
+
+export function extractTailoredExperienceSource(
+  resumeData: RecordLike,
+): TailoredExperienceSource {
+  const sections = asRecord(resumeData.sections);
+  const experience = asRecord(sections?.experience);
+  const items = asArray(experience?.items);
+  if (!items) return { entries: [] };
+
+  const entries: TailoredExperienceSourceEntry[] = [];
+  for (const rawItem of items) {
+    const item = asRecord(rawItem);
+    const id = typeof item?.id === "string" ? item.id : "";
+    if (!item || !id) continue;
+
+    const descriptionModel =
+      typeof item.description === "string"
+        ? extractExperienceDescription(id, item.description)
+        : null;
+    const groups =
+      descriptionModel?.groups.map(({ id: groupId, units }) => ({
+        id: groupId,
+        units,
+      })) ?? [];
+    const roles =
+      asArray(item.roles)?.flatMap((rawRole) => {
+        const role = asRecord(rawRole);
+        const roleId = typeof role?.id === "string" ? role.id : "";
+        if (!role || !roleId) return [];
+        const roleModel =
+          typeof role.description === "string"
+            ? extractExperienceDescription(`${id}:${roleId}`, role.description)
+            : null;
+        return [
+          {
+            id: roleId,
+            groups:
+              roleModel?.groups.map(({ id: groupId, units }) => ({
+                id: groupId,
+                units,
+              })) ?? [],
+          },
+        ];
+      }) ?? [];
+
+    entries.push({ id, groups, roles });
+  }
+  return { entries };
+}
+
+function applyExperienceDescription(args: {
+  ownerId: string;
+  description: unknown;
+  selection: TailoredExperienceEntry | TailoredExperienceRole | undefined;
+}): string | null {
+  if (typeof args.description !== "string" || !args.selection) return null;
+  const model = extractExperienceDescription(args.ownerId, args.description);
+  if (!model) return null;
+  const selections = new Map(
+    args.selection.groups.map((group) => [group.id, group]),
+  );
+  if (selections.size !== args.selection.groups.length) return null;
+  return model.render(selections);
+}
+
+export function applyTailoredExperience(
+  resumeData: RecordLike,
+  tailoredExperience?: unknown,
+): void {
+  const parsedExperience = parseTailoredExperienceInput(tailoredExperience);
+  if (!parsedExperience) return;
+
+  const selections = new Map(
+    parsedExperience.entries.map((entry) => [entry.id, entry]),
+  );
+  if (selections.size !== parsedExperience.entries.length) return;
+
+  const sections = asRecord(resumeData.sections);
+  const experience = asRecord(sections?.experience);
+  const items = asArray(experience?.items);
+  if (!items) return;
+
+  for (const rawItem of items) {
+    const item = asRecord(rawItem);
+    const id = typeof item?.id === "string" ? item.id : "";
+    const selection = selections.get(id);
+    if (!item || !id || !selection) continue;
+
+    const description = applyExperienceDescription({
+      ownerId: id,
+      description: item.description,
+      selection,
+    });
+    if (description !== null) item.description = description;
+
+    const roles = asArray(item.roles);
+    if (!roles || !selection.roles) continue;
+    const roleSelections = new Map(
+      selection.roles.map((role) => [role.id, role]),
+    );
+    if (roleSelections.size !== selection.roles.length) continue;
+
+    for (const rawRole of roles) {
+      const role = asRecord(rawRole);
+      const roleId = typeof role?.id === "string" ? role.id : "";
+      const roleSelection = roleSelections.get(roleId);
+      if (!role || !roleId || !roleSelection) continue;
+
+      const roleDescription = applyExperienceDescription({
+        ownerId: `${id}:${roleId}`,
+        description: role.description,
+        selection: roleSelection,
+      });
+      if (roleDescription !== null) role.description = roleDescription;
+    }
+  }
 }
 
 function parseTailoredSkills(
@@ -285,4 +705,5 @@ export function applyTailoredChunks(args: {
   applyTailoredSkills(args.resumeData, args.tailoredContent.skills);
   applyTailoredSummary(args.resumeData, args.tailoredContent.summary);
   applyTailoredHeadline(args.resumeData, args.tailoredContent.headline);
+  applyTailoredExperience(args.resumeData, args.tailoredContent.experience);
 }

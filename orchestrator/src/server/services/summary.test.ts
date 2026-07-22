@@ -416,4 +416,47 @@ describe("generateTailoring", () => {
     );
     expect(result.data?.skills).toEqual(["Kubernetes", "PHP"]);
   });
+  it("uses ID-only source-unit selections for enabled work-history tailoring", async () => {
+    vi.mocked(getSetting).mockImplementation(async (key) =>
+      key === "tailorWorkHistory" ? "1" : null,
+    );
+    callJsonMock.mockResolvedValue({
+      success: true,
+      data: {
+        summary: "Tailored summary",
+        headline: "Senior Engineer",
+        skills: [],
+        experience: { entries: [] },
+      },
+    });
+
+    await generateTailoring("Build APIs", {
+      sections: {
+        experience: {
+          items: [
+            {
+              id: "experience-1",
+              company: "Acme",
+              position: "Engineer",
+              location: "",
+              date: "",
+              summary: "<ul><li>Built APIs.</li></ul>",
+              description: "<ul><li>Built APIs.</li></ul>",
+              visible: true,
+            },
+          ],
+        },
+      },
+    });
+
+    const request = callJsonMock.mock.calls.at(-1)?.[0];
+    expect(request?.jsonSchema.schema.properties.experience).toBeDefined();
+    expect(request?.messages?.[0]?.content).toContain(
+      "WORK HISTORY SELECTION CONTRACT",
+    );
+    expect(request?.messages?.[0]?.content).toContain("Built APIs.");
+    expect(request?.messages?.[0]?.content).toContain(
+      "Never return replacement work-history prose",
+    );
+  });
 });

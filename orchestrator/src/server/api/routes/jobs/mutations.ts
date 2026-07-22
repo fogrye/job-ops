@@ -5,6 +5,7 @@ import { resolveRequestOrigin } from "@server/infra/request-origin";
 import * as jobsRepo from "@server/repositories/jobs";
 import { reconcileActivationMilestonesFromHistorySafely } from "@server/services/activation-funnel";
 import { trackApplicationAcceptedIfNeeded } from "@server/services/jobs/analytics";
+import { normalizeTailoredExperienceJson } from "@server/services/rxresume/tailoring";
 import { getTracerReadiness } from "@server/services/tracer-links";
 import { type Request, type Response, Router } from "express";
 import {
@@ -19,7 +20,16 @@ export const jobsMutationsRouter = Router();
 
 jobsMutationsRouter.patch("/:id", async (req: Request, res: Response) => {
   try {
-    const input = updateJobSchema.parse(req.body);
+    const parsedInput = updateJobSchema.parse(req.body);
+    const input =
+      parsedInput.tailoredExperience === undefined
+        ? parsedInput
+        : {
+            ...parsedInput,
+            tailoredExperience: normalizeTailoredExperienceJson(
+              parsedInput.tailoredExperience,
+            ),
+          };
     const currentJob = await jobsRepo.getJobById(req.params.id);
 
     if (!currentJob) {

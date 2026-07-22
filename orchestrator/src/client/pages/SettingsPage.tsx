@@ -84,6 +84,7 @@ const DEFAULT_FORM_VALUES: UpdateSettingsInput = {
   showSponsorInfo: null,
   renderMarkdownInJobDescriptions: null,
   autoTailorOnManualImport: null,
+  tailorWorkHistory: null,
   chatStyleTone: "",
   chatStyleFormality: "",
   chatStyleConstraints: "",
@@ -308,6 +309,7 @@ const SECTION_FIELD_MAP: Record<
     "ghostwriterStopSlopEnabled",
     "chatStyleLanguageMode",
     "chatStyleManualLanguage",
+    "tailorWorkHistory",
   ],
   "prompt-templates": [
     "ghostwriterSystemPromptTemplate",
@@ -414,6 +416,7 @@ const NULL_SETTINGS_PAYLOAD: UpdateSettingsInput = {
   showSponsorInfo: null,
   renderMarkdownInJobDescriptions: null,
   autoTailorOnManualImport: null,
+  tailorWorkHistory: null,
   chatStyleTone: null,
   chatStyleFormality: null,
   chatStyleConstraints: null,
@@ -482,6 +485,7 @@ const mapSettingsToForm = (data: AppSettings): UpdateSettingsInput => ({
   renderMarkdownInJobDescriptions:
     data.renderMarkdownInJobDescriptions.override,
   autoTailorOnManualImport: data.autoTailorOnManualImport.override,
+  tailorWorkHistory: data.tailorWorkHistory.override,
   chatStyleTone: data.chatStyleTone.override ?? "",
   chatStyleFormality: data.chatStyleFormality.override ?? "",
   chatStyleConstraints: data.chatStyleConstraints.override ?? "",
@@ -694,6 +698,10 @@ const getDerivedSettings = (settings: AppSettings | null) => {
       maxKeywordsPerSkill: {
         effective: settings?.chatStyleMaxKeywordsPerSkill?.value ?? null,
         default: settings?.chatStyleMaxKeywordsPerSkill?.default ?? null,
+      },
+      tailorWorkHistory: {
+        effective: settings?.tailorWorkHistory?.value ?? false,
+        default: settings?.tailorWorkHistory?.default ?? false,
       },
     },
     envSettings: {
@@ -1198,6 +1206,10 @@ export const SettingsPage: React.FC = () => {
         autoTailorOnManualImport: nullIfSame(
           data.autoTailorOnManualImport,
           display.autoTailorOnManualImport.default,
+        ),
+        tailorWorkHistory: nullIfSame(
+          data.tailorWorkHistory,
+          chat.tailorWorkHistory.default,
         ),
         chatStyleTone: normalizeString(data.chatStyleTone),
         chatStyleFormality: normalizeString(data.chatStyleFormality),

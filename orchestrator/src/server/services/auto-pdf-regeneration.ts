@@ -301,6 +301,7 @@ export function shouldEnqueueTailoringAutoPdfRegeneration(
     previousJob.tailoredSummary !== nextJob.tailoredSummary ||
     previousJob.tailoredHeadline !== nextJob.tailoredHeadline ||
     previousJob.tailoredSkills !== nextJob.tailoredSkills ||
+    previousJob.tailoredExperience !== nextJob.tailoredExperience ||
     previousJob.selectedProjectIds !== nextJob.selectedProjectIds ||
     previousJob.jobDescription !== nextJob.jobDescription ||
     previousJob.tracerLinksEnabled !== nextJob.tracerLinksEnabled ||

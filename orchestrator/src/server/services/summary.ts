@@ -3,6 +3,8 @@
  */
 
 import { logger } from "@infra/logger";
+import * as settingsRepo from "@server/repositories/settings";
+import { settingsRegistry } from "@shared/settings-registry";
 import type { ResumeProfile } from "@shared/types";
 import { stripHtmlTags } from "@shared/utils/string";
 import type { JsonSchemaDefinition } from "./llm/types";
@@ -16,6 +18,11 @@ import {
   renderPromptTemplate,
 } from "./prompt-templates";
 import {
+  extractTailoredExperienceSource,
+  parseTailoredExperienceInput,
+  type TailoredExperienceInput,
+} from "./rxresume/tailoring";
+import {
   getWritingStyle,
   stripKeywordLimitFromConstraints,
   stripLanguageDirectivesFromConstraints,
@@ -23,13 +30,16 @@ import {
   type WritingStyle,
 } from "./writing-style";
 
-export type TailoredSkillGroups = Array<{ name: string; keywords: string[] }>;
+export type TailoredSkillGroups = Array<{
+  name: string;
+  keywords: string[];
+}>;
 export type TailoredSkills = TailoredSkillGroups | string[];
-
 export interface TailoredData {
   summary: string;
   headline: string;
   skills: TailoredSkills;
+  experience?: TailoredExperienceInput | null;
 }
 
 export interface TailoringResult {
@@ -39,50 +49,107 @@ export interface TailoringResult {
 }
 
 /** JSON schema for resume tailoring response */
-function getTailoringSchema(flatSkills: boolean): JsonSchemaDefinition {
+function getTailoringSchema(
+  flatSkills: boolean,
+  tailorWorkHistory: boolean,
+): JsonSchemaDefinition {
+  const experienceSchema = {
+    type: "object",
+    properties: {
+      entries: {
+        type: "array",
+        items: {
+          type: "object",
+          properties: {
+            id: { type: "string" },
+            groups: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  id: { type: "string" },
+                  unitIds: { type: "array", items: { type: "string" } },
+                },
+                required: ["id", "unitIds"],
+                additionalProperties: false,
+              },
+            },
+            roles: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  id: { type: "string" },
+                  groups: {
+                    type: "array",
+                    items: {
+                      type: "object",
+                      properties: {
+                        id: { type: "string" },
+                        unitIds: {
+                          type: "array",
+                          items: { type: "string" },
+                        },
+                      },
+                      required: ["id", "unitIds"],
+                      additionalProperties: false,
+                    },
+                  },
+                },
+                required: ["id", "groups"],
+                additionalProperties: false,
+              },
+            },
+          },
+          required: ["id", "groups"],
+          additionalProperties: false,
+        },
+      },
+    },
+    required: ["entries"],
+    additionalProperties: false,
+  };
+
+  const properties: Record<string, unknown> = {
+    headline: {
+      type: "string",
+      description: "Job title headline matching the JD exactly",
+    },
+    summary: {
+      type: "string",
+      description: "Tailored resume summary paragraph",
+    },
+    skills: flatSkills
+      ? {
+          type: "array",
+          description:
+            "Ranked subset of existing flat skill names tailored to the job",
+          items: { type: "string" },
+        }
+      : {
+          type: "array",
+          description: "Skills sections with keywords tailored to the job",
+          items: {
+            type: "object",
+            properties: {
+              name: { type: "string" },
+              keywords: { type: "array", items: { type: "string" } },
+            },
+            required: ["name", "keywords"],
+            additionalProperties: false,
+          },
+        },
+  };
+  if (tailorWorkHistory) properties.experience = experienceSchema;
+
   return {
     name: "resume_tailoring",
     schema: {
       type: "object",
-      properties: {
-        headline: {
-          type: "string",
-          description: "Job title headline matching the JD exactly",
-        },
-        summary: {
-          type: "string",
-          description: "Tailored resume summary paragraph",
-        },
-        skills: flatSkills
-          ? {
-              type: "array",
-              description:
-                "Ranked subset of existing flat skill names tailored to the job",
-              items: { type: "string" },
-            }
-          : {
-              type: "array",
-              description: "Skills sections with keywords tailored to the job",
-              items: {
-                type: "object",
-                properties: {
-                  name: {
-                    type: "string",
-                    description:
-                      "Skill category name (e.g., Frontend, Backend)",
-                  },
-                  keywords: {
-                    type: "array",
-                    items: { type: "string" },
-                    description: "List of skills/technologies in this category",
-                  },
-                },
-                required: ["name", "keywords"],
-                additionalProperties: false,
-              },
-            },
-      },
-      required: ["headline", "summary", "skills"],
+      properties,
+      required: tailorWorkHistory
+        ? ["headline", "summary", "skills", "experience"]
+        : ["headline", "summary", "skills"],
       additionalProperties: false,
     },
   };
@@ -115,6 +182,14 @@ function normalizeFlatSkills(
   });
 }
 
+async function isWorkHistoryTailoringEnabled(): Promise<boolean> {
+  const raw = await settingsRepo.getSetting("tailorWorkHistory");
+  return (
+    settingsRegistry.tailorWorkHistory.parse(raw ?? undefined) ??
+    settingsRegistry.tailorWorkHistory.default()
+  );
+}
+
 /**
  * Generate tailored resume content (summary, headline, skills) for a job.
  */
@@ -122,9 +197,10 @@ export async function generateTailoring(
   jobDescription: string,
   profile: ResumeProfile,
 ): Promise<TailoringResult> {
-  const [model, writingStyle] = await Promise.all([
+  const [model, writingStyle, tailorWorkHistory] = await Promise.all([
     resolveLlmModel("tailoring"),
     getWritingStyle(),
+    isWorkHistoryTailoringEnabled(),
   ]);
   const profileSkills = profile.sections?.skills?.items;
   const flatSkills =
@@ -136,15 +212,15 @@ export async function generateTailoring(
     jobDescription,
     writingStyle,
     flatSkills,
+    tailorWorkHistory,
   );
 
   const llm = await createConfiguredLlmService("tailoring");
   const result = await llm.callJson<TailoredData>({
     model,
     messages: [{ role: "user", content: prompt }],
-    jsonSchema: getTailoringSchema(flatSkills),
+    jsonSchema: getTailoringSchema(flatSkills, tailorWorkHistory),
   });
-
   if (!result.success) {
     const context = `provider=${llm.getProvider()} baseUrl=${llm.getBaseUrl()}`;
     if (result.error.toLowerCase().includes("api key")) {
@@ -157,8 +233,7 @@ export async function generateTailoring(
       error: `${result.error} (${context})`,
     };
   }
-
-  const { summary, headline, skills } = result.data;
+  const { summary, headline, skills, experience } = result.data;
   if (!summary || !headline || !Array.isArray(skills)) {
     logger.warn("AI response missing required tailoring fields", result.data);
   }
@@ -171,6 +246,9 @@ export async function generateTailoring(
       skills: flatSkills
         ? normalizeFlatSkills(skills || [], profile)
         : skills || [],
+      experience: tailorWorkHistory
+        ? parseTailoredExperienceInput(experience)
+        : undefined,
     },
   };
 }
@@ -196,6 +274,7 @@ async function buildTailoringPrompt(
   jd: string,
   writingStyle: WritingStyle,
   flatSkills: boolean,
+  tailorWorkHistory: boolean,
 ): Promise<string> {
   const jobDescription = stripHtmlTags(jd);
   const resolvedLanguage = resolveWritingOutputLanguage({
@@ -216,6 +295,11 @@ async function buildTailoringPrompt(
   }
 
   // Extract only needed parts of profile to save tokens
+  const experienceSource = tailorWorkHistory
+    ? extractTailoredExperienceSource(
+        profile as unknown as Record<string, unknown>,
+      )
+    : null;
   const relevantProfile = {
     basics: {
       name: profile.basics?.name,
@@ -229,15 +313,17 @@ async function buildTailoringPrompt(
       keywords: p.keywords,
     })),
     experience: profile.sections?.experience?.items?.map((e) => ({
+      id: e.id,
       company: e.company,
       position: e.position,
       summary: e.summary,
+      source: experienceSource?.entries.find((entry) => entry.id === e.id),
     })),
   };
 
   const template = await getEffectivePromptTemplate("tailoringPromptTemplate");
 
-  return renderPromptTemplate(template, {
+  const renderedPrompt = renderPromptTemplate(template, {
     jobDescription,
     profileJson: JSON.stringify(relevantProfile),
     outputLanguage,
@@ -264,6 +350,18 @@ async function buildTailoringPrompt(
       ? `- Avoid these words or phrases: ${writingStyle.doNotUse}`
       : "",
   });
+  if (!tailorWorkHistory) return renderedPrompt;
+
+  return `${renderedPrompt}
+
+WORK HISTORY SELECTION CONTRACT:
+- Select only source unit IDs from the supplied profile JSON.
+- Return IDs only. Never return replacement work-history prose.
+- Select the most vacancy-relevant existing units; omit irrelevant units.
+- Reorder units only within their original group. Do not move content between groups, roles, or employers.
+- Preserve every fact exactly as provided. Do not infer or add metrics, technologies, responsibilities, scope, seniority, or achievements.
+- Include every supported group with at least one selected unit. If a group cannot be honestly improved, preserve its original unit order.
+- Return the JSON object under \`experience.entries\` with only \`id\`, \`groups\`, \`roles\`, and \`unitIds\` fields allowed by the schema.`;
 }
 
 function sanitizeText(text: string): string {

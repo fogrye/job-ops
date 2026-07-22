@@ -177,6 +177,9 @@ describe("settingsRegistry helpers", () => {
       expect(settingsRegistry.ghostwriterStopSlopEnabled.parse("0")).toBe(
         false,
       );
+      expect(settingsRegistry.tailorWorkHistory.default()).toBe(false);
+      expect(settingsRegistry.tailorWorkHistory.parse("1")).toBe(true);
+      expect(settingsRegistry.tailorWorkHistory.parse("0")).toBe(false);
     });
 
     it("serializes bit bools correctly", () => {
