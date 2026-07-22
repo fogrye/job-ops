@@ -130,19 +130,21 @@
 #if contacts.len() > 0 [#contact-style(contacts.join([ #h(7pt)|#h(7pt) ]))]
 
 #let skill-groups = list-of(source.at("skillGroups", default: ()))
+#let renderable-skill-groups = skill-groups.map(item => (name: text-of-item(item, "name"), keywords: list-of(item.at("keywords", default: ())).filter(keyword => keyword != ""))).filter(item => item.at("name") != "" and item.at("keywords").len() > 0)
 #let languages = list-of(source.at("languages", default: ()))
 #let summary = text-of(source.at("summary", default: ""))
 #let education = list-of(source.at("education", default: ()))
 #let experience = list-of(source.at("experience", default: ()))
 
-
-
 #let render-skills() = {
-  if skill-groups.len() > 0 [
-    #text(weight: "bold")[SKILLS:]
-    #h(3pt)
-    #skill-groups.map(item => text-of-item(item, "name")).join(", ")
-    #v(4pt)
+  if renderable-skill-groups.len() > 0 [
+    #section(text-of(section-titles.at("skills", default: "Skills")))
+    #for item in renderable-skill-groups [
+      #text(weight: "bold")[#item.at("name"):]
+      #h(3pt)
+      #item.at("keywords").join(", ").
+      #linebreak()
+    ]
   ]
 }
 

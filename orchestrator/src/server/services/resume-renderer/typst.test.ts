@@ -1,8 +1,9 @@
 import { spawnSync } from "node:child_process";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { TYPST_THEME_VALUES, type TypstTheme } from "@shared/types";
+import { getDocument } from "pdfjs-dist/legacy/build/pdf.mjs";
 import { afterEach, describe, expect, it } from "vitest";
 import type { ResumeRenderDocument } from "./types";
 import {
@@ -62,6 +63,31 @@ async function createTempDir(): Promise<string> {
   return await mkdtemp(join(tmpdir(), "job-ops-typst-render-test-"));
 }
 
+async function extractPdfText(path: string): Promise<string> {
+  const document = await getDocument({
+    data: new Uint8Array(await readFile(path)),
+  }).promise;
+  const pages: string[] = [];
+  for (let pageNumber = 1; pageNumber <= document.numPages; pageNumber += 1) {
+    const page = await document.getPage(pageNumber);
+    const content = await page.getTextContent();
+    const lines = new Map<number, string>();
+    for (const item of content.items) {
+      if (!("str" in item) || item.str === "") continue;
+      const y = Math.round(item.transform[5]);
+      const current = lines.get(y) ?? "";
+      lines.set(y, `${current}${current ? " " : ""}${item.str}`);
+    }
+    pages.push(
+      [...lines.entries()]
+        .sort(([firstY], [secondY]) => secondY - firstY)
+        .map(([, line]) => line)
+        .join("\n"),
+    );
+  }
+  return pages.join("\n");
+}
+
 function typstAvailable(): boolean {
   const binary = process.env.TYPST_BIN?.trim() || "typst";
   const result = spawnSync(binary, ["--version"], { stdio: "ignore" });
@@ -115,14 +141,17 @@ describe("typst resume renderer", () => {
     }
   });
 
-  it("uses the normalized section order and skill layout controls", async () => {
+  it("uses the normalized section order and rich skill layout", async () => {
     const template = await readTypstTemplate("jobops-cv");
 
     expect(template).toContain("#let section-order");
     expect(template).toContain("#for key in section-order");
-    expect(template).toContain("columns: skill-columns");
-    expect(template).toContain("columns: language-columns");
-    expect(template).toContain("circle(");
+    expect(template).toContain(
+      '#section(text-of(section-titles.at("skills", default: "Skills")))',
+    );
+    expect(template).toContain('#item.at("keywords").join(", ").');
+    expect(template).toContain('#text(weight: "bold")[#item.at("name"):]');
+    expect(template).not.toContain("circle(");
   });
 
   it("uses the TYPST_BIN override when present", () => {
@@ -498,6 +527,10 @@ describe("typst resume renderer", () => {
               name: "Shell",
               proficiency: "Basic",
               level: 0,
+              keywords: ["Bash", "Zsh"],
+            },
+            {
+              name: "Empty",
               keywords: [],
             },
           ],
@@ -510,6 +543,12 @@ describe("typst resume renderer", () => {
         typstTheme: "jobops-cv",
       });
 
+      const pdfLines = (await extractPdfText(outputPath))
+        .split(/\r?\n/)
+        .map((line) => line.replace(/\s+/g, " ").trim());
+      expect(pdfLines).toContain("Backend: TypeScript.");
+      expect(pdfLines).toContain("Shell: Bash, Zsh.");
+      expect(pdfLines.some((line) => line.startsWith("Empty:"))).toBe(false);
       const stats = spawnSync("sh", ["-lc", `test -s "${outputPath}"`], {
         stdio: "ignore",
       });
