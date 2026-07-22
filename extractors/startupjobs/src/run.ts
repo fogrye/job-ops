@@ -43,6 +43,7 @@ export interface StartupJobsResult {
 }
 
 type StartupJobsWorkplaceType = "remote" | "hybrid" | "on-site";
+const DESCRIPTION_CONCURRENCY = 4;
 
 function mapWorkplaceTypes(
   workplaceTypes: Array<"remote" | "hybrid" | "onsite"> | undefined,
@@ -150,6 +151,31 @@ async function fetchStartupJobsDescription(
   }
 }
 
+async function enrichMissingDescriptions(
+  records: StartupJobRecord[],
+): Promise<StartupJobRecord[]> {
+  const enriched = [...records];
+
+  for (
+    let index = 0;
+    index < records.length;
+    index += DESCRIPTION_CONCURRENCY
+  ) {
+    const batch = records.slice(index, index + DESCRIPTION_CONCURRENCY);
+    await Promise.all(
+      batch.map(async (record, batchIndex) => {
+        if (record.jobDescription) return;
+        const jobDescription = await fetchStartupJobsDescription(record.jobUrl);
+        if (jobDescription) {
+          enriched[index + batchIndex] = { ...record, jobDescription };
+        }
+      }),
+    );
+  }
+
+  return enriched;
+}
+
 function mapStartupJob(row: StartupJobRecord): CreateJobInput | null {
   if (!row.jobUrl) return null;
 
@@ -238,24 +264,14 @@ export async function runStartupJobs(
           location: location ?? undefined,
           workplaceType,
         });
-
+        const enrichedRecords = await enrichMissingDescriptions(records);
         let jobsFoundTerm = 0;
-        for (const record of records) {
+
+        for (const record of enrichedRecords) {
           if (seen.has(record.jobUrl)) continue;
-          let recordWithDescription = record;
-          if (!record.jobDescription) {
-            const jobDescription = await fetchStartupJobsDescription(
-              record.jobUrl,
-            );
-            if (jobDescription) {
-              recordWithDescription = { ...record, jobDescription };
-            }
-          }
-          const mapped = mapStartupJob(recordWithDescription);
+          const mapped = mapStartupJob(record);
           if (!mapped) continue;
-          const dedupeKey = mapped.jobUrl;
-          if (seen.has(dedupeKey)) continue;
-          seen.add(dedupeKey);
+          seen.add(mapped.jobUrl);
           jobs.push(mapped);
           jobsFoundTerm += 1;
         }
