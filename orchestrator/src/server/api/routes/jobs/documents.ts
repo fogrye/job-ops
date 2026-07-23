@@ -17,6 +17,8 @@ import {
   storeJobDocument,
 } from "@server/services/job-document-storage";
 import { uploadJobPdf } from "@server/services/job-pdf-upload";
+import { getProfile } from "@server/services/profile";
+import { buildTailoredExperienceView } from "@server/services/rxresume/tailoring";
 import { getSafeInlineJobDocumentMediaType } from "@shared/job-document-classification.js";
 import { type Request, type Response, Router } from "express";
 import {
@@ -409,6 +411,36 @@ jobsDocumentsRouter.delete(
         },
       );
       fail(res, err);
+    }
+  },
+);
+
+jobsDocumentsRouter.get(
+  "/:id/tailoring/experience",
+  async (req: Request, res: Response) => {
+    try {
+      const job = await requireJob(req.params.id);
+      const profile = await getProfile();
+      return ok(
+        res,
+        buildTailoredExperienceView(
+          profile as unknown as Record<string, unknown>,
+          job.tailoredExperience,
+        ),
+      );
+    } catch (error) {
+      const err = toJobsRouteError(error);
+      logger[err.status === 404 ? "warn" : "error"](
+        "Job experience tailoring view failed",
+        {
+          route: "GET /api/jobs/:id/tailoring/experience",
+          jobId: req.params.id,
+          status: err.status,
+          code: err.code,
+          details: err.details,
+        },
+      );
+      return fail(res, err);
     }
   },
 );

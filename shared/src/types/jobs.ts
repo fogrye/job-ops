@@ -171,6 +171,40 @@ export interface JobBrief {
   repeated_signals: string[];
 }
 
+export interface TailoredExperienceViewUnit {
+  id: string;
+  text: string;
+}
+
+export interface TailoredExperienceViewGroup {
+  id: string;
+  units: TailoredExperienceViewUnit[];
+  selectedUnitIds: string[];
+}
+
+export interface TailoredExperienceViewRole {
+  id: string;
+  position: string;
+  date: string;
+  location: string;
+  groups: TailoredExperienceViewGroup[];
+}
+
+export interface TailoredExperienceViewEntry {
+  id: string;
+  company: string;
+  position: string;
+  date: string;
+  location: string;
+  groups: TailoredExperienceViewGroup[];
+  roles: TailoredExperienceViewRole[];
+}
+
+export interface TailoredExperienceView {
+  status: "original" | "tailored" | "stale";
+  entries: TailoredExperienceViewEntry[];
+}
+
 export interface Job {
   id: string;
 

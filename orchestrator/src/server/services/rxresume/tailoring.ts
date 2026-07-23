@@ -1,6 +1,12 @@
 import { createHash } from "node:crypto";
 import { createId } from "@paralleldrive/cuid2";
-import type { ResumeProjectCatalogItem } from "@shared/types";
+import type {
+  ResumeProjectCatalogItem,
+  TailoredExperienceView,
+  TailoredExperienceViewEntry,
+  TailoredExperienceViewGroup,
+  TailoredExperienceViewRole,
+} from "@shared/types";
 import { stripHtmlTags } from "@shared/utils/string";
 import { JSDOM } from "jsdom";
 
@@ -52,6 +58,168 @@ export type TailoredExperienceSourceEntry = {
 export type TailoredExperienceSource = {
   entries: TailoredExperienceSourceEntry[];
 };
+
+const textValue = (value: unknown): string =>
+  typeof value === "string" ? value : "";
+
+const sameIds = (left: readonly string[], right: readonly string[]) =>
+  left.length === right.length &&
+  left.every((id, index) => id === right[index]);
+
+type StaleState = { value: boolean };
+
+function buildExperienceViewGroups(
+  sourceGroups: TailoredExperienceSourceGroup[],
+  selectedGroups: TailoredExperienceGroup[] | undefined,
+  stale: StaleState,
+): TailoredExperienceViewGroup[] {
+  const selectedById = new Map<string, TailoredExperienceGroup>();
+  if (selectedGroups) {
+    for (const group of selectedGroups) {
+      if (selectedById.has(group.id)) stale.value = true;
+      selectedById.set(group.id, group);
+    }
+    if (selectedById.size !== selectedGroups.length) stale.value = true;
+  }
+
+  return sourceGroups.map((sourceGroup) => {
+    const originalIds = sourceGroup.units.map((unit) => unit.id);
+    const selected = selectedById.get(sourceGroup.id);
+    if (!selected) {
+      if (selectedGroups) stale.value = true;
+      return {
+        id: sourceGroup.id,
+        units: sourceGroup.units.map((unit) => ({
+          id: unit.id,
+          text: stripHtmlTags(unit.content).trim(),
+        })),
+        selectedUnitIds: originalIds,
+      };
+    }
+
+    const sourceIds = new Set(originalIds);
+    const selectedIds = selected.unitIds;
+    if (
+      selectedIds.length === 0 ||
+      new Set(selectedIds).size !== selectedIds.length ||
+      selectedIds.some((id) => !sourceIds.has(id))
+    ) {
+      stale.value = true;
+      return {
+        id: sourceGroup.id,
+        units: sourceGroup.units.map((unit) => ({
+          id: unit.id,
+          text: stripHtmlTags(unit.content).trim(),
+        })),
+        selectedUnitIds: originalIds,
+      };
+    }
+
+    return {
+      id: sourceGroup.id,
+      units: sourceGroup.units.map((unit) => ({
+        id: unit.id,
+        text: stripHtmlTags(unit.content).trim(),
+      })),
+      selectedUnitIds: selectedIds,
+    };
+  });
+}
+
+function hasTailoredExperience(groups: TailoredExperienceViewGroup[]): boolean {
+  return groups.some((group) => {
+    const originalIds = group.units.map((unit) => unit.id);
+    return !sameIds(originalIds, group.selectedUnitIds);
+  });
+}
+
+export function buildTailoredExperienceView(
+  resumeData: RecordLike,
+  tailoredExperience?: unknown,
+): TailoredExperienceView {
+  const source = extractTailoredExperienceSource(resumeData);
+  const sections = asRecord(resumeData.sections);
+  const experience = asRecord(sections?.experience);
+  const items = asArray(experience?.items) ?? [];
+  const itemById = new Map(
+    items
+      .map((rawItem) => {
+        const item = asRecord(rawItem);
+        const id = textValue(item?.id);
+        return id ? ([id, item] as const) : null;
+      })
+      .filter((item): item is readonly [string, RecordLike] => item !== null),
+  );
+  const parsed =
+    tailoredExperience == null
+      ? null
+      : parseTailoredExperienceInput(tailoredExperience);
+  const stale: StaleState = { value: tailoredExperience != null && !parsed };
+  const selectedEntries = new Map<string, TailoredExperienceEntry>();
+  for (const entry of parsed?.entries ?? []) {
+    if (selectedEntries.has(entry.id)) stale.value = true;
+    selectedEntries.set(entry.id, entry);
+  }
+  if (parsed && selectedEntries.size !== parsed.entries.length) {
+    stale.value = true;
+  }
+
+  const entries: TailoredExperienceViewEntry[] = source.entries.map(
+    (sourceEntry) => {
+      const item = itemById.get(sourceEntry.id);
+      const selection = selectedEntries.get(sourceEntry.id);
+      const groups = buildExperienceViewGroups(
+        sourceEntry.groups,
+        selection?.groups,
+        stale,
+      );
+      const roles: TailoredExperienceViewRole[] = sourceEntry.roles.map(
+        (sourceRole) => {
+          const roleItem = asArray(item?.roles)?.find(
+            (rawRole) => textValue(asRecord(rawRole)?.id) === sourceRole.id,
+          );
+          const roleSelection = selection?.roles?.find(
+            (role) => role.id === sourceRole.id,
+          );
+          const roleGroups = buildExperienceViewGroups(
+            sourceRole.groups,
+            roleSelection?.groups,
+            stale,
+          );
+          return {
+            id: sourceRole.id,
+            position: textValue(asRecord(roleItem)?.position),
+            date: textValue(asRecord(roleItem)?.period),
+            location: "",
+            groups: roleGroups,
+          };
+        },
+      );
+      return {
+        id: sourceEntry.id,
+        company: textValue(item?.company),
+        position: textValue(item?.position),
+        date: textValue(item?.period),
+        location: textValue(item?.location),
+        groups,
+        roles,
+      };
+    },
+  );
+  const sourceIds = new Set(source.entries.map((entry) => entry.id));
+  if ([...selectedEntries.keys()].some((id) => !sourceIds.has(id))) {
+    stale.value = true;
+  }
+  const hasTailored = entries.some(
+    (entry) =>
+      hasTailoredExperience(entry.groups) ||
+      entry.roles.some((role) => hasTailoredExperience(role.groups)),
+  );
+  return {
+    status: stale.value ? "stale" : hasTailored ? "tailored" : "original",
+    entries,
+  };
+}
 
 function parseTailoredExperienceGroups(
   value: unknown,

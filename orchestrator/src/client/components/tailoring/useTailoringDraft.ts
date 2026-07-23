@@ -28,6 +28,7 @@ export interface TailoringSavePayload {
   tailoredSummary: string;
   tailoredHeadline: string;
   tailoredSkills: string;
+  tailoredExperience: string | null;
   jobDescription: string;
   selectedProjectIds: string;
   tracerLinksEnabled: boolean;
@@ -40,6 +41,7 @@ export const getTailoringSavePayloadKey = (
     tailoredSummary: payload.tailoredSummary,
     tailoredHeadline: payload.tailoredHeadline,
     tailoredSkills: payload.tailoredSkills,
+    tailoredExperience: payload.tailoredExperience,
     jobDescription: payload.jobDescription,
     selectedProjectIds: toSelectedIdsCsv(
       parseSelectedIds(payload.selectedProjectIds),
@@ -67,6 +69,7 @@ const parseIncomingDraft = (incomingJob: Job) => {
     tailoredSkills,
     skillsDraft,
     skillsJson,
+    tailoredExperience: incomingJob.tailoredExperience,
     tracerLinksEnabled,
   };
 };
@@ -97,6 +100,9 @@ export function useTailoringDraft({
     toEditableSkillGroups(parseTailoredSkills(job.tailoredSkills)),
   );
   const [openSkillGroupId, setOpenSkillGroupId] = useState<string>("");
+  const [tailoredExperience, setTailoredExperience] = useState<string | null>(
+    job.tailoredExperience,
+  );
   const [tracerLinksEnabled, setTracerLinksEnabled] = useState(
     Boolean(job.tracerLinksEnabled),
   );
@@ -114,6 +120,9 @@ export function useTailoringDraft({
   const [savedSkillsJson, setSavedSkillsJson] = useState(() =>
     serializeTailoredSkills(parseTailoredSkills(job.tailoredSkills)),
   );
+  const [savedTailoredExperience, setSavedTailoredExperience] = useState<
+    string | null
+  >(job.tailoredExperience);
   const [savedTracerLinksEnabled, setSavedTracerLinksEnabled] = useState(
     Boolean(job.tracerLinksEnabled),
   );
@@ -137,6 +146,7 @@ export function useTailoringDraft({
     if (headline !== savedHeadline) return true;
     if (jobDescription !== savedDescription) return true;
     if (skillsJson !== savedSkillsJson) return true;
+    if (tailoredExperience !== savedTailoredExperience) return true;
     if (tracerLinksEnabled !== savedTracerLinksEnabled) return true;
     return hasSelectionDiff(selectedIds, savedSelectedIds);
   }, [
@@ -148,6 +158,8 @@ export function useTailoringDraft({
     savedDescription,
     skillsJson,
     savedSkillsJson,
+    tailoredExperience,
+    savedTailoredExperience,
     tracerLinksEnabled,
     savedTracerLinksEnabled,
     selectedIds,
@@ -163,6 +175,7 @@ export function useTailoringDraft({
         jobDescription: savedDescription,
         selectedProjectIds: toSelectedIdsCsv(savedSelectedIds),
         tracerLinksEnabled: savedTracerLinksEnabled,
+        tailoredExperience: savedTailoredExperience,
       }),
     [
       savedSummary,
@@ -170,6 +183,7 @@ export function useTailoringDraft({
       savedSkillsJson,
       savedDescription,
       savedSelectedIds,
+      savedTailoredExperience,
       savedTracerLinksEnabled,
     ],
   );
@@ -188,6 +202,7 @@ export function useTailoringDraft({
     setSavedSelectedIds(next.selectedIds);
     setSavedSkillsJson(next.skillsJson);
     setTracerLinksEnabled(next.tracerLinksEnabled);
+    setTailoredExperience(next.tailoredExperience);
     setSavedTracerLinksEnabled(next.tracerLinksEnabled);
   }, []);
 
@@ -197,6 +212,7 @@ export function useTailoringDraft({
     setSavedDescription(snapshot.jobDescription);
     setSavedSelectedIds(parseSelectedIds(snapshot.selectedProjectIds));
     setSavedSkillsJson(snapshot.tailoredSkills);
+    setSavedTailoredExperience(snapshot.tailoredExperience);
     setSavedTracerLinksEnabled(snapshot.tracerLinksEnabled);
   }, []);
 
@@ -207,6 +223,7 @@ export function useTailoringDraft({
     setSavedDescription(next.description);
     setSavedSelectedIds(next.selectedIds);
     setSavedSkillsJson(next.skillsJson);
+    setSavedTailoredExperience(next.tailoredExperience);
     setSavedTracerLinksEnabled(next.tracerLinksEnabled);
   }, []);
 
@@ -329,5 +346,7 @@ export function useTailoringDraft({
     handleAddSkillGroup,
     handleUpdateSkillGroup,
     handleRemoveSkillGroup,
+    tailoredExperience,
+    setTailoredExperience,
   };
 }

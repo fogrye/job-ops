@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   applyTailoredExperience,
   applyTailoredSkills,
+  buildTailoredExperienceView,
   extractProjectsFromResume,
   extractTailoredExperienceSource,
 } from "./tailoring";
@@ -151,5 +152,67 @@ describe("rxresume tailoring", () => {
 
     applyTailoredExperience(resume, "{invalid-json");
     expect(resume.sections.experience.items[0].description).toBe(original);
+  });
+  it("builds an experience view from source units and detects stale selections", () => {
+    const resume = {
+      sections: {
+        experience: {
+          items: [
+            {
+              id: "e1",
+              company: "Acme",
+              position: "Backend Engineer",
+              period: "2022 - 2024",
+              location: "Leeds",
+              description:
+                "<ul><li>Built APIs with Node.js.</li><li>Improved reliability.</li></ul>",
+              roles: [],
+            },
+          ],
+        },
+      },
+    };
+    const source = extractTailoredExperienceSource(resume);
+    const group = source.entries[0]?.groups[0];
+    expect(group).toBeDefined();
+    if (!group) return;
+
+    const original = buildTailoredExperienceView(resume);
+    expect(original.status).toBe("original");
+    expect(original.entries[0]).toMatchObject({
+      company: "Acme",
+      position: "Backend Engineer",
+      date: "2022 - 2024",
+      location: "Leeds",
+    });
+    expect(original.entries[0]?.groups[0]?.units[0]?.text).toBe(
+      "Built APIs with Node.js.",
+    );
+
+    const tailored = buildTailoredExperienceView(resume, {
+      entries: [
+        {
+          id: "e1",
+          groups: [{ id: group.id, unitIds: [group.units[1].id] }],
+        },
+      ],
+    });
+    expect(tailored.status).toBe("tailored");
+    expect(tailored.entries[0]?.groups[0]?.selectedUnitIds).toEqual([
+      group.units[1].id,
+    ]);
+
+    const stale = buildTailoredExperienceView(resume, {
+      entries: [
+        {
+          id: "e1",
+          groups: [{ id: group.id, unitIds: ["unknown-unit"] }],
+        },
+      ],
+    });
+    expect(stale.status).toBe("stale");
+    expect(stale.entries[0]?.groups[0]?.selectedUnitIds).toEqual(
+      group.units.map((unit) => unit.id),
+    );
   });
 });
