@@ -61,6 +61,8 @@ describe("location-support", () => {
     );
     expect(isSourceAllowedForCountry("ukvisajobs", "uk")).toBe(true);
     expect(isSourceAllowedForCountry("jobindex", "denmark")).toBe(true);
+    expect(isSourceAllowedForCountry("jobs-cz", "czech republic")).toBe(true);
+    expect(isSourceAllowedForCountry("jobs-cz", "denmark")).toBe(false);
     expect(isSourceAllowedForCountry("gradcracker", "united states")).toBe(
       false,
     );

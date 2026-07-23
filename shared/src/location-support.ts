@@ -344,6 +344,7 @@ const SOURCE_SUPPORTED_COUNTRY_KEYS: Partial<Record<JobSource, string[]>> = {
   ukvisajobs: ["united kingdom"],
   adzuna: [...ADZUNA_SUPPORTED_COUNTRY_KEYS],
   jobindex: ["denmark"],
+  "jobs-cz": ["czechia"],
   seek: ["australia", "new zealand"],
   naukri: ["india"],
   fiveamsat: ["egypt"],

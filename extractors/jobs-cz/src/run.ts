@@ -1,0 +1,267 @@
+import type { CreateJobInput, JobLocationEvidence } from "@shared/types/jobs";
+
+const JOBS_CZ_BASE_URL = "https://www.jobs.cz";
+const JOBS_CZ_SEARCH_PATH = "/prace/";
+const JOBS_CZ_MAX_PAGES = 50;
+
+export type JobsCzProgressEvent =
+  | {
+      type: "term_start";
+      termIndex: number;
+      termTotal: number;
+      searchTerm: string;
+    }
+  | {
+      type: "page_complete";
+      termIndex: number;
+      termTotal: number;
+      searchTerm: string;
+      page: number;
+      jobsFoundTerm: number;
+    }
+  | {
+      type: "term_complete";
+      termIndex: number;
+      termTotal: number;
+      searchTerm: string;
+      jobsFoundTerm: number;
+    };
+
+export interface RunJobsCzOptions {
+  searchTerms?: string[];
+  cityLocations?: string[];
+  maxJobsPerTerm?: number;
+  onProgress?: (event: JobsCzProgressEvent) => void;
+  shouldCancel?: () => boolean;
+  fetchImpl?: typeof fetch;
+}
+
+export interface JobsCzResult {
+  success: boolean;
+  jobs: CreateJobInput[];
+  error?: string;
+}
+
+interface JobsCzCard {
+  sourceJobId: string;
+  title: string;
+  employer: string;
+  jobUrl: string;
+  location?: string;
+  postedAt?: string;
+  jobDescription?: string;
+}
+
+function getString(value: string | undefined): string | undefined {
+  const text = value?.trim();
+  return text || undefined;
+}
+
+function decodeHtml(value: string): string {
+  return value
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">");
+}
+
+function stripHtml(value: string): string {
+  return decodeHtml(
+    value
+      .replace(/<br\s*\/?>/gi, "\n")
+      .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, " ")
+      .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, " ")
+      .replace(/<[^>]+>/g, " ")
+      .replace(/\s+/g, " ")
+      .trim(),
+  );
+}
+
+function attribute(tag: string, name: string): string | undefined {
+  const match = tag.match(
+    new RegExp(`\\b${name}\\s*=\\s*(["'])(.*?)\\1`, "i"),
+  );
+  return getString(match?.[2]);
+}
+
+function absoluteUrl(value: string | undefined): string | undefined {
+  if (!value) return undefined;
+  try {
+    return new URL(value, JOBS_CZ_BASE_URL).toString();
+  } catch {
+    return undefined;
+  }
+}
+
+function firstMatchText(card: string, pattern: RegExp): string | undefined {
+  return getString(stripHtml(card.match(pattern)?.[1] ?? ""));
+}
+
+export function buildJobsCzSearchUrl(
+  searchTerm: string,
+  page = 1,
+  cityLocations: string[] = [],
+): string {
+  const url = new URL(JOBS_CZ_SEARCH_PATH, JOBS_CZ_BASE_URL);
+  url.searchParams.set("q", searchTerm);
+  for (const city of cityLocations) {
+    if (city.trim()) url.searchParams.append("locality", city.trim());
+  }
+  if (page > 1) url.searchParams.set("page", String(page));
+  return url.toString();
+}
+
+export function parseJobsCzCards(html: string): JobsCzCard[] {
+  const cards = html.match(
+    /<article\b[^>]*class=["'][^"']*\bSearchResultCard\b[^"']*["'][^>]*>[\s\S]*?<\/article>/gi,
+  );
+  if (!cards) return [];
+
+  return cards.flatMap((card) => {
+    const anchor = card.match(
+      /<a\b[^>]*data-jobad-id\s*=\s*(["'])(.*?)\1[^>]*>[\s\S]*?<\/a>/i,
+    );
+    if (!anchor) return [];
+    const anchorTag = anchor[0].slice(0, anchor[0].indexOf(">") + 1);
+    const sourceJobId = getString(anchor[2]);
+    const title = getString(stripHtml(anchor[0].replace(anchorTag, "")));
+    const jobUrl = absoluteUrl(attribute(anchorTag, "href"));
+    if (!sourceJobId || !title || !jobUrl) return [];
+
+    const employer =
+      firstMatchText(
+        card,
+        /<span\b[^>]*translate\s*=\s*["'][^"']*["'][^>]*>([\s\S]*?)<\/span>/i,
+      ) ?? "Jobs.cz";
+    const location = firstMatchText(
+      card,
+      /<[^>]*data-test\s*=\s*["']serp-locality["'][^>]*>([\s\S]*?)<\//i,
+    );
+    const postedAt = firstMatchText(
+      card,
+      /<[^>]*class=["'][^"']*SearchResultCard__status[^"']*["'][^>]*>([\s\S]*?)<\//i,
+    );
+    const jobDescription = firstMatchText(
+      card,
+      /<[^>]*class=["'][^"']*SearchResultCard__body[^"']*["'][^>]*>([\s\S]*?)<\//i,
+    );
+
+    return [
+      {
+        sourceJobId,
+        title,
+        employer,
+        jobUrl,
+        location,
+        postedAt,
+        jobDescription,
+      },
+    ];
+  });
+}
+
+function mapJobsCzCard(card: JobsCzCard): CreateJobInput {
+  const locationEvidence: JobLocationEvidence = {
+    rawLocation: card.location ?? null,
+    location: card.location ?? null,
+    countryKey: "czechia",
+    country: "Czechia",
+    city: card.location ?? null,
+    evidenceQuality: card.location ? "exact" : "weak",
+    source: "jobs.cz",
+  };
+
+  return {
+    source: "jobs-cz",
+    sourceJobId: card.sourceJobId,
+    title: card.title,
+    employer: card.employer,
+    jobUrl: card.jobUrl,
+    applicationLink: card.jobUrl,
+    location: card.location,
+    locationEvidence,
+    datePosted: card.postedAt,
+    jobDescription: card.jobDescription,
+  };
+}
+
+async function fetchPage(
+  url: string,
+  fetchImpl: typeof fetch,
+): Promise<string> {
+  const response = await fetchImpl(url, {
+    headers: { "user-agent": "job-ops/1.0" },
+  });
+  if (!response.ok) {
+    throw new Error(`Jobs.cz returned HTTP ${response.status}.`);
+  }
+  return response.text();
+}
+
+export async function runJobsCz(
+  options: RunJobsCzOptions = {},
+): Promise<JobsCzResult> {
+  const searchTerms = (options.searchTerms ?? []).map((term) => term.trim()).filter(Boolean);
+  const cityLocations = options.cityLocations ?? [];
+  const maxJobsPerTerm = Math.max(1, Math.floor(options.maxJobsPerTerm ?? 50));
+  const fetchImpl = options.fetchImpl ?? fetch;
+  const jobs: CreateJobInput[] = [];
+  const seenIds = new Set<string>();
+
+  try {
+    for (const [index, searchTerm] of searchTerms.entries()) {
+      if (options.shouldCancel?.()) break;
+      const termIndex = index + 1;
+      let termJobs = 0;
+      options.onProgress?.({
+        type: "term_start",
+        termIndex,
+        termTotal: searchTerms.length,
+        searchTerm,
+      });
+
+      for (let page = 1; page <= JOBS_CZ_MAX_PAGES && termJobs < maxJobsPerTerm; page += 1) {
+        if (options.shouldCancel?.()) break;
+        const html = await fetchPage(
+          buildJobsCzSearchUrl(searchTerm, page, cityLocations),
+          fetchImpl,
+        );
+        const cards = parseJobsCzCards(html);
+        if (cards.length === 0) break;
+
+        for (const card of cards) {
+          if (termJobs >= maxJobsPerTerm || seenIds.has(card.sourceJobId)) continue;
+          seenIds.add(card.sourceJobId);
+          jobs.push(mapJobsCzCard(card));
+          termJobs += 1;
+        }
+        options.onProgress?.({
+          type: "page_complete",
+          termIndex,
+          termTotal: searchTerms.length,
+          searchTerm,
+          page,
+          jobsFoundTerm: termJobs,
+        });
+      }
+
+      options.onProgress?.({
+        type: "term_complete",
+        termIndex,
+        termTotal: searchTerms.length,
+        searchTerm,
+        jobsFoundTerm: termJobs,
+      });
+    }
+
+    return { success: true, jobs };
+  } catch (error) {
+    return {
+      success: false,
+      jobs,
+      error: error instanceof Error ? error.message : String(error),
+    };
+  }
+}
