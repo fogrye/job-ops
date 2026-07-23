@@ -10,16 +10,16 @@ const card = (id: string, location: string) => `
   <article class="SearchResultCard">
     <a href="/r/${id}" data-jobad-id="${id}">Platform Engineer</a>
     <span translate="no">Acme s.r.o.</span>
-    <span data-test="serp-locality">${location}</span>
+    <span data-test="serp-locality"><svg viewBox="0 0 16 16"><path d="M1 1"/></svg>${location}</span>
     <div class="SearchResultCard__status">Today</div>
     <div class="SearchResultCard__body"><p>Build reliable systems.</p></div>
   </article>
 `;
 
 describe("Jobs.cz extractor", () => {
-  it("builds a Czech search URL with terms, cities, and page", () => {
-    expect(buildJobsCzSearchUrl("platform engineer", 2, ["Prague"])).toBe(
-      "https://www.jobs.cz/prace/?q=platform+engineer&locality=Prague&page=2",
+  it("builds a Czech search URL with terms and page", () => {
+    expect(buildJobsCzSearchUrl("platform engineer", 2)).toBe(
+      "https://www.jobs.cz/prace/?q=platform+engineer&page=2",
     );
   });
 
@@ -44,6 +44,7 @@ describe("Jobs.cz extractor", () => {
 
     const result = await runJobsCz({
       searchTerms: ["platform engineer"],
+      cityLocations: ["Prague"],
       maxJobsPerTerm: 2,
       fetchImpl,
     });
@@ -53,6 +54,7 @@ describe("Jobs.cz extractor", () => {
       expect.objectContaining({ source: "jobs-cz", sourceJobId: "123" }),
       expect.objectContaining({ source: "jobs-cz", sourceJobId: "456" }),
     ]);
+    expect(fetchImpl.mock.calls[0]?.[0]).not.toContain("locality");
     expect(fetchImpl).toHaveBeenCalledTimes(2);
     expect(fetchImpl.mock.calls[1]?.[0]).toContain("page=2");
   });

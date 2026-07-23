@@ -102,13 +102,9 @@ function firstMatchText(card: string, pattern: RegExp): string | undefined {
 export function buildJobsCzSearchUrl(
   searchTerm: string,
   page = 1,
-  cityLocations: string[] = [],
 ): string {
   const url = new URL(JOBS_CZ_SEARCH_PATH, JOBS_CZ_BASE_URL);
   url.searchParams.set("q", searchTerm);
-  for (const city of cityLocations) {
-    if (city.trim()) url.searchParams.append("locality", city.trim());
-  }
   if (page > 1) url.searchParams.set("page", String(page));
   return url.toString();
 }
@@ -135,9 +131,12 @@ export function parseJobsCzCards(html: string): JobsCzCard[] {
         card,
         /<span\b[^>]*translate\s*=\s*["'][^"']*["'][^>]*>([\s\S]*?)<\/span>/i,
       ) ?? "Jobs.cz";
-    const location = firstMatchText(
-      card,
-      /<[^>]*data-test\s*=\s*["']serp-locality["'][^>]*>([\s\S]*?)<\//i,
+    const location = getString(
+      stripHtml(
+        card.match(
+          /<([a-z][\w:-]*)\b[^>]*data-test\s*=\s*["']serp-locality["'][^>]*>([\s\S]*?)<\/\1>/i,
+        )?.[2] ?? "",
+      ),
     );
     const postedAt = firstMatchText(
       card,
@@ -204,7 +203,6 @@ export async function runJobsCz(
   options: RunJobsCzOptions = {},
 ): Promise<JobsCzResult> {
   const searchTerms = (options.searchTerms ?? []).map((term) => term.trim()).filter(Boolean);
-  const cityLocations = options.cityLocations ?? [];
   const maxJobsPerTerm = Math.max(1, Math.floor(options.maxJobsPerTerm ?? 50));
   const fetchImpl = options.fetchImpl ?? fetch;
   const jobs: CreateJobInput[] = [];
@@ -225,7 +223,7 @@ export async function runJobsCz(
       for (let page = 1; page <= JOBS_CZ_MAX_PAGES && termJobs < maxJobsPerTerm; page += 1) {
         if (options.shouldCancel?.()) break;
         const html = await fetchPage(
-          buildJobsCzSearchUrl(searchTerm, page, cityLocations),
+          buildJobsCzSearchUrl(searchTerm, page),
           fetchImpl,
         );
         const cards = parseJobsCzCards(html);

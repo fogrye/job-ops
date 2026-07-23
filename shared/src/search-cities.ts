@@ -8,6 +8,7 @@ const LOCATION_ALIASES: Record<string, string> = {
   uk: "united kingdom",
   us: "united states",
   usa: "united states",
+  prague: "praha",
 };
 
 export function normalizeLocationToken(
