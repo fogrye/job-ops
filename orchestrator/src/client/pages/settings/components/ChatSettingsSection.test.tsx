@@ -84,6 +84,7 @@ const ChatSettingsHarness = ({
       ghostwriterStopSlopEnabled: null,
       chatStyleSummaryMaxWords: null,
       chatStyleMaxKeywordsPerSkill: null,
+      tailorWorkHistory: null,
     },
   });
 
@@ -101,6 +102,7 @@ const ChatSettingsHarness = ({
             stopSlopEnabled: { effective: false, default: false },
             summaryMaxWords: { effective: null, default: null },
             maxKeywordsPerSkill: { effective: null, default: null },
+            tailorWorkHistory: { effective: false, default: false },
           }}
           isLoading={false}
           isSaving={false}
@@ -156,6 +158,17 @@ describe("ChatSettingsSection", () => {
       screen.getByLabelText("Use Stop Slop for Ghostwriter"),
     ).toBeInTheDocument();
     expect(screen.getByText(/Effective: Disabled/)).toBeInTheDocument();
+  });
+
+  it("renders the honest work-history tailoring toggle", () => {
+    render(<ChatSettingsHarness />);
+
+    expect(
+      screen.getByLabelText("Emphasize relevant work history"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/never writes new work-history claims/i),
+    ).toBeInTheDocument();
   });
 
   it("shows validation error when summary word limit is out of range", async () => {

@@ -16,6 +16,7 @@ import type {
   StageEvent,
   StageEventMetadata,
   StageTransitionTarget,
+  TailoredExperienceView,
   TracerAnalyticsResponse,
   TracerReadinessResponse,
 } from "@shared/types";
@@ -308,7 +309,7 @@ export async function summarizeJob(
   id: string,
   options?: {
     force?: boolean;
-    fields?: Array<"summary" | "headline" | "skills">;
+    fields?: Array<"summary" | "headline" | "skills" | "experience">;
   },
 ): Promise<Job> {
   const params = new URLSearchParams();
@@ -324,6 +325,12 @@ export async function generateJobPdf(id: string): Promise<Job> {
   return fetchApi<Job>(`/jobs/${id}/generate-pdf`, {
     method: "POST",
   });
+}
+
+export async function getJobTailoredExperienceView(
+  id: string,
+): Promise<TailoredExperienceView> {
+  return fetchApi<TailoredExperienceView>(`/jobs/${id}/tailoring/experience`);
 }
 
 export async function checkSponsor(id: string): Promise<Job> {

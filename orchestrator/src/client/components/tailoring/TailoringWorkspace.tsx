@@ -2,7 +2,7 @@ import * as api from "@client/api";
 import { useProfile } from "@client/hooks/useProfile";
 import { useSettings } from "@client/hooks/useSettings";
 import { useTracerReadiness } from "@client/hooks/useTracerReadiness";
-import type { Job } from "@shared/types.js";
+import type { Job, TailoredExperienceView } from "@shared/types.js";
 import {
   Check,
   CircleAlert,
@@ -56,7 +56,12 @@ interface TailoringBaseline {
 }
 
 type AutosaveStatus = "saved" | "unsaved" | "saving" | "error";
-type TailoringGenerateTarget = "all" | "summary" | "headline" | "skills";
+type TailoringGenerateTarget =
+  | "all"
+  | "summary"
+  | "headline"
+  | "skills"
+  | "experience";
 
 const AutosaveStatusIcon: React.FC<{ status: AutosaveStatus }> = ({
   status,
@@ -111,6 +116,7 @@ const toSavePayloadFromJob = (job: Job): TailoringSavePayload => ({
   tailoredSummary: job.tailoredSummary ?? "",
   tailoredHeadline: job.tailoredHeadline ?? "",
   tailoredSkills: normalizeSkillsJson(job.tailoredSkills),
+  tailoredExperience: job.tailoredExperience,
   jobDescription: job.jobDescription ?? "",
   selectedProjectIds: job.selectedProjectIds ?? "",
   tracerLinksEnabled: Boolean(job.tracerLinksEnabled),
@@ -138,6 +144,8 @@ export const TailoringWorkspace: React.FC<TailoringWorkspaceProps> = (
     openSkillGroupId,
     setOpenSkillGroupId,
     skillsJson,
+    tailoredExperience,
+    setTailoredExperience,
     isDirty,
     savedPayloadKey,
     applyIncomingDraft,
@@ -156,6 +164,8 @@ export const TailoringWorkspace: React.FC<TailoringWorkspaceProps> = (
   const [generateTarget, setGenerateTarget] =
     useState<TailoringGenerateTarget | null>(null);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+  const [experienceView, setExperienceView] =
+    useState<TailoredExperienceView | null>(null);
   const autosaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const saveInFlightRef = useRef<Promise<void> | null>(null);
   const saveAgainRef = useRef(false);
@@ -184,6 +194,21 @@ export const TailoringWorkspace: React.FC<TailoringWorkspaceProps> = (
     };
   }, [profile]);
   const canUseOriginalValues = Boolean(profile) && !profileError;
+  useEffect(() => {
+    let active = true;
+    setExperienceView(null);
+    void api
+      .getJobTailoredExperienceView(props.job.id)
+      .then((view) => {
+        if (active) setExperienceView(view);
+      })
+      .catch(() => {
+        if (active) setExperienceView(null);
+      });
+    return () => {
+      active = false;
+    };
+  }, [props.job.id]);
   const [aiBaseline, setAiBaseline] = useState<TailoringBaseline>(() =>
     toBaselineFromJob(props.job),
   );
@@ -213,6 +238,7 @@ export const TailoringWorkspace: React.FC<TailoringWorkspaceProps> = (
       tailoredSummary: summary,
       tailoredHeadline: headline,
       tailoredSkills: skillsJson,
+      tailoredExperience,
       jobDescription,
       selectedProjectIds: selectedIdsCsv,
       tracerLinksEnabled,
@@ -221,6 +247,7 @@ export const TailoringWorkspace: React.FC<TailoringWorkspaceProps> = (
       summary,
       headline,
       skillsJson,
+      tailoredExperience,
       jobDescription,
       selectedIdsCsv,
       tracerLinksEnabled,
@@ -386,6 +413,11 @@ export const TailoringWorkspace: React.FC<TailoringWorkspaceProps> = (
         });
         applyIncomingDraft(updatedJob);
         setAiBaseline(toBaselineFromJob(updatedJob));
+        if (target === "all" || target === "experience") {
+          setExperienceView(
+            await api.getJobTailoredExperienceView(props.job.id),
+          );
+        }
         toast.success(
           target === "all"
             ? "Draft content generated"
@@ -416,6 +448,42 @@ export const TailoringWorkspace: React.FC<TailoringWorkspaceProps> = (
   const handleGenerateSkills = useCallback(async () => {
     await handleGenerateTailoring("skills");
   }, [handleGenerateTailoring]);
+  const workHistoryTailoringEnabled =
+    settings?.tailorWorkHistory?.value ?? false;
+  const experienceDisabled =
+    isSettingsLoading || !workHistoryTailoringEnabled || !canUseOriginalValues;
+  const handleGenerateExperience = useCallback(async () => {
+    await handleGenerateTailoring("experience");
+  }, [handleGenerateTailoring]);
+  const handleExperienceChange = useCallback(
+    (value: string) => setTailoredExperience(value),
+    [setTailoredExperience],
+  );
+  const handleResetExperience = useCallback(() => {
+    setTailoredExperience(null);
+    setExperienceView((current) =>
+      current
+        ? {
+            ...current,
+            status: "original",
+            entries: current.entries.map((entry) => ({
+              ...entry,
+              groups: entry.groups.map((group) => ({
+                ...group,
+                selectedUnitIds: group.units.map((unit) => unit.id),
+              })),
+              roles: entry.roles.map((role) => ({
+                ...role,
+                groups: role.groups.map((group) => ({
+                  ...group,
+                  selectedUnitIds: group.units.map((unit) => unit.id),
+                })),
+              })),
+            })),
+          }
+        : current,
+    );
+  }, [setTailoredExperience]);
 
   const handleGeneratePdf = useCallback(async () => {
     try {
@@ -494,6 +562,13 @@ export const TailoringWorkspace: React.FC<TailoringWorkspaceProps> = (
         generateTarget === "skills"
           ? generateTarget
           : null,
+      experienceView,
+      experienceDisabled,
+      experienceGenerating:
+        generateTarget === "experience" || generateTarget === "all",
+      onGenerateExperience: handleGenerateExperience,
+      onResetExperience: handleResetExperience,
+      onExperienceChange: handleExperienceChange,
       openSkillGroupId,
       disableInputs,
       onGenerateSummary: handleGenerateSummary,
@@ -560,6 +635,11 @@ export const TailoringWorkspace: React.FC<TailoringWorkspaceProps> = (
       skillsJson,
       aiBaseline,
       setJobDescription,
+      experienceView,
+      experienceDisabled,
+      handleGenerateExperience,
+      handleResetExperience,
+      handleExperienceChange,
       setOpenSkillGroupId,
       handleAddSkillGroup,
       handleUpdateSkillGroup,

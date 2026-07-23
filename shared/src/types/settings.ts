@@ -168,6 +168,11 @@ export interface ResumeProfile {
         location: string;
         date: string;
         summary: string;
+        description?: string;
+        roles?: Array<{
+          id: string;
+          description?: string;
+        }>;
         visible: boolean;
       }>;
     };
@@ -279,6 +284,7 @@ export interface AppSettings {
   showSponsorInfo: Resolved<boolean>;
   renderMarkdownInJobDescriptions: Resolved<boolean>;
   autoTailorOnManualImport: Resolved<boolean>;
+  tailorWorkHistory: Resolved<boolean>;
   chatStyleTone: Resolved<string>;
   chatStyleFormality: Resolved<string>;
   chatStyleConstraints: Resolved<string>;

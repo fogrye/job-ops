@@ -134,8 +134,6 @@ export const DisplaySettingsSection: React.FC<DisplaySettingsSectionProps> = ({
           </div>
         </div>
 
-        <Separator />
-
         <div className="grid gap-3 text-sm sm:grid-cols-2">
           <div>
             <div className="text-xs text-muted-foreground">

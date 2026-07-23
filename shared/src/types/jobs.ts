@@ -171,6 +171,40 @@ export interface JobBrief {
   repeated_signals: string[];
 }
 
+export interface TailoredExperienceViewUnit {
+  id: string;
+  text: string;
+}
+
+export interface TailoredExperienceViewGroup {
+  id: string;
+  units: TailoredExperienceViewUnit[];
+  selectedUnitIds: string[];
+}
+
+export interface TailoredExperienceViewRole {
+  id: string;
+  position: string;
+  date: string;
+  location: string;
+  groups: TailoredExperienceViewGroup[];
+}
+
+export interface TailoredExperienceViewEntry {
+  id: string;
+  company: string;
+  position: string;
+  date: string;
+  location: string;
+  groups: TailoredExperienceViewGroup[];
+  roles: TailoredExperienceViewRole[];
+}
+
+export interface TailoredExperienceView {
+  status: "original" | "tailored" | "stale";
+  entries: TailoredExperienceViewEntry[];
+}
+
 export interface Job {
   id: string;
 
@@ -206,6 +240,7 @@ export interface Job {
   tailoredSummary: string | null; // Generated resume summary
   tailoredHeadline: string | null; // Generated resume headline
   tailoredSkills: string | null; // Generated resume skills (JSON)
+  tailoredExperience: string | null; // Selected source work-history units (JSON)
   selectedProjectIds: string | null; // Comma-separated IDs of selected projects
   pdfPath: string | null; // Path to generated PDF
   pdfSource: JobPdfSource | null; // Whether PDF was system-generated or user-uploaded
@@ -566,6 +601,7 @@ export interface UpdateJobInput {
   tailoredSummary?: string;
   tailoredHeadline?: string;
   tailoredSkills?: string;
+  tailoredExperience?: string | null;
   selectedProjectIds?: string;
   pdfPath?: string;
   pdfSource?: JobPdfSource | null;

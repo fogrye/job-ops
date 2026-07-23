@@ -114,6 +114,8 @@ Settings gives you runtime overrides for the key parts of discovery, scoring, ta
 - Summary max words: optional cap on AI-generated summary length (empty = no limit)
 - Max keywords per skill: optional cap on keywords per skill category in tailoring (empty = no limit)
 - These numeric limits override any similar constraints written in the Constraints text field
+- `Emphasize relevant work history`: when enabled, Job Tailoring selects and reorders existing work-history bullets or paragraphs that support the vacancy; it never generates replacement work-history prose or new claims
+- Default: disabled; changing the setting affects newly generated or regenerated tailoring, not existing jobs automatically
 - Do-not-use terms are model guidance, not a guaranteed output filter
 - `Use Stop Slop for Ghostwriter` is disabled by default and affects only new Ghostwriter responses after you save
 

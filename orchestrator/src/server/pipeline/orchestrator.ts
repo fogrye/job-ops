@@ -14,6 +14,7 @@ import { trackServerProductEvent } from "@infra/product-analytics";
 import { runWithRequestContext } from "@infra/request-context";
 import { getPrivateDataScope } from "@server/tenancy/private-scope";
 import { createLocationIntentFromLegacyInputs } from "@shared/location-domain.js";
+import { settingsRegistry } from "@shared/settings-registry";
 import type {
   JobStatus,
   PipelineConfig,
@@ -39,6 +40,7 @@ import {
   extractProjectsFromProfile,
   resolveResumeProjectsSettings,
 } from "../services/resumeProjects";
+import { parseTailoredExperienceInput } from "../services/rxresume/tailoring";
 import { LlmNotConfiguredError } from "../services/scorer";
 import { generateTailoring } from "../services/summary";
 import {
@@ -618,7 +620,7 @@ export async function runPipeline(
 
 export type ProcessJobOptions = {
   force?: boolean;
-  fields?: Array<"summary" | "headline" | "skills">;
+  fields?: Array<"summary" | "headline" | "skills" | "experience">;
   requestOrigin?: string | null;
   analyticsOrigin?:
     | "move_to_ready"
@@ -672,6 +674,11 @@ export async function summarizeJob(
       let tailoredSummary = job.tailoredSummary;
       let tailoredHeadline = job.tailoredHeadline;
       let tailoredSkills = job.tailoredSkills;
+      let tailoredExperience = job.tailoredExperience;
+      const workHistoryTailoringEnabled =
+        settingsRegistry.tailorWorkHistory.parse(
+          (await settingsRepo.getSetting("tailorWorkHistory")) ?? undefined,
+        ) ?? settingsRegistry.tailorWorkHistory.default();
       const requestedFields = options?.fields;
       const shouldUpdateAllTailoring = !requestedFields?.length;
       const shouldUpdateSummary =
@@ -680,12 +687,26 @@ export async function summarizeJob(
         shouldUpdateAllTailoring || requestedFields.includes("headline");
       const shouldUpdateSkills =
         shouldUpdateAllTailoring || requestedFields.includes("skills");
+      const shouldUpdateExperience =
+        shouldUpdateAllTailoring || requestedFields.includes("experience");
+      if (shouldUpdateExperience && !workHistoryTailoringEnabled) {
+        tailoredExperience = null;
+      }
       const shouldGenerateTailoring =
-        shouldUpdateSummary || shouldUpdateHeadline || shouldUpdateSkills;
-
+        shouldUpdateSummary ||
+        shouldUpdateHeadline ||
+        shouldUpdateSkills ||
+        (shouldUpdateExperience && workHistoryTailoringEnabled);
+      const needsGeneratedExperience =
+        shouldUpdateExperience &&
+        workHistoryTailoringEnabled &&
+        !tailoredExperience;
       if (
         shouldGenerateTailoring &&
-        (!tailoredSummary || !tailoredHeadline || options?.force)
+        (!tailoredSummary ||
+          !tailoredHeadline ||
+          needsGeneratedExperience ||
+          options?.force)
       ) {
         jobLogger.info("Generating tailoring content");
         await reserveTailoringUsage();
@@ -704,10 +725,18 @@ export async function summarizeJob(
           if (shouldUpdateSkills) {
             tailoredSkills = JSON.stringify(tailoringResult.data.skills);
           }
+          if (shouldUpdateExperience) {
+            tailoredExperience = tailoringResult.data.experience
+              ? JSON.stringify(tailoringResult.data.experience)
+              : null;
+          }
         } else if (
           options?.force ||
           (shouldUpdateSummary && !tailoredSummary) ||
-          (shouldUpdateHeadline && !tailoredHeadline)
+          (shouldUpdateHeadline && !tailoredHeadline) ||
+          (shouldUpdateExperience &&
+            workHistoryTailoringEnabled &&
+            !tailoredExperience)
         ) {
           await settleTailoringUsage();
           return {
@@ -788,6 +817,7 @@ export async function summarizeJob(
         ...(shouldUpdateSkills
           ? { tailoredSkills: tailoredSkills ?? undefined }
           : {}),
+        ...(shouldUpdateExperience ? { tailoredExperience } : {}),
         ...(shouldUpdateAllTailoring
           ? { selectedProjectIds: selectedProjectIds ?? undefined }
           : {}),
@@ -871,6 +901,7 @@ export async function generateFinalPdf(
           summary: job.tailoredSummary || "",
           headline: job.tailoredHeadline || "",
           skills: job.tailoredSkills ? JSON.parse(job.tailoredSkills) : [],
+          experience: parseTailoredExperienceInput(job.tailoredExperience),
         },
         job.jobDescription || "",
         undefined, // deprecated baseResumePath parameter

@@ -2,6 +2,7 @@ import { TokenizedInput } from "@client/pages/orchestrator/TokenizedInput";
 import type {
   ResumeProjectCatalogItem,
   ResumeProjectsSettings,
+  TailoredExperienceView,
 } from "@shared/types.js";
 import {
   CheckCircle2,
@@ -28,6 +29,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
 import { ProjectSelector } from "../discovered-panel/ProjectSelector";
 import type { EditableSkillGroup } from "../tailoring-utils";
+import { TailoredExperienceSection } from "./TailoredExperienceSection";
 
 interface TailoringSectionsProps {
   catalog: ResumeProjectCatalogItem[];
@@ -44,6 +46,9 @@ interface TailoringSectionsProps {
   tracerEnableBlockedReason: string | null;
   tracerReadinessChecking?: boolean;
   generatingSection: "summary" | "headline" | "skills" | null;
+  experienceView: TailoredExperienceView | null;
+  experienceDisabled: boolean;
+  experienceGenerating: boolean;
   openSkillGroupId: string;
   disableInputs: boolean;
   onGenerateSummary: () => void;
@@ -75,6 +80,9 @@ interface TailoringSectionsProps {
   onRemoveSkillGroup: (id: string) => void;
   onToggleProject: (id: string) => void;
   onTracerLinksEnabledChange: (value: boolean) => void;
+  onGenerateExperience: () => void;
+  onResetExperience: () => void;
+  onExperienceChange: (value: string) => void;
 }
 
 type SectionState =
@@ -360,6 +368,12 @@ export const TailoringSections: React.FC<TailoringSectionsProps> = ({
   onRemoveSkillGroup,
   onToggleProject,
   onTracerLinksEnabledChange,
+  experienceView,
+  experienceDisabled,
+  experienceGenerating,
+  onGenerateExperience,
+  onResetExperience,
+  onExperienceChange,
 }) => {
   const [keywordDrafts, setKeywordDrafts] = useState<Record<string, string>>(
     {},
@@ -699,6 +713,15 @@ export const TailoringSections: React.FC<TailoringSectionsProps> = ({
           )}
         </AccordionContent>
       </AccordionItem>
+
+      <TailoredExperienceSection
+        view={experienceView}
+        disabled={disableInputs || experienceDisabled}
+        generating={experienceGenerating}
+        onGenerate={onGenerateExperience}
+        onReset={onResetExperience}
+        onChange={onExperienceChange}
+      />
 
       {!isCatalogLoading && catalog.length > 0 && (
         <AccordionItem value="projects" className={sectionClass}>

@@ -43,7 +43,7 @@ Writing style formality: {{formality}}.
     ] as const,
     defaultTemplate: `
 You are an expert resume writer tailoring a profile for a specific job application.
-You must return a JSON object with three fields: "headline", "summary", and "skills".
+You must return a JSON object with "headline", "summary", and "skills". When the appended work-history contract is present, also return its ID-only "experience" selection.
 
 JOB DESCRIPTION (JD):
 {{jobDescription}}
@@ -86,6 +86,7 @@ OUTPUT FORMAT (JSON):
   "summary": "...",
   "skills": [ ... ]
 }
+When work-history tailoring is enabled, include the additional ID-only "experience" field required by the appended contract.
 `.trim(),
   },
   scoringPromptTemplate: {

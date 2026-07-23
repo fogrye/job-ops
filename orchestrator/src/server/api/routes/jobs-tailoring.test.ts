@@ -47,6 +47,32 @@ describe.sequential("Jobs tailoring PATCH route", () => {
     return jobId;
   }
 
+  it("returns the source experience view for a known job", async () => {
+    const jobId = await createManualJobId();
+
+    const response = await fetch(
+      `${baseUrl}/api/jobs/${jobId}/tailoring/experience`,
+      { headers: { Connection: "close" } },
+    );
+
+    expect(response.status).toBe(200);
+    const body = (await response.json()) as {
+      ok: boolean;
+      data?: { status: string; entries: unknown[] };
+    };
+    expect(body.ok).toBe(true);
+    expect(body.data).toEqual({ status: "original", entries: [] });
+  });
+
+  it("returns 404 for an unknown job experience view", async () => {
+    const response = await fetch(
+      `${baseUrl}/api/jobs/missing-job/tailoring/experience`,
+      { headers: { Connection: "close" } },
+    );
+
+    expect(response.status).toBe(404);
+  });
+
   it("accepts tailoredHeadline and tailoredSkills when JSON shape is valid", async () => {
     const jobId = await createManualJobId();
     const skills = JSON.stringify([

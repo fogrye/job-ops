@@ -72,6 +72,7 @@ export const ChatSettingsSection: React.FC<ChatSettingsSectionProps> = ({
     stopSlopEnabled,
     summaryMaxWords,
     maxKeywordsPerSkill,
+    tailorWorkHistory,
   } = values;
 
   const {
@@ -130,6 +131,39 @@ export const ChatSettingsSection: React.FC<ChatSettingsSectionProps> = ({
           These defaults shape AI-generated writing across Ghostwriter and
           resume tailoring.
         </p>
+
+        <Separator />
+
+        <div className="flex items-start space-x-3">
+          <Controller
+            name="tailorWorkHistory"
+            control={control}
+            render={({ field }) => (
+              <Checkbox
+                id="tailorWorkHistory"
+                checked={field.value ?? tailorWorkHistory.default}
+                onCheckedChange={(checked) => {
+                  field.onChange(
+                    checked === "indeterminate" ? null : checked === true,
+                  );
+                }}
+                disabled={isLoading || isSaving}
+              />
+            )}
+          />
+          <div className="flex flex-col gap-1.5">
+            <label
+              htmlFor="tailorWorkHistory"
+              className="text-sm font-medium leading-none cursor-pointer"
+            >
+              Emphasize relevant work history
+            </label>
+            <p className="text-xs text-muted-foreground">
+              Select and reorder existing work-history content that supports a
+              vacancy. JobOps never writes new work-history claims.
+            </p>
+          </div>
+        </div>
 
         <div className="space-y-2">
           <label htmlFor="writingStylePreset" className="text-sm font-medium">

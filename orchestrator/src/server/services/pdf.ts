@@ -35,7 +35,10 @@ import {
   prepareReactiveResumeV5DocumentForExternalUse,
 } from "./rxresume/document";
 import { parseV5ResumeData } from "./rxresume/schema/v5";
-import type { TailoredSkillsInput } from "./rxresume/tailoring";
+import type {
+  TailoredExperienceInput,
+  TailoredSkillsInput,
+} from "./rxresume/tailoring";
 import { getWritingStyle } from "./writing-style";
 
 export interface PdfResult {
@@ -49,6 +52,7 @@ export interface TailoredPdfContent {
   summary?: string | null;
   headline?: string | null;
   skills?: TailoredSkillsInput;
+  experience?: TailoredExperienceInput | null;
 }
 
 export interface GeneratePdfOptions {

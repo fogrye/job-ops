@@ -37,6 +37,7 @@ export const createJob = (overrides: Partial<Job> = {}): Job => ({
   tailoredSummary: null,
   tailoredHeadline: null,
   tailoredSkills: null,
+  tailoredExperience: null,
   selectedProjectIds: null,
   pdfPath: null,
   pdfSource: null,
@@ -275,6 +276,11 @@ export const createAppSettings = (
   autoTailorOnManualImport: {
     value: true,
     default: true,
+    override: null,
+  },
+  tailorWorkHistory: {
+    value: false,
+    default: false,
     override: null,
   },
   chatStyleTone: {
