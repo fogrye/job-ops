@@ -12,6 +12,7 @@ export interface LatexResumeEntry {
   secondaryTitle?: string | null;
   secondarySubtitle?: string | null;
   date?: string | null;
+  description?: string | null;
   bullets: string[];
   url?: string | null;
   linkLabel?: string | null;

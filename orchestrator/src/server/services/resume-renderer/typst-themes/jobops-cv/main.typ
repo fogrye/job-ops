@@ -59,11 +59,11 @@
   ]
 }
 
-#let timeline-entry(entry, lead: none, heading: none, show-responsibilities: false) = {
+#let timeline-entry(entry, lead: none, heading: none) = {
   let title = if heading != none { heading } else { entry-line(entry) }
   let link = text-of-item(entry, "url")
   let date = text-of-item(entry, "date")
-  let entry-bullets = list-of(entry.at("bullets", default: ()))
+  let description = text-of-item(entry, "description")
   [
     #grid(
       columns: (1fr, auto),
@@ -75,9 +75,7 @@
       ],
       [#date-style(date)],
     )
-    #if show-responsibilities and entry-bullets.len() > 0 [
-      #text(size: 10.5pt)[Key responsibilities:]
-    ]
+    #if description != "" [#body-style(markup-text(description))]
     #bullets(entry)
     #v(4pt)
   ]
@@ -198,7 +196,6 @@
         entry,
         lead: row-title(text-of-item(entry, "title")),
         heading: text-of-item(entry, "subtitle"),
-        show-responsibilities: true,
       )
     ]
   ]

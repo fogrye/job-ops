@@ -187,6 +187,16 @@ function extractBullets(value: unknown): string[] {
     .filter(Boolean);
 }
 
+function extractDescription(value: unknown): string | null {
+  if (typeof value !== "string" || !value.trim()) return null;
+  if (!/<(?:ul|ol)\b/i.test(value)) return null;
+
+  const description = stripHtml(
+    value.replace(/<(ul|ol)\b[^>]*>[\s\S]*?<\/\1>/gi, " "),
+  );
+  return description || null;
+}
+
 function getSectionRecord(resumeJson: RecordLike, key: string): RecordLike {
   const sections = (asRecord(resumeJson.sections) ?? {}) as RecordLike;
   return (asRecord(sections[key]) ?? {}) as RecordLike;
@@ -352,6 +362,7 @@ function buildExperienceEntries(resumeJson: RecordLike): LatexResumeEntry[] {
         joinNonEmpty([toText(item.position), toText(item.location)], " / ") ||
         null,
       date: toText(item.period) || null,
+      description: extractDescription(item.description),
       bullets: extractBullets(item.description),
       url: toText(getByPath(item, "website.url")) || undefined,
     }),

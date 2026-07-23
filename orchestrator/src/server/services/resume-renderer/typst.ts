@@ -278,11 +278,15 @@ function renderSubheadingEntry(
   const subline = [subtitle || secondaryTitle, secondarySubtitle]
     .filter(Boolean)
     .join(" / ");
+  const description = entry.description
+    ? escapeTypstText(entry.description)
+    : "";
   const bullets = renderBullets(entry.bullets);
 
   return [
     renderEntryHeader(entry, metaSize),
     subline ? `#emph[${subline}]` : "",
+    description,
     bullets,
   ]
     .filter(Boolean)
@@ -684,6 +688,9 @@ export function convertDocFieldsToTypst(
 
   const convertEntry = (entry: LatexResumeEntry): LatexResumeEntry => ({
     ...entry,
+    description: entry.description
+      ? escapeTypstText(entry.description)
+      : entry.description,
     bullets: convertBullets(entry.bullets),
   });
 
