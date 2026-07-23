@@ -40,6 +40,10 @@ describe("orchestrator utils", () => {
     expect(getEnabledSources(createAppSettings())).toContain("jobindex");
   });
 
+  it("enables jobs.cz without credentials", () => {
+    expect(getEnabledSources(createAppSettings())).toContain("jobs-cz");
+  });
+
   it("enables seek only when apify token is configured", () => {
     const withToken = createAppSettings({ apifyTokenHint: "sk-" });
     const withoutToken = createAppSettings({ apifyTokenHint: null });

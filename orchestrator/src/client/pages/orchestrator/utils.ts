@@ -334,7 +334,7 @@ export const getEnabledSources = (
       enabled.push(source);
       continue;
     }
-    if (source === "jobindex") {
+    if (source === "jobindex" || source === "jobs-cz") {
       enabled.push(source);
       continue;
     }
