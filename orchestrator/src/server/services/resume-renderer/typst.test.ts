@@ -201,9 +201,13 @@ describe("typst resume renderer", () => {
         typstTheme: "classic",
       });
 
-      const pdfText = await extractPdfText(outputPath);
-      expect(pdfText).toContain("Led platform modernization.");
-      expect(pdfText).toContain("Improved API reliability");
+      const pdfLines = (await extractPdfText(outputPath))
+        .split(/\r?\n/)
+        .map((line) => line.replace(/\s+/g, " ").trim());
+      expect(pdfLines).toContain("Led platform modernization.");
+      expect(
+        pdfLines.some((line) => line.includes("Improved API reliability")),
+      ).toBe(true);
     },
   );
 

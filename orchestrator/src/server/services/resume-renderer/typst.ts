@@ -286,6 +286,7 @@ function renderSubheadingEntry(
   return [
     renderEntryHeader(entry, metaSize),
     subline ? `#emph[${subline}]` : "",
+    subline && description ? "#linebreak()" : "",
     description,
     bullets,
   ]
