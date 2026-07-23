@@ -62,6 +62,46 @@ describe("TailoredExperienceSection", () => {
     ).toBeEnabled();
   });
 
+  it("renders and serializes reordered selected units", () => {
+    const onChange = vi.fn();
+    render(
+      <Accordion type="multiple">
+        <TailoredExperienceSection
+          view={view}
+          disabled={false}
+          generating={false}
+          onGenerate={vi.fn()}
+          onReset={vi.fn()}
+          onChange={onChange}
+        />
+      </Accordion>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Experience" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Move experience unit 2 up" }),
+    );
+
+    const unitOne = screen.getByText("Built reliable APIs.");
+    const unitTwo = screen.getByText("Improved query performance.");
+    expect(
+      unitTwo.compareDocumentPosition(unitOne) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(JSON.parse(onChange.mock.calls.at(-1)?.[0] ?? "")).toEqual({
+      entries: [
+        {
+          id: "entry-1",
+          groups: [
+            {
+              id: "entry-1-group-1",
+              unitIds: ["unit-2", "unit-1"],
+            },
+          ],
+        },
+      ],
+    });
+  });
+
   it("explains and disables selection controls when tailoring is off", () => {
     renderSection(true);
     fireEvent.click(screen.getByRole("button", { name: "Experience" }));

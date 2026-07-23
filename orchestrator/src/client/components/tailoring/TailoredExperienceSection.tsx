@@ -117,11 +117,20 @@ const GroupUnits: React.FC<{
   onChange: (value: string) => void;
 }> = ({ view, entryId, roleId, group, disabled, onChange }) => {
   const selected = new Set(group.selectedUnitIds);
+  const units = [
+    ...group.selectedUnitIds
+      .map((id) => group.units.find((unit) => unit.id === id))
+      .filter((unit): unit is TailoredExperienceViewGroup["units"][number] =>
+        Boolean(unit),
+      ),
+    ...group.units.filter((unit) => !selected.has(unit.id)),
+  ];
   return (
     <div className="space-y-1 rounded-md border border-border/45 bg-background/35 p-2">
-      {group.units.map((unit, index) => {
+      {units.map((unit) => {
         const isSelected = selected.has(unit.id);
         const selectedIndex = group.selectedUnitIds.indexOf(unit.id);
+        const sourceIndex = group.units.findIndex(({ id }) => id === unit.id);
         return (
           <div
             key={unit.id}
@@ -144,7 +153,7 @@ const GroupUnits: React.FC<{
                   }),
                 )
               }
-              aria-label={`${isSelected ? "Keep" : "Include"} experience unit ${index + 1}`}
+              aria-label={`${isSelected ? "Keep" : "Include"} experience unit ${sourceIndex + 1}`}
             />
             <span className="min-w-0 flex-1 text-xs leading-5 text-foreground/85">
               {unit.text || "Source content"}
@@ -169,7 +178,7 @@ const GroupUnits: React.FC<{
                       }),
                     )
                   }
-                  aria-label={`Move experience unit ${index + 1} up`}
+                  aria-label={`Move experience unit ${sourceIndex + 1} up`}
                 >
                   <ArrowUp className="h-3.5 w-3.5" />
                 </Button>
@@ -194,7 +203,7 @@ const GroupUnits: React.FC<{
                       }),
                     )
                   }
-                  aria-label={`Move experience unit ${index + 1} down`}
+                  aria-label={`Move experience unit ${sourceIndex + 1} down`}
                 >
                   <ArrowDown className="h-3.5 w-3.5" />
                 </Button>
