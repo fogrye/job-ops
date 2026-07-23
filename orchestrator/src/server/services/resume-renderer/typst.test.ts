@@ -37,6 +37,7 @@ const baseDocument: ResumeRenderDocument = {
       title: "Acme",
       subtitle: "Platform Engineer | Remote",
       date: "2023 -- Present",
+      description: "Led platform modernization.",
       bullets: ["Improved API reliability", "Reduced operator toil"],
       url: "https://acme.example.com",
       linkLabel: "Acme",
@@ -181,8 +182,30 @@ describe("typst resume renderer", () => {
     expect(typst).toContain("Jane Doe");
     expect(typst).toContain("= Summary");
     expect(typst).toContain("= Experience");
+    expect(typst).toContain("Led platform modernization.");
+    expect(typst).toContain("- Improved API reliability");
     expect(typst).toContain("= Technical Skills");
   });
+
+  it.skipIf(!typstAvailable())(
+    "renders classic experience description and bullets",
+    async () => {
+      const tempDir = await createTempDir();
+      tempDirs.push(tempDir);
+      const outputPath = join(tempDir, "classic-experience.pdf");
+
+      await renderTypstPdf({
+        document: baseDocument,
+        outputPath,
+        jobId: "job-render-classic-experience",
+        typstTheme: "classic",
+      });
+
+      const pdfText = await extractPdfText(outputPath);
+      expect(pdfText).toContain("Led platform modernization.");
+      expect(pdfText).toContain("Improved API reliability");
+    },
+  );
 
   it("renders compact theme tokens and localized section titles", async () => {
     const tokens = await readNativeThemeTokens("compact");
@@ -546,6 +569,13 @@ describe("typst resume renderer", () => {
       const pdfLines = (await extractPdfText(outputPath))
         .split(/\r?\n/)
         .map((line) => line.replace(/\s+/g, " ").trim());
+      expect(
+        pdfLines.some((line) => line.includes("Led platform modernization.")),
+      ).toBe(true);
+      expect(
+        pdfLines.some((line) => line.includes("Improved API reliability")),
+      ).toBe(true);
+      expect(pdfLines).not.toContain("Key responsibilities:");
       expect(pdfLines).toContain("Backend: TypeScript.");
       expect(pdfLines).toContain("Shell: Bash, Zsh.");
       expect(pdfLines.some((line) => line.startsWith("Empty:"))).toBe(false);

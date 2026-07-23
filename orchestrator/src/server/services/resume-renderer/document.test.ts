@@ -68,7 +68,8 @@ describe("normalizeResumeJsonToLatexDocument", () => {
               location: "Remote",
               period: "2023 -- Present",
               website: { url: "https://acme.example.com" },
-              description: "<ul><li>Improved API reliability</li></ul>",
+              description:
+                "<p>Led platform modernization.</p><ul><li>Improved API reliability</li></ul>",
             },
           ],
         },
@@ -231,6 +232,12 @@ describe("normalizeResumeJsonToLatexDocument", () => {
     expect(document.sectionTitles?.customFields).toBe("Highlights");
     expect(document.summary).toBe("Builds resilient platform systems.");
     expect(document.experience).toHaveLength(1);
+    expect(document.experience[0]?.description).toBe(
+      "Led platform modernization.",
+    );
+    expect(document.experience[0]?.bullets).toEqual([
+      "Improved API reliability",
+    ]);
     expect(document.education).toHaveLength(1);
     expect(document.projects).toHaveLength(1);
     expect(document.skillGroups).toHaveLength(1);
