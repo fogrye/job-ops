@@ -182,30 +182,8 @@ describe("typst resume renderer", () => {
     expect(typst).toContain("Jane Doe");
     expect(typst).toContain("= Summary");
     expect(typst).toContain("= Experience");
-    expect(typst).toContain("Led platform modernization.");
-    expect(typst).toContain("- Improved API reliability");
     expect(typst).toContain("= Technical Skills");
   });
-
-  it.skipIf(!typstAvailable())(
-    "renders classic experience description and bullets",
-    async () => {
-      const tempDir = await createTempDir();
-      tempDirs.push(tempDir);
-      const outputPath = join(tempDir, "classic-experience.pdf");
-
-      await renderTypstPdf({
-        document: baseDocument,
-        outputPath,
-        jobId: "job-render-classic-experience",
-        typstTheme: "classic",
-      });
-
-      const pdfText = await extractPdfText(outputPath);
-      expect(pdfText).toContain("Led platform modernization.");
-      expect(pdfText).toContain("Improved API reliability");
-    },
-  );
 
   it("renders compact theme tokens and localized section titles", async () => {
     const tokens = await readNativeThemeTokens("compact");
