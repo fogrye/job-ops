@@ -3,6 +3,16 @@ import type { CreateJobInput, JobLocationEvidence } from "@shared/types/jobs";
 const JOBS_CZ_BASE_URL = "https://www.jobs.cz";
 const JOBS_CZ_SEARCH_PATH = "/prace/";
 const JOBS_CZ_MAX_PAGES = 50;
+const JOBS_CZ_WIDGET_API_URL = "https://api.capybara.lmc.cz/api/graphql/widget";
+const JOBS_CZ_WIDGET_DETAIL_QUERY = `
+  query DETAIL_QUERY($widgetId: ID!, $jobAdId: ID!, $host: String) {
+    widget(id: $widgetId, host: $host) {
+      jobAd(id: $jobAdId) {
+        content { htmlContent }
+      }
+    }
+  }
+`;
 
 export type JobsCzProgressEvent =
   | {
@@ -199,6 +209,91 @@ async function fetchPage(
   return response.text();
 }
 
+function extractBalancedDiv(html: string, contentStart: number): string | undefined {
+  const tagPattern = /<(\/)?div\b[^>]*>/gi;
+  tagPattern.lastIndex = contentStart;
+  let depth = 1;
+  let match: RegExpExecArray | null;
+  while ((match = tagPattern.exec(html))) {
+    depth += match[1] ? -1 : 1;
+    if (depth === 0) return html.slice(contentStart, match.index);
+  }
+  return undefined;
+}
+
+function extractJobsCzNativeDescription(html: string): string | undefined {
+  const marker = html.match(/<div\b[^>]*data-test=["']jd-body-richtext["'][^>]*>/i);
+  if (!marker || marker.index === undefined) return undefined;
+  const inner = extractBalancedDiv(html, marker.index + marker[0].length);
+  return inner ? getString(stripHtml(inner)) : undefined;
+}
+
+interface JobsCzWidgetConfig {
+  apiKey: string;
+  widgetId: string;
+  host: string;
+}
+
+function extractJobsCzWidgetConfig(html: string): JobsCzWidgetConfig | undefined {
+  const match = html.match(/__LMC_CAREER_WIDGET__\.push\((\{[\s\S]*?\})\);/);
+  if (!match) return undefined;
+  try {
+    const config = JSON.parse(match[1]) as Partial<JobsCzWidgetConfig>;
+    if (!config.apiKey || !config.widgetId || !config.host) return undefined;
+    return { apiKey: config.apiKey, widgetId: config.widgetId, host: config.host };
+  } catch {
+    return undefined;
+  }
+}
+
+async function fetchJobsCzWidgetDescription(
+  html: string,
+  sourceJobId: string,
+  fetchImpl: typeof fetch,
+): Promise<string | undefined> {
+  const config = extractJobsCzWidgetConfig(html);
+  if (!config) return undefined;
+
+  const response = await fetchImpl(JOBS_CZ_WIDGET_API_URL, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      "x-api-key": config.apiKey,
+    },
+    body: JSON.stringify({
+      query: JOBS_CZ_WIDGET_DETAIL_QUERY,
+      variables: { widgetId: config.widgetId, jobAdId: sourceJobId, host: config.host },
+    }),
+  });
+  if (!response.ok) return undefined;
+
+  const payload = (await response.json()) as {
+    data?: { widget?: { jobAd?: { content?: { htmlContent?: string } } } };
+  };
+  const htmlContent = payload.data?.widget?.jobAd?.content?.htmlContent;
+  return htmlContent ? getString(stripHtml(htmlContent)) : undefined;
+}
+
+async function fetchJobsCzDescription(
+  jobUrl: string,
+  sourceJobId: string,
+  fetchImpl: typeof fetch,
+): Promise<string | undefined> {
+  try {
+    const response = await fetchImpl(jobUrl, {
+      headers: { "user-agent": "job-ops/1.0" },
+    });
+    if (!response.ok) return undefined;
+    const html = await response.text();
+    return (
+      extractJobsCzNativeDescription(html) ??
+      (await fetchJobsCzWidgetDescription(html, sourceJobId, fetchImpl))
+    );
+  } catch {
+    return undefined;
+  }
+}
+
 export async function runJobsCz(
   options: RunJobsCzOptions = {},
 ): Promise<JobsCzResult> {
@@ -232,7 +327,14 @@ export async function runJobsCz(
         for (const card of cards) {
           if (termJobs >= maxJobsPerTerm || seenIds.has(card.sourceJobId)) continue;
           seenIds.add(card.sourceJobId);
-          jobs.push(mapJobsCzCard(card));
+          const job = mapJobsCzCard(card);
+          const description = await fetchJobsCzDescription(
+            card.jobUrl,
+            card.sourceJobId,
+            fetchImpl,
+          );
+          if (description) job.jobDescription = description;
+          jobs.push(job);
           termJobs += 1;
         }
         options.onProgress?.({
