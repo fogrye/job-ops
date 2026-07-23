@@ -278,15 +278,11 @@ function renderSubheadingEntry(
   const subline = [subtitle || secondaryTitle, secondarySubtitle]
     .filter(Boolean)
     .join(" / ");
-  const description = entry.description
-    ? escapeTypstText(entry.description)
-    : "";
   const bullets = renderBullets(entry.bullets);
 
   return [
     renderEntryHeader(entry, metaSize),
     subline ? `#emph[${subline}]` : "",
-    description,
     bullets,
   ]
     .filter(Boolean)
