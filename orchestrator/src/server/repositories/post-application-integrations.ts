@@ -4,7 +4,7 @@ import type {
   PostApplicationIntegrationStatus,
   PostApplicationProvider,
 } from "@shared/types";
-import { and, eq } from "drizzle-orm";
+import { and, eq, ne } from "drizzle-orm";
 import { db, schema } from "../db";
 import {
   getPrivateDataScope,
@@ -76,6 +76,23 @@ export async function getPostApplicationIntegration(
     );
 
   return row ? mapRowToIntegration(row) : null;
+}
+
+export async function listConnectedPostApplicationIntegrations(
+  provider: PostApplicationProvider,
+): Promise<PostApplicationIntegration[]> {
+  const rows = await db
+    .select()
+    .from(postApplicationIntegrations)
+    .where(
+      and(
+        eq(postApplicationIntegrations.provider, provider),
+        ne(postApplicationIntegrations.status, "disconnected"),
+        integrationsScopeFilter(),
+      ),
+    );
+
+  return rows.map(mapRowToIntegration);
 }
 
 export async function upsertConnectedPostApplicationIntegration(

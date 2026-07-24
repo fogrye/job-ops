@@ -26,6 +26,7 @@ import { EnvironmentSettingsSection } from "@client/pages/settings/components/En
 import { ModelSettingsSection } from "@client/pages/settings/components/ModelSettingsSection";
 import { PromptTemplatesSection } from "@client/pages/settings/components/PromptTemplatesSection";
 import { ReactiveResumeSection } from "@client/pages/settings/components/ReactiveResumeSection";
+import { SchedulerSettingsSection } from "@client/pages/settings/components/SchedulerSettingsSection";
 import { ScoringSettingsSection } from "@client/pages/settings/components/ScoringSettingsSection";
 import { TracerLinksSettingsSection } from "@client/pages/settings/components/TracerLinksSettingsSection";
 import { WebhooksSection } from "@client/pages/settings/components/WebhooksSection";
@@ -105,6 +106,11 @@ const DEFAULT_FORM_VALUES: UpdateSettingsInput = {
   backupEnabled: null,
   backupHour: null,
   backupMaxCount: null,
+  dailySearchEnabled: null,
+  dailySearchHour: null,
+  dailySearchPresetId: null,
+  mailboxSyncEnabled: null,
+  mailboxSyncHour: null,
   penalizeMissingSalary: null,
   missingSalaryPenalty: null,
   autoSkipScoreThreshold: null,
@@ -139,6 +145,7 @@ type SettingsSectionId =
   | "environment"
   | "display"
   | "backup"
+  | "scheduler"
   | "danger-zone";
 
 type SettingsGroupId =
@@ -148,6 +155,7 @@ type SettingsGroupId =
   | "workspaces"
   | "display"
   | "backups"
+  | "automation"
   | "danger";
 
 type SettingsSectionDescriptor = {
@@ -274,6 +282,18 @@ const SETTINGS_NAV_GROUPS: SettingsNavGroup[] = [
     ],
   },
   {
+    id: "automation",
+    label: "Automation",
+    items: [
+      {
+        id: "scheduler",
+        label: "Scheduler",
+        description: "Daily active-search and mailbox-sync automation.",
+        searchTerms: ["automation", "cron", "daily", "gmail", "schedule"],
+      },
+    ],
+  },
+  {
     id: "danger",
     label: "Danger Zone",
     items: [
@@ -345,6 +365,13 @@ const SECTION_FIELD_MAP: Record<
     "autoTailorOnManualImport",
   ],
   backup: ["backupEnabled", "backupHour", "backupMaxCount"],
+  scheduler: [
+    "dailySearchEnabled",
+    "dailySearchHour",
+    "dailySearchPresetId",
+    "mailboxSyncEnabled",
+    "mailboxSyncHour",
+  ],
   "danger-zone": [],
 };
 
@@ -440,6 +467,11 @@ const NULL_SETTINGS_PAYLOAD: UpdateSettingsInput = {
   backupEnabled: null,
   backupHour: null,
   backupMaxCount: null,
+  dailySearchEnabled: null,
+  dailySearchHour: null,
+  dailySearchPresetId: null,
+  mailboxSyncEnabled: null,
+  mailboxSyncHour: null,
   penalizeMissingSalary: null,
   missingSalaryPenalty: null,
   autoSkipScoreThreshold: null,
@@ -510,6 +542,11 @@ const mapSettingsToForm = (data: AppSettings): UpdateSettingsInput => ({
   backupEnabled: data.backupEnabled.override,
   backupHour: data.backupHour.override,
   backupMaxCount: data.backupMaxCount.override,
+  dailySearchEnabled: data.dailySearchEnabled.override,
+  dailySearchHour: data.dailySearchHour.override,
+  dailySearchPresetId: data.dailySearchPresetId.override,
+  mailboxSyncEnabled: data.mailboxSyncEnabled.override,
+  mailboxSyncHour: data.mailboxSyncHour.override,
   penalizeMissingSalary: data.penalizeMissingSalary.override,
   missingSalaryPenalty: data.missingSalaryPenalty.override,
   autoSkipScoreThreshold: data.autoSkipScoreThreshold.override,
@@ -742,6 +779,28 @@ const getDerivedSettings = (settings: AppSettings | null) => {
         default: settings?.backupMaxCount?.default ?? 5,
       },
     },
+    scheduler: {
+      dailySearchEnabled: {
+        effective: settings?.dailySearchEnabled?.value ?? true,
+        default: settings?.dailySearchEnabled?.default ?? true,
+      },
+      dailySearchHour: {
+        effective: settings?.dailySearchHour?.value ?? 6,
+        default: settings?.dailySearchHour?.default ?? 6,
+      },
+      dailySearchPresetId: {
+        effective: settings?.dailySearchPresetId?.value ?? "",
+        default: settings?.dailySearchPresetId?.default ?? "",
+      },
+      mailboxSyncEnabled: {
+        effective: settings?.mailboxSyncEnabled?.value ?? true,
+        default: settings?.mailboxSyncEnabled?.default ?? true,
+      },
+      mailboxSyncHour: {
+        effective: settings?.mailboxSyncHour?.value ?? 7,
+        default: settings?.mailboxSyncHour?.default ?? 7,
+      },
+    },
     scoring: {
       penalizeMissingSalary: {
         effective: settings?.penalizeMissingSalary?.value ?? false,
@@ -846,15 +905,22 @@ export const SettingsPage: React.FC = () => {
     queryKey: queryKeys.backups.list(),
     queryFn: api.getBackups,
   });
+  const searchPresetsQuery = useQuery({
+    queryKey: queryKeys.pipeline.searchPresets(),
+    queryFn: api.getPipelineSearchPresets,
+  });
   const updateSettingsMutation = useUpdateSettingsMutation();
   const isLoading = settingsQuery.isLoading;
   const backups = backupsQuery.data?.backups ?? [];
   const nextScheduled = backupsQuery.data?.nextScheduled ?? null;
   const isLoadingBackups = backupsQuery.isLoading;
+  const searchPresets = searchPresetsQuery.data?.searches ?? [];
+  const isLoadingSearchPresets = searchPresetsQuery.isLoading;
   const canEditLlmSettings =
     appStatusQuery.data?.capabilities.userEditableLlmSettings ?? true;
   useQueryErrorToast(appStatusQuery.error, "Failed to load app status");
   useQueryErrorToast(backupsQuery.error, "Failed to load backups");
+  useQueryErrorToast(searchPresetsQuery.error, "Failed to load saved searches");
 
   const resumeProjectsValue = useWatch({
     control,
@@ -940,6 +1006,7 @@ export const SettingsPage: React.FC = () => {
     defaultResumeProjects,
     profileProjects,
     backup,
+    scheduler,
     scoring,
     promptTemplates,
   } = derived;
@@ -1249,6 +1316,26 @@ export const SettingsPage: React.FC = () => {
         backupMaxCount: nullIfSame(
           data.backupMaxCount,
           backup.backupMaxCount.default,
+        ),
+        dailySearchEnabled: nullIfSame(
+          data.dailySearchEnabled,
+          scheduler.dailySearchEnabled.default,
+        ),
+        dailySearchHour: nullIfSame(
+          data.dailySearchHour,
+          scheduler.dailySearchHour.default,
+        ),
+        dailySearchPresetId: nullIfSame(
+          data.dailySearchPresetId,
+          scheduler.dailySearchPresetId.default,
+        ),
+        mailboxSyncEnabled: nullIfSame(
+          data.mailboxSyncEnabled,
+          scheduler.mailboxSyncEnabled.default,
+        ),
+        mailboxSyncHour: nullIfSame(
+          data.mailboxSyncHour,
+          scheduler.mailboxSyncHour.default,
         ),
         penalizeMissingSalary: nullIfSame(
           data.penalizeMissingSalary,
@@ -1575,6 +1662,11 @@ export const SettingsPage: React.FC = () => {
         return backup.backupEnabled.effective
           ? { label: "Scheduled", variant: "outline" as const }
           : { label: "Manual only", variant: "secondary" as const };
+      case "scheduler":
+        return scheduler.dailySearchEnabled.effective ||
+          scheduler.mailboxSyncEnabled.effective
+          ? { label: "Active", variant: "outline" as const }
+          : { label: "Manual only", variant: "secondary" as const };
       default:
         return { label: "Ready", variant: "outline" as const };
     }
@@ -1705,6 +1797,18 @@ export const SettingsPage: React.FC = () => {
           onDeleteBackup={handleDeleteBackup}
           isCreatingBackup={isCreatingBackup}
           isDeletingBackup={isDeletingBackup}
+          layoutMode="panel"
+        />
+      );
+      break;
+    case "scheduler":
+      activeSectionContent = (
+        <SchedulerSettingsSection
+          values={scheduler}
+          presets={searchPresets}
+          isLoadingPresets={isLoadingSearchPresets}
+          isLoading={isLoading}
+          isSaving={isSaving}
           layoutMode="panel"
         />
       );

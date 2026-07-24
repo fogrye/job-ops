@@ -59,6 +59,14 @@ export type BackupValues = {
   backupMaxCount: EffectiveDefault<number>;
 };
 
+export type SchedulerValues = {
+  dailySearchEnabled: EffectiveDefault<boolean>;
+  dailySearchHour: EffectiveDefault<number>;
+  dailySearchPresetId: EffectiveDefault<string>;
+  mailboxSyncEnabled: EffectiveDefault<boolean>;
+  mailboxSyncHour: EffectiveDefault<number>;
+};
+
 export type ScoringValues = {
   penalizeMissingSalary: EffectiveDefault<boolean>;
   missingSalaryPenalty: EffectiveDefault<number>;

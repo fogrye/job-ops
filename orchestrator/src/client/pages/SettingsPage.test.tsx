@@ -55,6 +55,7 @@ vi.mock("../api", () => ({
   getBackups: vi.fn().mockResolvedValue({ backups: [], nextScheduled: null }),
   createManualBackup: vi.fn(),
   deleteBackup: vi.fn(),
+  getPipelineSearchPresets: vi.fn().mockResolvedValue({ searches: [] }),
   getCurrentAuthUser: vi.fn().mockResolvedValue({
     id: "user-1",
     username: "test",

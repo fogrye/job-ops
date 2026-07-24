@@ -297,6 +297,11 @@ export interface AppSettings {
   backupEnabled: Resolved<boolean>;
   backupHour: Resolved<number>;
   backupMaxCount: Resolved<number>;
+  dailySearchEnabled: Resolved<boolean>;
+  dailySearchHour: Resolved<number>;
+  mailboxSyncEnabled: Resolved<boolean>;
+  mailboxSyncHour: Resolved<number>;
+  dailySearchPresetId: Resolved<string>;
   penalizeMissingSalary: Resolved<boolean>;
   missingSalaryPenalty: Resolved<number>;
   autoSkipScoreThreshold: Resolved<number | null>;

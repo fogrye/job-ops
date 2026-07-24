@@ -190,3 +190,42 @@ async function getPipelineSearchPreset(
 
   return row ? mapRowToSearchPreset(row) : null;
 }
+
+// Tenant-only scoping: called from the daily-search scheduler, which runs
+// outside a request context and therefore has no resolved userId. Safe
+// because the scheduler is hard-disabled in hosted multi-tenant mode (see
+// server/index.ts) — self-hosted mode is effectively single-tenant/single-user.
+export async function getPipelineSearchPresetByIdForTenant(
+  id: string,
+): Promise<PipelineSearchPreset | null> {
+  const tenantId = getActiveTenantId();
+  const [row] = await db
+    .select()
+    .from(pipelineSearchPresets)
+    .where(
+      and(
+        eq(pipelineSearchPresets.tenantId, tenantId),
+        eq(pipelineSearchPresets.id, id),
+      ),
+    )
+    .limit(1);
+  return row ? mapRowToSearchPreset(row) : null;
+}
+
+// Tenant-only scoping: called from the daily-search scheduler, which runs
+// outside a request context and therefore has no resolved userId. Safe
+// because the scheduler is hard-disabled in hosted multi-tenant mode (see
+// server/index.ts) — self-hosted mode is effectively single-tenant/single-user.
+export async function getMostRecentlyUsedPipelineSearchPresetForTenant(): Promise<PipelineSearchPreset | null> {
+  const tenantId = getActiveTenantId();
+  const [row] = await db
+    .select()
+    .from(pipelineSearchPresets)
+    .where(eq(pipelineSearchPresets.tenantId, tenantId))
+    .orderBy(
+      desc(pipelineSearchPresets.lastUsedAt),
+      desc(pipelineSearchPresets.updatedAt),
+    )
+    .limit(1);
+  return row ? mapRowToSearchPreset(row) : null;
+}
