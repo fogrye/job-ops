@@ -301,6 +301,7 @@ export interface AppSettings {
   dailySearchHour: Resolved<number>;
   mailboxSyncEnabled: Resolved<boolean>;
   mailboxSyncHour: Resolved<number>;
+  dailySearchPresetId: Resolved<string>;
   penalizeMissingSalary: Resolved<boolean>;
   missingSalaryPenalty: Resolved<number>;
   autoSkipScoreThreshold: Resolved<number | null>;

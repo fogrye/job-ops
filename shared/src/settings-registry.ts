@@ -883,6 +883,14 @@ export const settingsRegistry = {
     },
     serialize: serializeNullableNumber,
   },
+  dailySearchPresetId: {
+    kind: "typed" as const,
+    schema: z.string().trim().max(128),
+    default: (): string => "",
+    parse: parseNonEmptyStringOrNull,
+    serialize: (value: string | null | undefined): string | null =>
+      value ?? null,
+  },
   penalizeMissingSalary: {
     kind: "typed" as const,
     schema: z.boolean(),

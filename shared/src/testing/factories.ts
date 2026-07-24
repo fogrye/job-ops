@@ -325,6 +325,7 @@ export const createAppSettings = (
   dailySearchHour: { value: 6, default: 6, override: null },
   mailboxSyncEnabled: { value: true, default: true, override: null },
   mailboxSyncHour: { value: 7, default: 7, override: null },
+  dailySearchPresetId: { value: "", default: "", override: null },
   penalizeMissingSalary: { value: false, default: false, override: null },
   missingSalaryPenalty: { value: 10, default: 10, override: null },
   autoSkipScoreThreshold: { value: null, default: null, override: null },
