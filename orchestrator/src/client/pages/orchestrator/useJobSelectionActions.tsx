@@ -24,12 +24,14 @@ const jobActionLabel: Record<JobAction, string> = {
   move_to_ready: "Moving jobs to Ready...",
   skip: "Skipping selected jobs...",
   rescore: "Calculating match scores...",
+  refresh_description: "Refreshing job descriptions...",
 };
 
 const jobActionSuccessLabel: Record<JobAction, string> = {
   move_to_ready: "jobs moved to Ready",
   skip: "jobs skipped",
   rescore: "matches recalculated",
+  refresh_description: "descriptions refreshed",
 };
 
 interface UseJobSelectionActionsArgs {

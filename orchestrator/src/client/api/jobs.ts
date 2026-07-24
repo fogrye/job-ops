@@ -348,9 +348,31 @@ export async function markAsApplied(id: string): Promise<Job> {
 export async function refreshJobDescriptionFromSource(
   id: string,
 ): Promise<Job> {
-  return fetchApi<Job>(`/jobs/${id}/refresh-description`, {
-    method: "POST",
-  });
+  let finalResponse: JobActionResponse | undefined;
+  let streamError: string | undefined;
+  await streamJobAction(
+    { action: "refresh_description", jobIds: [id] },
+    {
+      onEvent: (event) => {
+        if (event.type === "error") {
+          streamError = event.message || "Failed to refresh job description";
+        } else if (event.type === "completed") {
+          finalResponse = {
+            action: event.action,
+            requested: event.requested,
+            succeeded: event.succeeded,
+            failed: event.failed,
+            results: event.results,
+          };
+        }
+      },
+    },
+  );
+  if (streamError) throw new ApiClientError(streamError);
+  if (!finalResponse) {
+    throw new ApiClientError("Job action stream ended before completion");
+  }
+  return getSingleJobFromActionResult(finalResponse, id);
 }
 
 export async function skipJob(ids: string[]): Promise<JobActionResponse>;

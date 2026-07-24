@@ -385,11 +385,15 @@ export interface JobsRevisionResponse {
   statusFilter: string | null;
 }
 
-export type JobAction = "skip" | "move_to_ready" | "rescore";
+export type JobAction =
+  | "skip"
+  | "move_to_ready"
+  | "rescore"
+  | "refresh_description";
 
 export type JobActionRequest =
   | {
-      action: "skip" | "rescore";
+      action: "skip" | "rescore" | "refresh_description";
       jobIds: string[];
     }
   | {
