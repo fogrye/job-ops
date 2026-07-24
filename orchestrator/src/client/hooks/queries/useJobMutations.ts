@@ -95,6 +95,16 @@ export function useRescoreJobMutation() {
   });
 }
 
+export function useRefreshJobDescriptionMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.refreshJobDescriptionFromSource(id),
+    onSuccess: async (_data, id) => {
+      await invalidateJobData(queryClient, id);
+    },
+  });
+}
+
 export function useGenerateJobPdfMutation() {
   const queryClient = useQueryClient();
   return useMutation({

@@ -34,6 +34,7 @@ import {
   useCheckSponsorMutation,
   useGenerateJobPdfMutation,
   useMarkAsAppliedMutation,
+  useRefreshJobDescriptionMutation,
   useRescoreJobMutation,
   useSkipJobMutation,
   useUpdateJobMutation,
@@ -194,6 +195,7 @@ export const JobPage: React.FC = () => {
   );
 
   const markAsAppliedMutation = useMarkAsAppliedMutation();
+  const refreshJobDescriptionMutation = useRefreshJobDescriptionMutation();
   const updateJobMutation = useUpdateJobMutation();
   const skipJobMutation = useSkipJobMutation();
   const rescoreJobMutation = useRescoreJobMutation();
@@ -403,6 +405,19 @@ export const JobPage: React.FC = () => {
       if (!job) return;
       await rescoreJobMutation.mutateAsync(job.id);
       toast.success("Match recalculated");
+    });
+  };
+
+  const handleRefreshDescription = async () => {
+    const confirmed = window.confirm(
+      "This replaces the current description, including any manual edits, and recalculates the match. Continue?",
+    );
+    if (!confirmed) return;
+
+    await runAction("refresh_description", async () => {
+      if (!job) return;
+      await refreshJobDescriptionMutation.mutateAsync(job.id);
+      toast.success("Description refreshed and match recalculated");
     });
   };
 
@@ -916,6 +931,7 @@ export const JobPage: React.FC = () => {
               onViewJobDescription={handleViewJobDescription}
               onCopyJobInfo={() => void handleCopyJobInfo()}
               onRescore={() => void handleRescore()}
+              onRefreshDescription={() => void handleRefreshDescription()}
               onCheckSponsor={() => void handleCheckSponsor()}
             />
           )}

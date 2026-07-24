@@ -68,6 +68,7 @@ function renderRightSidebar(overrides: Parameters<typeof createJob>[0] = {}) {
       onViewJobDescription={noop}
       onCopyJobInfo={noop}
       onRescore={noop}
+      onRefreshDescription={noop}
       onCheckSponsor={noop}
     />,
   );
@@ -97,6 +98,22 @@ describe("JobPageRightSidebar actions", () => {
     ).toBeGreaterThan(0);
     expect(
       screen.getByRole("button", { name: /download old pdf/i }),
+    ).toBeInTheDocument();
+  });
+
+  it("shows Refresh description & recalculate only for sources that support it", () => {
+    renderRightSidebar({ source: "linkedin" });
+    expect(
+      screen.queryByRole("button", {
+        name: /refresh description & recalculate/i,
+      }),
+    ).toBeNull();
+
+    renderRightSidebar({ source: "jobs-cz" });
+    expect(
+      screen.getByRole("button", {
+        name: /refresh description & recalculate/i,
+      }),
     ).toBeInTheDocument();
   });
 

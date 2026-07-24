@@ -126,3 +126,10 @@ export function sortSources<T extends { source: ExtractorSourceId }>(
       EXTRACTOR_SOURCE_METADATA[right.source].order,
   );
 }
+
+export function supportsDescriptionRefresh(source: string): boolean {
+  return (
+    isExtractorSourceId(source) &&
+    Boolean(EXTRACTOR_SOURCE_METADATA[source].supportsDescriptionRefresh)
+  );
+}

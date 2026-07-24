@@ -1,4 +1,6 @@
-import type { ApplicationTask, Job } from "@shared/types.js";
+import { type Job } from "@shared/types.js";
+import { supportsDescriptionRefresh } from "@shared/extractors";
+import type { ApplicationTask } from "@shared/types.js";
 import {
   CalendarClock,
   CheckCircle2,
@@ -7,6 +9,7 @@ import {
   Edit2,
   ExternalLink,
   FileText,
+  Globe,
   MoreHorizontal,
   PlusCircle,
   RefreshCcw,
@@ -56,6 +59,7 @@ type JobPageRightSidebarProps = {
   onViewJobDescription: () => void;
   onCopyJobInfo: () => void;
   onRescore: () => void;
+  onRefreshDescription: () => void;
   onCheckSponsor: () => void;
 };
 
@@ -88,6 +92,7 @@ export const JobPageRightSidebar: React.FC<JobPageRightSidebarProps> = ({
   onViewJobDescription,
   onCopyJobInfo,
   onRescore,
+  onRefreshDescription,
   onCheckSponsor,
 }) => (
   <aside className="space-y-4 xl:sticky xl:top-5">
@@ -262,6 +267,12 @@ export const JobPageRightSidebar: React.FC<JobPageRightSidebarProps> = ({
               <DropdownMenuItem onSelect={onRescore}>
                 <RefreshCcw className="mr-2 h-4 w-4" />
                 Recalculate match
+              </DropdownMenuItem>
+            )}
+            {supportsDescriptionRefresh(job.source) && (
+              <DropdownMenuItem onSelect={onRefreshDescription}>
+                <Globe className="mr-2 h-4 w-4" />
+                Refresh description & recalculate
               </DropdownMenuItem>
             )}
             <DropdownMenuSeparator />

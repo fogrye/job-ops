@@ -16,8 +16,10 @@ import {
   useSkipJobMutation,
 } from "@client/hooks/queries/useJobMutations";
 import { useProfile } from "@client/hooks/useProfile";
+import { useRefreshJobDescription } from "@client/hooks/useRefreshJobDescription";
 import { useRescoreJob } from "@client/hooks/useRescoreJob";
 import { useSettings } from "@client/hooks/useSettings";
+import { supportsDescriptionRefresh } from "@shared/extractors";
 import { uploadJobPdfFromFile } from "@client/lib/job-pdf-upload";
 import { resolveFilenameLanguage } from "@client/lib/pdf-filename";
 import {
@@ -44,6 +46,7 @@ import {
   ExternalLink,
   FileText,
   FolderKanban,
+  Globe,
   Link2,
   Loader2,
   MoreHorizontal,
@@ -304,6 +307,8 @@ export const JobDetailPanel: React.FC<JobDetailPanelProps> = ({
   const markAsAppliedMutation = useMarkAsAppliedMutation();
   const skipJobMutation = useSkipJobMutation();
   const { isRescoring, rescoreJob } = useRescoreJob(onJobUpdated);
+  const { isRefreshing, refreshJobDescription } =
+    useRefreshJobDescription(onJobUpdated);
   const { settings } = useSettings();
   const { personName, profile } = useProfile();
   const filenameLanguage = resolveFilenameLanguage({ settings, profile });
@@ -773,6 +778,22 @@ export const JobDetailPanel: React.FC<JobDetailPanelProps> = ({
                   />
                   {isRescoring ? "Recalculating..." : "Recalculate match"}
                 </DropdownMenuItem>
+                {supportsDescriptionRefresh(selectedJob.source) && (
+                  <DropdownMenuItem
+                    onSelect={() => refreshJobDescription(selectedJob.id)}
+                    disabled={isRefreshing}
+                  >
+                    <Globe
+                      className={cn(
+                        "mr-2 h-4 w-4",
+                        isRefreshing && "animate-spin",
+                      )}
+                    />
+                    {isRefreshing
+                      ? "Refreshing..."
+                      : "Refresh description & recalculate"}
+                  </DropdownMenuItem>
+                )}
                 <DropdownMenuSeparator />
                 {canGenerate && (
                   <DropdownMenuItem
