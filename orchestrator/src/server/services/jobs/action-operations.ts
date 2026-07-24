@@ -1,10 +1,10 @@
 import { getPrivateDataScope } from "@server/tenancy/private-scope";
-import type { JobAction, JobActionResult } from "@shared/types";
+import type { JobActionResult } from "@shared/types";
 
 export type JobActionOperationStatus = "pending" | "succeeded" | "failed";
 
 export interface JobActionOperation {
-  action: JobAction;
+  action: string;
   jobId: string;
   status: JobActionOperationStatus;
   result?: JobActionResult;
@@ -12,9 +12,11 @@ export interface JobActionOperation {
 }
 
 /**
- * Tracks single-job background actions (e.g. refresh-description) so a slow
- * action can be dispatched fire-and-forget and polled for completion instead
- * of holding the triggering HTTP request open for the full duration.
+ * Tracks single-job background actions (e.g. refresh-description, tailoring
+ * generation) so a slow action can be dispatched fire-and-forget and polled
+ * for completion instead of holding the triggering HTTP request open for
+ * the full duration. `action` is any stable identifier scoping the dedupe
+ * key — not limited to the job-action-bar's `JobAction` union.
  *
  * In-memory and per-process by design: a server restart drops in-flight
  * operations, and the poll endpoint treats a missing operation as "not
@@ -23,7 +25,7 @@ export interface JobActionOperation {
  */
 const operationsByScope = new Map<string, Map<string, JobActionOperation>>();
 
-function operationKey(jobId: string, action: JobAction): string {
+function operationKey(jobId: string, action: string): string {
   return `${action}:${jobId}`;
 }
 
@@ -39,7 +41,7 @@ function operationsForScope(): Map<string, JobActionOperation> {
 
 export function getJobActionOperation(
   jobId: string,
-  action: JobAction,
+  action: string,
 ): JobActionOperation | undefined {
   return operationsForScope().get(operationKey(jobId, action));
 }
@@ -47,7 +49,7 @@ export function getJobActionOperation(
 /** Starts (or restarts, once the prior one is terminal) a tracked operation. */
 export function startJobActionOperation(
   jobId: string,
-  action: JobAction,
+  action: string,
 ): JobActionOperation {
   const operation: JobActionOperation = {
     action,
@@ -61,7 +63,7 @@ export function startJobActionOperation(
 
 export function completeJobActionOperation(
   jobId: string,
-  action: JobAction,
+  action: string,
   result: JobActionResult,
 ): void {
   const operation = operationsForScope().get(operationKey(jobId, action));

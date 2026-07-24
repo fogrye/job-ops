@@ -38,6 +38,7 @@ export type ChatValues = {
   summaryMaxWords: EffectiveDefault<number | null>;
   maxKeywordsPerSkill: EffectiveDefault<number | null>;
   tailorWorkHistory: EffectiveDefault<boolean>;
+  tailorLatestExperienceOnly: EffectiveDefault<boolean>;
 };
 
 export type EnvSettingsValues = {

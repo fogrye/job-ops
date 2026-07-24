@@ -73,6 +73,7 @@ export const ChatSettingsSection: React.FC<ChatSettingsSectionProps> = ({
     summaryMaxWords,
     maxKeywordsPerSkill,
     tailorWorkHistory,
+    tailorLatestExperienceOnly,
   } = values;
 
   const {
@@ -88,6 +89,7 @@ export const ChatSettingsSection: React.FC<ChatSettingsSectionProps> = ({
     constraintsValue,
     doNotUseValue,
     languageModeValue,
+    tailorWorkHistoryValue,
   ] = useWatch({
     control,
     name: [
@@ -96,6 +98,7 @@ export const ChatSettingsSection: React.FC<ChatSettingsSectionProps> = ({
       "chatStyleConstraints",
       "chatStyleDoNotUse",
       "chatStyleLanguageMode",
+      "tailorWorkHistory",
     ],
   });
   const toneDraft = normalizeBlank(toneValue);
@@ -114,6 +117,8 @@ export const ChatSettingsSection: React.FC<ChatSettingsSectionProps> = ({
     },
     defaults: values,
   });
+  const resolvedTailorWorkHistory =
+    tailorWorkHistoryValue ?? tailorWorkHistory.default;
   const selectedPresetId =
     getMatchingWritingStylePresetId(resolvedStyle) ?? "custom";
   const doNotUseTokens = parseStoredTerms(
@@ -161,6 +166,37 @@ export const ChatSettingsSection: React.FC<ChatSettingsSectionProps> = ({
             <p className="text-xs text-muted-foreground">
               Select and reorder existing work-history content that supports a
               vacancy. JobOps never writes new work-history claims.
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-start space-x-3 pl-8">
+          <Controller
+            name="tailorLatestExperienceOnly"
+            control={control}
+            render={({ field }) => (
+              <Checkbox
+                id="tailorLatestExperienceOnly"
+                checked={field.value ?? tailorLatestExperienceOnly.default}
+                onCheckedChange={(checked) => {
+                  field.onChange(
+                    checked === "indeterminate" ? null : checked === true,
+                  );
+                }}
+                disabled={isLoading || isSaving || !resolvedTailorWorkHistory}
+              />
+            )}
+          />
+          <div className="flex flex-col gap-1.5">
+            <label
+              htmlFor="tailorLatestExperienceOnly"
+              className="text-sm font-medium leading-none cursor-pointer"
+            >
+              Only tailor the most recent role
+            </label>
+            <p className="text-xs text-muted-foreground">
+              Skip older employers when selecting work-history content. Faster
+              generation; useful for a long career history.
             </p>
           </div>
         </div>

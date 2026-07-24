@@ -85,6 +85,7 @@ const ChatSettingsHarness = ({
       chatStyleSummaryMaxWords: null,
       chatStyleMaxKeywordsPerSkill: null,
       tailorWorkHistory: null,
+      tailorLatestExperienceOnly: null,
     },
   });
 
@@ -103,6 +104,7 @@ const ChatSettingsHarness = ({
             summaryMaxWords: { effective: null, default: null },
             maxKeywordsPerSkill: { effective: null, default: null },
             tailorWorkHistory: { effective: false, default: false },
+            tailorLatestExperienceOnly: { effective: false, default: false },
           }}
           isLoading={false}
           isSaving={false}
@@ -169,6 +171,22 @@ describe("ChatSettingsSection", () => {
     expect(
       screen.getByText(/never writes new work-history claims/i),
     ).toBeInTheDocument();
+  });
+
+  it("renders the latest-role-only toggle disabled until work-history tailoring is on", () => {
+    render(<ChatSettingsHarness />);
+
+    const workHistoryCheckbox = screen.getByLabelText(
+      "Emphasize relevant work history",
+    );
+    const latestOnlyCheckbox = screen.getByLabelText(
+      "Only tailor the most recent role",
+    );
+    expect(latestOnlyCheckbox).toBeDisabled();
+
+    fireEvent.click(workHistoryCheckbox);
+
+    expect(latestOnlyCheckbox).toBeEnabled();
   });
 
   it("shows validation error when summary word limit is out of range", async () => {

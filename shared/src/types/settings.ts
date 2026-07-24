@@ -285,6 +285,7 @@ export interface AppSettings {
   renderMarkdownInJobDescriptions: Resolved<boolean>;
   autoTailorOnManualImport: Resolved<boolean>;
   tailorWorkHistory: Resolved<boolean>;
+  tailorLatestExperienceOnly: Resolved<boolean>;
   chatStyleTone: Resolved<string>;
   chatStyleFormality: Resolved<string>;
   chatStyleConstraints: Resolved<string>;
