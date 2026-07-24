@@ -233,6 +233,72 @@ describe("Jobs.cz extractor", () => {
       }),
     ]);
   });
+
+  it("extracts the description from a widget config loaded via a react-chunks stub", async () => {
+    const reactChunksHtml = `
+      <html><body>
+        <div id="vacancy-detail" data-widget="main"></div>
+        <script src="/assets/js/script.min.js?av=abc123"></script>
+        <script src="/assets/js/react.min.js?av=def456" id="react-chunks" defer></script>
+      </body></html>
+    `;
+    const stubScript = `!function(){var e=["react.aaa111.react.min.js","react.bbb222.react.min.js"],t=document.getElementById("react-chunks");if(t){var r=t.attributes.src.value;for(var n=0;n<e.length;n++){var c=document.createElement("script");c.src=r.replace("react.min.js",e[n])}}}();`;
+    const chunkBundle = `
+      translations(module.exports=JSON.parse('{"loaderComponent.alt":{"en":"Loading"}}'));
+      config(module.exports=JSON.parse('{"id":"ceztrading","host":"ceztrading.jobs.cz","widgets":{"main":{"id":"widget-3","apiKey":"chunk-api-key"}}}'));
+    `;
+    const fetchImpl = vi
+      .fn<typeof fetch>()
+      .mockImplementation(async (input, init) => {
+        const url = String(input);
+        if (url.includes("/prace/"))
+          return new Response(page(card("124", "Prague")));
+        if (url.includes("/r/124")) return new Response(reactChunksHtml);
+        if (url.includes("/assets/js/script.min.js"))
+          return new Response("no config here");
+        if (url.includes("/assets/js/react.min.js"))
+          return new Response(stubScript);
+        if (url.includes("/assets/js/react.aaa111.react.min.js"))
+          return new Response("not the config chunk");
+        if (url.includes("/assets/js/react.bbb222.react.min.js"))
+          return new Response(chunkBundle);
+        if (url === "https://api.capybara.lmc.cz/api/graphql/widget") {
+          expect(init?.headers).toMatchObject({
+            "x-api-key": "chunk-api-key",
+          });
+          expect(JSON.parse(String(init?.body)).variables).toEqual({
+            widgetId: "widget-3",
+            jobAdId: "124",
+            host: "ceztrading.jobs.cz",
+          });
+          return Response.json({
+            data: {
+              widget: {
+                jobAd: {
+                  content: {
+                    htmlContent: "<p>Trade commodities close to real time.</p>",
+                  },
+                },
+              },
+            },
+          });
+        }
+        return new Response("not found", { status: 404 });
+      });
+
+    const result = await runJobsCz({
+      searchTerms: ["platform engineer"],
+      maxJobsPerTerm: 1,
+      fetchImpl,
+    });
+
+    expect(result.jobs).toEqual([
+      expect.objectContaining({
+        sourceJobId: "124",
+        jobDescription: "Trade commodities close to real time.",
+      }),
+    ]);
+  });
 });
 
 describe("fetchJobsCzDescription SSRF allowlist", () => {
