@@ -1038,8 +1038,8 @@ describe("salary penalty", () => {
       );
     });
 
-    it("should throw LlmNotConfiguredError for non-API-key errors", async () => {
-      const { scoreJobSuitability, LlmNotConfiguredError } = await import(
+    it("should throw ScoringFailedError (not LlmNotConfiguredError) for non-API-key errors", async () => {
+      const { scoreJobSuitability, ScoringFailedError } = await import(
         "./scorer"
       );
       getEffectiveSettingsMock.mockResolvedValue({
@@ -1059,8 +1059,81 @@ describe("salary penalty", () => {
       });
 
       await expect(scoreJobSuitability(job, {})).rejects.toThrow(
-        LlmNotConfiguredError,
+        ScoringFailedError,
       );
+    });
+
+    it("retries when the AI returns an invalid score, and succeeds on a later attempt", async () => {
+      const { scoreJobSuitability } = await import("./scorer");
+      getEffectiveSettingsMock.mockResolvedValue({
+        penalizeMissingSalary: { value: false, default: false, override: null },
+        missingSalaryPenalty: { value: 10, default: 10, override: null },
+        rxresumeBaseResumeId: "base-resume-123",
+      } as any);
+
+      callJsonMock
+        .mockResolvedValueOnce({
+          success: true,
+          data: { score: Number.NaN, reason: "Garbage response" },
+        })
+        .mockResolvedValueOnce({
+          success: true,
+          data: { score: 72, reason: "Good match" },
+        });
+
+      const job = createJob({ id: "test-job-3", title: "Software Engineer" });
+
+      const result = await scoreJobSuitability(job, {});
+
+      expect(result.score).toBe(72);
+      expect(result.reason).toBe("Good match");
+      expect(callJsonMock).toHaveBeenCalledTimes(2);
+    });
+
+    it("throws ScoringFailedError after exhausting invalid-score retries", async () => {
+      const { scoreJobSuitability, ScoringFailedError } = await import(
+        "./scorer"
+      );
+      getEffectiveSettingsMock.mockResolvedValue({
+        penalizeMissingSalary: { value: false, default: false, override: null },
+        missingSalaryPenalty: { value: 10, default: 10, override: null },
+        rxresumeBaseResumeId: "base-resume-123",
+      } as any);
+
+      callJsonMock.mockResolvedValue({
+        success: true,
+        data: { score: Number.NaN, reason: "Garbage response" },
+      });
+
+      const job = createJob({ id: "test-job-4", title: "Software Engineer" });
+
+      await expect(scoreJobSuitability(job, {})).rejects.toThrow(
+        ScoringFailedError,
+      );
+      expect(callJsonMock).toHaveBeenCalledTimes(3);
+    });
+
+    it("does not retry a network/request failure beyond callJson's own retries", async () => {
+      const { scoreJobSuitability, ScoringFailedError } = await import(
+        "./scorer"
+      );
+      getEffectiveSettingsMock.mockResolvedValue({
+        penalizeMissingSalary: { value: false, default: false, override: null },
+        missingSalaryPenalty: { value: 10, default: 10, override: null },
+        rxresumeBaseResumeId: "base-resume-123",
+      } as any);
+
+      callJsonMock.mockResolvedValue({
+        success: false,
+        error: "Rate limit exceeded",
+      });
+
+      const job = createJob({ id: "test-job-5", title: "Software Engineer" });
+
+      await expect(scoreJobSuitability(job, {})).rejects.toThrow(
+        ScoringFailedError,
+      );
+      expect(callJsonMock).toHaveBeenCalledTimes(1);
     });
   });
 });
