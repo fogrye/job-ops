@@ -59,7 +59,6 @@ interface JobsCzCard {
   jobUrl: string;
   location?: string;
   postedAt?: string;
-  jobDescription?: string;
 }
 
 function getString(value: string | undefined): string | undefined {
@@ -152,11 +151,6 @@ export function parseJobsCzCards(html: string): JobsCzCard[] {
       card,
       /<[^>]*class=["'][^"']*SearchResultCard__status[^"']*["'][^>]*>([\s\S]*?)<\//i,
     );
-    const jobDescription = firstMatchText(
-      card,
-      /<[^>]*class=["'][^"']*SearchResultCard__body[^"']*["'][^>]*>([\s\S]*?)<\//i,
-    );
-
     return [
       {
         sourceJobId,
@@ -165,7 +159,6 @@ export function parseJobsCzCards(html: string): JobsCzCard[] {
         jobUrl,
         location,
         postedAt,
-        jobDescription,
       },
     ];
   });
@@ -192,7 +185,6 @@ function mapJobsCzCard(card: JobsCzCard): CreateJobInput {
     location: card.location,
     locationEvidence,
     datePosted: card.postedAt,
-    jobDescription: card.jobDescription,
   };
 }
 
