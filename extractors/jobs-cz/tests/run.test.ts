@@ -12,7 +12,7 @@ const card = (id: string, location: string) => `
     <span translate="no">Acme s.r.o.</span>
     <span data-test="serp-locality"><svg viewBox="0 0 16 16"><path d="M1 1"/></svg>${location}</span>
     <div class="SearchResultCard__status">Today</div>
-    <div class="SearchResultCard__body"><p>Build reliable systems.</p></div>
+    <div class="SearchResultCard__body">Možnost práce z domova</div>
   </article>
 `;
 
@@ -23,17 +23,18 @@ describe("Jobs.cz extractor", () => {
     );
   });
 
-  it("parses normalized job fields from result cards", () => {
-    expect(parseJobsCzCards(page(card("123", "Prague")))).toEqual([
+  it("parses normalized job fields from result cards, ignoring perk badge text", () => {
+    const [job] = parseJobsCzCards(page(card("123", "Prague")));
+    expect(job).toEqual(
       expect.objectContaining({
         sourceJobId: "123",
         title: "Platform Engineer",
         employer: "Acme s.r.o.",
         jobUrl: "https://www.jobs.cz/r/123",
         location: "Prague",
-        jobDescription: "Build reliable systems.",
       }),
-    ]);
+    );
+    expect(job).not.toHaveProperty("jobDescription");
   });
 
   it("paginates, deduplicates, and emits normalized source jobs", async () => {
@@ -141,6 +142,54 @@ describe("Jobs.cz extractor", () => {
       expect.objectContaining({
         sourceJobId: "123",
         jobDescription: "Own our network infrastructure.",
+      }),
+    ]);
+  });
+
+  it("extracts the description from a script-bundle widget config (no inline push)", async () => {
+    const reactWidgetHtml = `
+      <html><body>
+        <div id="vacancy-detail" data-widget="main"></div>
+        <script src="/assets/js/script.min.js?av=abc123"></script>
+      </body></html>
+    `;
+    const scriptBundle = `
+      other(module.exports=JSON.parse('{"vacancyCount":{"wordOne":"job"}}'));
+      config(module.exports=JSON.parse('{"id":"tmobile","host":"t-mobile.jobs.cz","widgets":{"main":{"id":"widget-2","apiKey":"script-api-key"}}}'));
+    `;
+    const fetchImpl = vi.fn<typeof fetch>().mockImplementation(async (input, init) => {
+      const url = String(input);
+      if (url.includes("/prace/")) return new Response(page(card("123", "Prague")));
+      if (url.includes("/r/123")) return new Response(reactWidgetHtml);
+      if (url.includes("/assets/js/script.min.js")) return new Response(scriptBundle);
+      if (url === "https://api.capybara.lmc.cz/api/graphql/widget") {
+        expect(init?.headers).toMatchObject({ "x-api-key": "script-api-key" });
+        expect(JSON.parse(String(init?.body)).variables).toEqual({
+          widgetId: "widget-2",
+          jobAdId: "123",
+          host: "t-mobile.jobs.cz",
+        });
+        return Response.json({
+          data: {
+            widget: {
+              jobAd: { content: { htmlContent: "<p>Own our security operations.</p>" } },
+            },
+          },
+        });
+      }
+      return new Response("not found", { status: 404 });
+    });
+
+    const result = await runJobsCz({
+      searchTerms: ["platform engineer"],
+      maxJobsPerTerm: 1,
+      fetchImpl,
+    });
+
+    expect(result.jobs).toEqual([
+      expect.objectContaining({
+        sourceJobId: "123",
+        jobDescription: "Own our security operations.",
       }),
     ]);
   });
