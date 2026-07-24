@@ -1,5 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
-import { buildJobsCzSearchUrl, parseJobsCzCards, runJobsCz } from "../src/run";
+import {
+  buildJobsCzSearchUrl,
+  fetchJobsCzDescription,
+  parseJobsCzCards,
+  runJobsCz,
+} from "../src/run";
 
 const page = (cards: string) => `
   <div class="SearchHeader">2 jobs</div>
@@ -203,5 +208,57 @@ describe("Jobs.cz extractor", () => {
         jobDescription: "Own our security operations.",
       }),
     ]);
+  });
+});
+
+describe("fetchJobsCzDescription SSRF allowlist", () => {
+  it("never fetches a non-https jobUrl", async () => {
+    const fetchImpl = vi.fn<typeof fetch>();
+    const result = await fetchJobsCzDescription(
+      "http://jobs.cz/r/123",
+      "123",
+      fetchImpl,
+    );
+    expect(result).toBeUndefined();
+    expect(fetchImpl).not.toHaveBeenCalled();
+  });
+
+  it("never fetches an off-domain jobUrl", async () => {
+    const fetchImpl = vi.fn<typeof fetch>();
+    const result = await fetchJobsCzDescription(
+      "https://evil.example.com/r/123",
+      "123",
+      fetchImpl,
+    );
+    expect(result).toBeUndefined();
+    expect(fetchImpl).not.toHaveBeenCalled();
+  });
+
+  it("never fetches a localhost or private-IP jobUrl", async () => {
+    const fetchImpl = vi.fn<typeof fetch>();
+    for (const target of [
+      "https://localhost/r/123",
+      "https://127.0.0.1/r/123",
+      "https://169.254.169.254/latest/meta-data/",
+    ]) {
+      expect(await fetchJobsCzDescription(target, "123", fetchImpl)).toBeUndefined();
+    }
+    expect(fetchImpl).not.toHaveBeenCalled();
+  });
+
+  it("stops following a redirect that leaves the allowed host", async () => {
+    const fetchImpl = vi.fn<typeof fetch>().mockImplementation(async () => {
+      return new Response(null, {
+        status: 302,
+        headers: { location: "https://evil.example.com/steal" },
+      });
+    });
+    const result = await fetchJobsCzDescription(
+      "https://www.jobs.cz/r/123",
+      "123",
+      fetchImpl,
+    );
+    expect(result).toBeUndefined();
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
   });
 });
