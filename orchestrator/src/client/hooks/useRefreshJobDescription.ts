@@ -12,7 +12,7 @@ export function useRefreshJobDescription(
 
   const refreshJobDescription = useCallback(
     async (jobId?: string | null) => {
-      if (!jobId) return;
+      if (!jobId || isRefreshing) return;
 
       const confirmed = window.confirm(
         "This replaces the current description, including any manual edits, and recalculates the match. Continue?",
@@ -41,7 +41,7 @@ export function useRefreshJobDescription(
         setIsRefreshing(false);
       }
     },
-    [onJobUpdated, refreshMutation],
+    [isRefreshing, onJobUpdated, refreshMutation],
   );
 
   return { isRefreshing, refreshJobDescription };

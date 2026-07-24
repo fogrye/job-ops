@@ -1,6 +1,5 @@
-import { type Job } from "@shared/types.js";
 import { supportsDescriptionRefresh } from "@shared/extractors";
-import type { ApplicationTask } from "@shared/types.js";
+import type { ApplicationTask, Job } from "@shared/types.js";
 import {
   CalendarClock,
   CheckCircle2,
@@ -264,13 +263,16 @@ export const JobPageRightSidebar: React.FC<JobPageRightSidebarProps> = ({
               Copy job info
             </DropdownMenuItem>
             {(isReady || isDiscovered) && (
-              <DropdownMenuItem onSelect={onRescore}>
+              <DropdownMenuItem onSelect={onRescore} disabled={isBusy}>
                 <RefreshCcw className="mr-2 h-4 w-4" />
                 Recalculate match
               </DropdownMenuItem>
             )}
             {supportsDescriptionRefresh(job.source) && (
-              <DropdownMenuItem onSelect={onRefreshDescription}>
+              <DropdownMenuItem
+                onSelect={onRefreshDescription}
+                disabled={isBusy}
+              >
                 <Globe className="mr-2 h-4 w-4" />
                 Refresh description & recalculate
               </DropdownMenuItem>

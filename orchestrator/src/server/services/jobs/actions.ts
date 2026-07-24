@@ -9,7 +9,7 @@ import {
 } from "@server/services/demo-simulator";
 import { getProfile } from "@server/services/profile";
 import { scoreJobSuitability } from "@server/services/scorer";
-import { type ExtractorSourceId } from "@shared/extractors";
+import type { ExtractorSourceId } from "@shared/extractors";
 import type {
   Job,
   JobAction,
@@ -323,7 +323,10 @@ export async function refreshJobDescriptionFromSourceAndRescore(
     }
 
     const refreshed = await manifest
-      .refreshJobDescription({ jobUrl: job.jobUrl, sourceJobId: job.sourceJobId })
+      .refreshJobDescription({
+        jobUrl: job.jobUrl,
+        sourceJobId: job.sourceJobId,
+      })
       .catch(() => undefined);
 
     if (!refreshed) {
@@ -334,7 +337,9 @@ export async function refreshJobDescriptionFromSourceAndRescore(
       });
     }
 
-    return await scoreAndPersistJob(job, options, { jobDescription: refreshed });
+    return await scoreAndPersistJob(job, options, {
+      jobDescription: refreshed,
+    });
   } catch (error) {
     const mapped = mapErrorForResult(error);
     return {

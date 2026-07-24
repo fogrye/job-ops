@@ -345,7 +345,9 @@ export async function markAsApplied(id: string): Promise<Job> {
   });
 }
 
-export async function refreshJobDescriptionFromSource(id: string): Promise<Job> {
+export async function refreshJobDescriptionFromSource(
+  id: string,
+): Promise<Job> {
   return fetchApi<Job>(`/jobs/${id}/refresh-description`, {
     method: "POST",
   });

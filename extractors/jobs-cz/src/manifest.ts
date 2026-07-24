@@ -3,8 +3,8 @@ import type {
   ExtractorManifest,
   ExtractorProgressEvent,
 } from "@shared/types/extractors";
-import { fetchJobsCzDescription, runJobsCz } from "./run";
 import type { JobsCzProgressEvent } from "./run";
+import { fetchJobsCzDescription, runJobsCz } from "./run";
 
 function toProgress(event: JobsCzProgressEvent): ExtractorProgressEvent {
   if (event.type === "term_start") {

@@ -49,7 +49,8 @@ async function fetchJobsCzAllowlisted(
   for (let hop = 0; hop <= JOBS_CZ_MAX_REDIRECTS; hop += 1) {
     const url = current.toString();
     const response = await fetchImpl(url, { ...init, redirect: "manual" });
-    if (response.status < 300 || response.status >= 400) return { response, url };
+    if (response.status < 300 || response.status >= 400)
+      return { response, url };
 
     const location = response.headers.get("location");
     if (!location) return undefined;
@@ -121,15 +122,20 @@ const HTML_NAMED_ENTITIES: Record<string, string> = {
 };
 
 function decodeHtml(value: string): string {
-  return value.replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (entity, body: string) => {
-    if (body[0] !== "#") return HTML_NAMED_ENTITIES[body.toLowerCase()] ?? entity;
-    const codePoint =
-      body[1]?.toLowerCase() === "x"
-        ? Number.parseInt(body.slice(2), 16)
-        : Number.parseInt(body.slice(1), 10);
-    if (!Number.isInteger(codePoint) || codePoint < 0 || codePoint > 0x10ffff) return entity;
-    return String.fromCodePoint(codePoint);
-  });
+  return value.replace(
+    /&(#x[0-9a-f]+|#\d+|[a-z]+);/gi,
+    (entity, body: string) => {
+      if (body[0] !== "#")
+        return HTML_NAMED_ENTITIES[body.toLowerCase()] ?? entity;
+      const codePoint =
+        body[1]?.toLowerCase() === "x"
+          ? Number.parseInt(body.slice(2), 16)
+          : Number.parseInt(body.slice(1), 10);
+      if (!Number.isInteger(codePoint) || codePoint < 0 || codePoint > 0x10ffff)
+        return entity;
+      return String.fromCodePoint(codePoint);
+    },
+  );
 }
 
 function stripHtml(value: string): string {
@@ -145,9 +151,7 @@ function stripHtml(value: string): string {
 }
 
 function attribute(tag: string, name: string): string | undefined {
-  const match = tag.match(
-    new RegExp(`\\b${name}\\s*=\\s*(["'])(.*?)\\1`, "i"),
-  );
+  const match = tag.match(new RegExp(`\\b${name}\\s*=\\s*(["'])(.*?)\\1`, "i"));
   return getString(match?.[2]);
 }
 
@@ -167,10 +171,7 @@ function firstMatchText(card: string, pattern: RegExp): string | undefined {
   return getString(stripHtml(card.match(pattern)?.[1] ?? ""));
 }
 
-export function buildJobsCzSearchUrl(
-  searchTerm: string,
-  page = 1,
-): string {
+export function buildJobsCzSearchUrl(searchTerm: string, page = 1): string {
   const url = new URL(JOBS_CZ_SEARCH_PATH, JOBS_CZ_BASE_URL);
   url.searchParams.set("q", searchTerm);
   if (page > 1) url.searchParams.set("page", String(page));
@@ -260,20 +261,26 @@ async function fetchPage(
   return response.text();
 }
 
-function extractBalancedDiv(html: string, contentStart: number): string | undefined {
+function extractBalancedDiv(
+  html: string,
+  contentStart: number,
+): string | undefined {
   const tagPattern = /<(\/)?div\b[^>]*>/gi;
   tagPattern.lastIndex = contentStart;
   let depth = 1;
-  let match: RegExpExecArray | null;
-  while ((match = tagPattern.exec(html))) {
+  let match = tagPattern.exec(html);
+  while (match) {
     depth += match[1] ? -1 : 1;
     if (depth === 0) return html.slice(contentStart, match.index);
+    match = tagPattern.exec(html);
   }
   return undefined;
 }
 
 function extractJobsCzNativeDescription(html: string): string | undefined {
-  const marker = html.match(/<div\b[^>]*data-test=["']jd-body-richtext["'][^>]*>/i);
+  const marker = html.match(
+    /<div\b[^>]*data-test=["']jd-body-richtext["'][^>]*>/i,
+  );
   if (!marker || marker.index === undefined) return undefined;
   const inner = extractBalancedDiv(html, marker.index + marker[0].length);
   return inner ? getString(stripHtml(inner)) : undefined;
@@ -285,19 +292,28 @@ interface JobsCzWidgetConfig {
   host: string;
 }
 
-function extractJobsCzInlineWidgetConfig(html: string): JobsCzWidgetConfig | undefined {
+function extractJobsCzInlineWidgetConfig(
+  html: string,
+): JobsCzWidgetConfig | undefined {
   const match = html.match(/__LMC_CAREER_WIDGET__\.push\((\{[\s\S]*?\})\);/);
   if (!match) return undefined;
   try {
     const config = JSON.parse(match[1]) as Partial<JobsCzWidgetConfig>;
     if (!config.apiKey || !config.widgetId || !config.host) return undefined;
-    return { apiKey: config.apiKey, widgetId: config.widgetId, host: config.host };
+    return {
+      apiKey: config.apiKey,
+      widgetId: config.widgetId,
+      host: config.host,
+    };
   } catch {
     return undefined;
   }
 }
 
-function extractJsonParseLiteral(script: string, quoteStart: number): string | undefined {
+function extractJsonParseLiteral(
+  script: string,
+  quoteStart: number,
+): string | undefined {
   let cursor = quoteStart;
   let escaped = false;
   while (cursor < script.length) {
@@ -319,9 +335,15 @@ function extractJobsCzScriptWidgetConfig(
   widgetName: string,
 ): JobsCzWidgetConfig | undefined {
   const markerPattern = /JSON\.parse\('/g;
-  let marker: RegExpExecArray | null;
-  while ((marker = markerPattern.exec(script))) {
-    const literal = extractJsonParseLiteral(script, marker.index + marker[0].length);
+  for (
+    let marker = markerPattern.exec(script);
+    marker;
+    marker = markerPattern.exec(script)
+  ) {
+    const literal = extractJsonParseLiteral(
+      script,
+      marker.index + marker[0].length,
+    );
     if (!literal) continue;
     try {
       const parsed = JSON.parse(literal) as {
@@ -331,7 +353,11 @@ function extractJobsCzScriptWidgetConfig(
       const widget =
         parsed.widgets?.[widgetName] ?? Object.values(parsed.widgets ?? {})[0];
       if (parsed.host && widget?.id && widget.apiKey) {
-        return { apiKey: widget.apiKey, widgetId: widget.id, host: parsed.host };
+        return {
+          apiKey: widget.apiKey,
+          widgetId: widget.id,
+          host: parsed.host,
+        };
       }
     } catch {
       // Not the widget config blob; keep scanning other JSON.parse(...) literals.
@@ -377,7 +403,11 @@ async function fetchJobsCzWidgetDescription(
     },
     body: JSON.stringify({
       query: JOBS_CZ_WIDGET_DETAIL_QUERY,
-      variables: { widgetId: config.widgetId, jobAdId: sourceJobId, host: config.host },
+      variables: {
+        widgetId: config.widgetId,
+        jobAdId: sourceJobId,
+        host: config.host,
+      },
     }),
   });
   if (!response.ok) return undefined;
@@ -403,7 +433,12 @@ export async function fetchJobsCzDescription(
     const pageUrl = fetched.url;
     return (
       extractJobsCzNativeDescription(html) ??
-      (await fetchJobsCzWidgetDescription(html, pageUrl, sourceJobId, fetchImpl))
+      (await fetchJobsCzWidgetDescription(
+        html,
+        pageUrl,
+        sourceJobId,
+        fetchImpl,
+      ))
     );
   } catch {
     return undefined;
@@ -413,7 +448,9 @@ export async function fetchJobsCzDescription(
 export async function runJobsCz(
   options: RunJobsCzOptions = {},
 ): Promise<JobsCzResult> {
-  const searchTerms = (options.searchTerms ?? []).map((term) => term.trim()).filter(Boolean);
+  const searchTerms = (options.searchTerms ?? [])
+    .map((term) => term.trim())
+    .filter(Boolean);
   const maxJobsPerTerm = Math.max(1, Math.floor(options.maxJobsPerTerm ?? 50));
   const fetchImpl = options.fetchImpl ?? fetch;
   const jobs: CreateJobInput[] = [];
@@ -431,7 +468,11 @@ export async function runJobsCz(
         searchTerm,
       });
 
-      for (let page = 1; page <= JOBS_CZ_MAX_PAGES && termJobs < maxJobsPerTerm; page += 1) {
+      for (
+        let page = 1;
+        page <= JOBS_CZ_MAX_PAGES && termJobs < maxJobsPerTerm;
+        page += 1
+      ) {
         if (options.shouldCancel?.()) break;
         const html = await fetchPage(
           buildJobsCzSearchUrl(searchTerm, page),
@@ -441,7 +482,8 @@ export async function runJobsCz(
         if (cards.length === 0) break;
 
         for (const card of cards) {
-          if (termJobs >= maxJobsPerTerm || seenIds.has(card.sourceJobId)) continue;
+          if (termJobs >= maxJobsPerTerm || seenIds.has(card.sourceJobId))
+            continue;
           seenIds.add(card.sourceJobId);
           const job = mapJobsCzCard(card);
           const description = await fetchJobsCzDescription(

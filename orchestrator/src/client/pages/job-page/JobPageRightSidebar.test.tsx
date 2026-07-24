@@ -30,7 +30,10 @@ vi.mock("@/components/ui/dropdown-menu", () => ({
 
 const noop = vi.fn();
 
-function renderRightSidebar(overrides: Parameters<typeof createJob>[0] = {}) {
+function renderRightSidebar(
+  overrides: Parameters<typeof createJob>[0] = {},
+  options: { isBusy?: boolean } = {},
+) {
   const job = createJob({
     status: "ready",
     pdfPath: "data/pdfs/resume_job-1.pdf",
@@ -48,7 +51,7 @@ function renderRightSidebar(overrides: Parameters<typeof createJob>[0] = {}) {
       isApplied={job.status === "applied"}
       isInProgress={job.status === "in_progress"}
       canLogEvents={false}
-      isBusy={false}
+      isBusy={options.isBusy ?? false}
       isUploadingPdf={false}
       pdfActionsDisabled={false}
       pdfRegeneratingReason={null}
@@ -115,6 +118,22 @@ describe("JobPageRightSidebar actions", () => {
         name: /refresh description & recalculate/i,
       }),
     ).toBeInTheDocument();
+  });
+
+  it("disables both Recalculate match and Refresh description while any action is busy", () => {
+    renderRightSidebar(
+      { source: "jobs-cz", status: "ready" },
+      { isBusy: true },
+    );
+
+    expect(
+      screen.getByRole("button", { name: /recalculate match/i }),
+    ).toBeDisabled();
+    expect(
+      screen.getByRole("button", {
+        name: /refresh description & recalculate/i,
+      }),
+    ).toBeDisabled();
   });
 
   it("uses upload wording when the job has no resume PDF", () => {

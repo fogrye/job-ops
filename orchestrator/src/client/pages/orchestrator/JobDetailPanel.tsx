@@ -19,7 +19,6 @@ import { useProfile } from "@client/hooks/useProfile";
 import { useRefreshJobDescription } from "@client/hooks/useRefreshJobDescription";
 import { useRescoreJob } from "@client/hooks/useRescoreJob";
 import { useSettings } from "@client/hooks/useSettings";
-import { supportsDescriptionRefresh } from "@shared/extractors";
 import { uploadJobPdfFromFile } from "@client/lib/job-pdf-upload";
 import { resolveFilenameLanguage } from "@client/lib/pdf-filename";
 import {
@@ -30,6 +29,7 @@ import {
   STALE_PDF_MESSAGE,
 } from "@client/lib/pdf-freshness";
 import { downloadJobPdf, openJobPdf } from "@client/lib/private-pdf";
+import { supportsDescriptionRefresh } from "@shared/extractors";
 import type {
   Job,
   JobListItem,
@@ -768,7 +768,7 @@ export const JobDetailPanel: React.FC<JobDetailPanelProps> = ({
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   onSelect={() => rescoreJob(selectedJob.id)}
-                  disabled={isRescoring}
+                  disabled={isRescoring || isRefreshing}
                 >
                   <RefreshCcw
                     className={cn(
@@ -781,7 +781,7 @@ export const JobDetailPanel: React.FC<JobDetailPanelProps> = ({
                 {supportsDescriptionRefresh(selectedJob.source) && (
                   <DropdownMenuItem
                     onSelect={() => refreshJobDescription(selectedJob.id)}
-                    disabled={isRefreshing}
+                    disabled={isRescoring || isRefreshing}
                   >
                     <Globe
                       className={cn(

@@ -1,5 +1,5 @@
-import { act } from "@testing-library/react";
 import type { Job } from "@shared/types";
+import { act } from "@testing-library/react";
 import { toast } from "sonner";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import * as api from "../api";
@@ -43,9 +43,7 @@ describe("useRefreshJobDescription", () => {
   it("refreshes the job and shows a toast once confirmed", async () => {
     vi.spyOn(window, "confirm").mockReturnValue(true);
     const onJobUpdated = vi.fn().mockResolvedValue(undefined);
-    vi.mocked(api.refreshJobDescriptionFromSource).mockResolvedValue(
-      {} as Job,
-    );
+    vi.mocked(api.refreshJobDescriptionFromSource).mockResolvedValue({} as Job);
 
     const { result } = renderHookWithQueryClient(() =>
       useRefreshJobDescription(onJobUpdated),
@@ -55,12 +53,45 @@ describe("useRefreshJobDescription", () => {
       await result.current.refreshJobDescription("job-1");
     });
 
-    expect(api.refreshJobDescriptionFromSource).toHaveBeenCalledWith(
-      "job-1",
-    );
+    expect(api.refreshJobDescriptionFromSource).toHaveBeenCalledWith("job-1");
     expect(onJobUpdated).toHaveBeenCalled();
     expect(toast.success).toHaveBeenCalledWith(
       "Description refreshed and match recalculated",
     );
+  });
+
+  it("ignores a second refresh call while one is already in flight", async () => {
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    const onJobUpdated = vi.fn().mockResolvedValue(undefined);
+    // Promise.withResolvers() is unavailable: tsconfig target/lib is ES2022.
+    let resolveRefresh: (value: Job) => void = () => {};
+    vi.mocked(api.refreshJobDescriptionFromSource).mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveRefresh = resolve;
+        }),
+    );
+
+    const { result } = renderHookWithQueryClient(() =>
+      useRefreshJobDescription(onJobUpdated),
+    );
+
+    let firstCallPromise: Promise<void> | undefined;
+    await act(async () => {
+      firstCallPromise = result.current.refreshJobDescription("job-1");
+      await Promise.resolve();
+    });
+    expect(result.current.isRefreshing).toBe(true);
+
+    await act(async () => {
+      await result.current.refreshJobDescription("job-1");
+    });
+    expect(api.refreshJobDescriptionFromSource).toHaveBeenCalledTimes(1);
+
+    resolveRefresh({} as Job);
+    await act(async () => {
+      await firstCallPromise;
+    });
+    expect(result.current.isRefreshing).toBe(false);
   });
 });
