@@ -12,6 +12,7 @@ vi.mock("../api", () => ({
 
 vi.mock("sonner", () => ({
   toast: {
+    loading: vi.fn(() => "toast-1"),
     success: vi.fn(),
     error: vi.fn(),
   },
@@ -36,7 +37,9 @@ describe("useRescoreJob", () => {
 
     expect(api.rescoreJob).toHaveBeenCalledWith("job-1");
     expect(onJobUpdated).toHaveBeenCalled();
-    expect(toast.success).toHaveBeenCalledWith("Match recalculated");
+    expect(toast.success).toHaveBeenCalledWith("Match recalculated", {
+      id: "toast-1",
+    });
   });
 
   it("ignores a second rescore call while one is already in flight", async () => {
@@ -59,7 +62,7 @@ describe("useRescoreJob", () => {
       firstCallPromise = result.current.rescoreJob("job-1");
       await Promise.resolve();
     });
-    expect(result.current.isRescoring).toBe(true);
+    expect(result.current.isRescoring("job-1")).toBe(true);
 
     await act(async () => {
       await result.current.rescoreJob("job-1");
@@ -70,6 +73,42 @@ describe("useRescoreJob", () => {
     await act(async () => {
       await firstCallPromise;
     });
-    expect(result.current.isRescoring).toBe(false);
+    expect(result.current.isRescoring("job-1")).toBe(false);
+  });
+
+  it("tracks in-flight state per job so rescoring one job never blocks another", async () => {
+    const onJobUpdated = vi.fn().mockResolvedValue(undefined);
+    let resolveJob1: (value: Job) => void = () => {};
+    vi.mocked(api.rescoreJob).mockImplementation(
+      (jobId) =>
+        new Promise((resolve) => {
+          if (jobId === "job-1") resolveJob1 = resolve;
+          else resolve({} as Job);
+        }),
+    );
+
+    const { result } = renderHookWithQueryClient(() =>
+      useRescoreJob(onJobUpdated),
+    );
+
+    let job1Promise: Promise<void> | undefined;
+    await act(async () => {
+      job1Promise = result.current.rescoreJob("job-1");
+      await Promise.resolve();
+    });
+    expect(result.current.isRescoring("job-1")).toBe(true);
+    expect(result.current.isRescoring("job-2")).toBe(false);
+
+    await act(async () => {
+      await result.current.rescoreJob("job-2");
+    });
+    expect(api.rescoreJob).toHaveBeenCalledWith("job-2");
+    expect(result.current.isRescoring("job-2")).toBe(false);
+
+    resolveJob1({} as Job);
+    await act(async () => {
+      await job1Promise;
+    });
+    expect(result.current.isRescoring("job-1")).toBe(false);
   });
 });

@@ -1876,6 +1876,148 @@ describe.sequential("Jobs API routes", () => {
     expect(body.data.results[0].ok).toBe(false);
   });
 
+  it("dispatches refresh-description in the background and reports status via polling", async () => {
+    const { createJob } = await import("@server/repositories/jobs");
+    const { scoreJobSuitability } = await import("@server/services/scorer");
+    const { getProfile } = await import("@server/services/profile");
+    const registryModule = await import("@server/extractors/registry");
+    const { createTestExtractorRegistry } = await import("./test-utils");
+
+    vi.mocked(getProfile).mockResolvedValue({});
+    vi.mocked(scoreJobSuitability).mockResolvedValue({
+      score: 77,
+      reason: "Good fit",
+      jobBrief: null,
+    });
+
+    const job = await createJob({
+      source: "jobs-cz",
+      sourceJobId: "111",
+      title: "Backend Engineer",
+      employer: "Acme s.r.o.",
+      jobUrl: "https://www.jobs.cz/r/111",
+      jobDescription: "Old description",
+    });
+
+    const refreshJobDescription = vi.fn().mockResolvedValue("New description.");
+    const registry = createTestExtractorRegistry();
+    const jobsCzManifest = registry.manifestBySource.get("jobs-cz");
+    registry.manifestBySource.set("jobs-cz", {
+      ...jobsCzManifest,
+      id: jobsCzManifest?.id ?? "test-jobs-cz",
+      displayName: jobsCzManifest?.displayName ?? "Test jobs-cz",
+      providesSources: jobsCzManifest?.providesSources ?? ["jobs-cz"],
+      run: jobsCzManifest?.run ?? vi.fn(),
+      refreshJobDescription,
+    });
+    vi.mocked(registryModule.getExtractorRegistry).mockResolvedValue(registry);
+
+    const startedAt = Date.now();
+    const startRes = await fetch(
+      `${baseUrl}/api/jobs/${job.id}/refresh-description`,
+      { method: "POST" },
+    );
+    const elapsedMs = Date.now() - startedAt;
+    const startBody = await startRes.json();
+
+    expect(startRes.status).toBe(202);
+    expect(startBody.ok).toBe(true);
+    expect(startBody.data).toEqual({ jobId: job.id, status: "pending" });
+    // The triggering request must return promptly: the actual fetch+rescore
+    // work happens after this response, not before it.
+    expect(elapsedMs).toBeLessThan(2000);
+
+    // Genuinely async: the background dispatch's completion time depends on
+    // real promise/DB-write scheduling, not a fixed duration, so poll for
+    // the observable status transition rather than guessing a sleep length.
+    let statusBody: { ok: boolean; data?: { status: string; job?: any } } = {
+      ok: false,
+    };
+    await vi.waitFor(async () => {
+      const statusRes = await fetch(
+        `${baseUrl}/api/jobs/${job.id}/refresh-description/status`,
+      );
+      statusBody = await statusRes.json();
+      expect(statusBody.data?.status).not.toBe("pending");
+    });
+
+    expect(statusBody.ok).toBe(true);
+    expect(statusBody.data?.status).toBe("succeeded");
+    expect(statusBody.data?.job.jobDescription).toBe("New description.");
+    expect(statusBody.data?.job.suitabilityScore).toBe(77);
+  });
+
+  it("rejects a duplicate refresh-description request while one is already pending", async () => {
+    const { createJob } = await import("@server/repositories/jobs");
+    const registryModule = await import("@server/extractors/registry");
+    const { createTestExtractorRegistry } = await import("./test-utils");
+
+    const job = await createJob({
+      source: "jobs-cz",
+      sourceJobId: "222",
+      title: "Data Engineer",
+      employer: "Acme s.r.o.",
+      jobUrl: "https://www.jobs.cz/r/222",
+      jobDescription: "Old description",
+    });
+
+    let releaseRefresh: (() => void) | undefined;
+    const refreshJobDescription = vi.fn().mockImplementation(
+      () =>
+        new Promise<string>((resolve) => {
+          releaseRefresh = () => resolve("Slow description.");
+        }),
+    );
+    const registry = createTestExtractorRegistry();
+    const jobsCzManifest = registry.manifestBySource.get("jobs-cz");
+    registry.manifestBySource.set("jobs-cz", {
+      ...jobsCzManifest,
+      id: jobsCzManifest?.id ?? "test-jobs-cz",
+      displayName: jobsCzManifest?.displayName ?? "Test jobs-cz",
+      providesSources: jobsCzManifest?.providesSources ?? ["jobs-cz"],
+      run: jobsCzManifest?.run ?? vi.fn(),
+      refreshJobDescription,
+    });
+    vi.mocked(registryModule.getExtractorRegistry).mockResolvedValue(registry);
+
+    const firstRes = await fetch(
+      `${baseUrl}/api/jobs/${job.id}/refresh-description`,
+      { method: "POST" },
+    );
+    expect(firstRes.status).toBe(202);
+
+    const secondRes = await fetch(
+      `${baseUrl}/api/jobs/${job.id}/refresh-description`,
+      { method: "POST" },
+    );
+    const secondBody = await secondRes.json();
+    expect(secondRes.status).toBe(409);
+    expect(secondBody.ok).toBe(false);
+
+    // Let the mocked in-flight promise resolve so it doesn't dangle past
+    // this test's teardown; no assertion depends on the outcome.
+    releaseRefresh?.();
+  });
+
+  it("reports a missing operation for a job whose refresh-description was never started", async () => {
+    const { createJob } = await import("@server/repositories/jobs");
+    const job = await createJob({
+      source: "jobs-cz",
+      sourceJobId: "333",
+      title: "Nothing Yet",
+      employer: "Acme s.r.o.",
+      jobUrl: "https://www.jobs.cz/r/333",
+      jobDescription: "Old description",
+    });
+
+    const res = await fetch(
+      `${baseUrl}/api/jobs/${job.id}/refresh-description/status`,
+    );
+    const body = await res.json();
+    expect(res.status).toBe(404);
+    expect(body.ok).toBe(false);
+  });
+
   it("deletes jobs below a score threshold (excluding applied)", async () => {
     const { createJob, updateJob } = await import("@server/repositories/jobs");
 

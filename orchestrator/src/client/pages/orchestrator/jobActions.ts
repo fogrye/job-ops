@@ -16,6 +16,10 @@ export function canRescore(jobs: JobListItem[]): boolean {
   return jobs.length > 0 && jobs.every((job) => job.status !== "processing");
 }
 
+export function canRefreshDescription(jobs: JobListItem[]): boolean {
+  return jobs.length > 0 && jobs.every((job) => job.status !== "processing");
+}
+
 export function getFailedJobIds(response: JobActionResponse): Set<string> {
   const failedIds = response.results
     .filter((result) => !result.ok)
