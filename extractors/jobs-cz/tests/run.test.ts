@@ -37,6 +37,17 @@ describe("Jobs.cz extractor", () => {
     expect(job).not.toHaveProperty("jobDescription");
   });
 
+  it("decodes decimal and hex HTML entities without double-decoding already-escaped markup", () => {
+    const entityCard = `
+      <article class="SearchResultCard">
+        <a href="/r/999" data-jobad-id="999">R&#43;D Engineer &#x2013; &amp;#43; literal</a>
+        <span translate="no">Acme s.r.o.</span>
+      </article>
+    `;
+    const [job] = parseJobsCzCards(page(entityCard));
+    expect(job?.title).toBe("R+D Engineer – &#43; literal");
+  });
+
   it("paginates, deduplicates, and emits normalized source jobs", async () => {
     const fetchImpl = vi.fn<typeof fetch>().mockImplementation(async (input) => {
       const url = String(input);

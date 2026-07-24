@@ -66,17 +66,24 @@ function getString(value: string | undefined): string | undefined {
   return text || undefined;
 }
 
+const HTML_NAMED_ENTITIES: Record<string, string> = {
+  nbsp: " ",
+  amp: "&",
+  quot: '"',
+  lt: "<",
+  gt: ">",
+};
+
 function decodeHtml(value: string): string {
-  return value
-    .replace(/&nbsp;/gi, " ")
-    .replace(/&amp;/gi, "&")
-    .replace(/&quot;/gi, '"')
-    .replace(/&lt;/gi, "<")
-    .replace(/&gt;/gi, ">")
-    .replace(/&#x([0-9a-f]+);/gi, (_, code: string) =>
-      String.fromCodePoint(Number.parseInt(code, 16)),
-    )
-    .replace(/&#(\d+);/g, (_, code: string) => String.fromCodePoint(Number(code)));
+  return value.replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (entity, body: string) => {
+    if (body[0] !== "#") return HTML_NAMED_ENTITIES[body.toLowerCase()] ?? entity;
+    const codePoint =
+      body[1]?.toLowerCase() === "x"
+        ? Number.parseInt(body.slice(2), 16)
+        : Number.parseInt(body.slice(1), 10);
+    if (!Number.isInteger(codePoint) || codePoint < 0 || codePoint > 0x10ffff) return entity;
+    return String.fromCodePoint(codePoint);
+  });
 }
 
 function stripHtml(value: string): string {
