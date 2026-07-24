@@ -1711,10 +1711,14 @@ describe.sequential("Jobs API routes", () => {
       registry,
     );
 
-    const res = await fetch(
-      `${baseUrl}/api/jobs/${job.id}/refresh-description`,
-      { method: "POST" },
-    );
+    const res = await fetch(`${baseUrl}/api/jobs/actions`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "refresh_description",
+        jobIds: [job.id],
+      }),
+    });
     const body = await res.json();
 
     expect(refreshJobDescription).toHaveBeenCalledWith({
@@ -1726,9 +1730,11 @@ describe.sequential("Jobs API routes", () => {
       expect.anything(),
     );
     expect(body.ok).toBe(true);
-    expect(body.data.jobDescription).toBe("Own our platform.");
-    expect(body.data.suitabilityScore).toBe(88);
-    expect(body.data.suitabilityReason).toBe(
+    const [result] = body.data.results;
+    expect(result.ok).toBe(true);
+    expect(result.job.jobDescription).toBe("Own our platform.");
+    expect(result.job.suitabilityScore).toBe(88);
+    expect(result.job.suitabilityReason).toBe(
       "Great fit for the real description",
     );
   });
@@ -1776,13 +1782,17 @@ describe.sequential("Jobs API routes", () => {
       registry,
     );
 
-    const res = await fetch(
-      `${baseUrl}/api/jobs/${job.id}/refresh-description`,
-      { method: "POST" },
-    );
+    const res = await fetch(`${baseUrl}/api/jobs/actions`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "refresh_description",
+        jobIds: [job.id],
+      }),
+    });
     const body = await res.json();
 
-    expect(body.ok).toBe(false);
+    expect(body.data.results[0].ok).toBe(false);
 
     const detailRes = await fetch(`${baseUrl}/api/jobs/${job.id}`);
     const detailBody = await detailRes.json();
@@ -1823,13 +1833,17 @@ describe.sequential("Jobs API routes", () => {
       registry,
     );
 
-    const res = await fetch(
-      `${baseUrl}/api/jobs/${job.id}/refresh-description`,
-      { method: "POST" },
-    );
+    const res = await fetch(`${baseUrl}/api/jobs/actions`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "refresh_description",
+        jobIds: [job.id],
+      }),
+    });
     const body = await res.json();
 
-    expect(body.ok).toBe(false);
+    expect(body.data.results[0].ok).toBe(false);
     expect(scoreJobSuitability).not.toHaveBeenCalled();
 
     const listRes = await fetch(`${baseUrl}/api/jobs/${job.id}`);
@@ -1847,14 +1861,19 @@ describe.sequential("Jobs API routes", () => {
       jobDescription: "Pasted description",
     });
 
-    const res = await fetch(
-      `${baseUrl}/api/jobs/${job.id}/refresh-description`,
-      { method: "POST" },
-    );
+    const res = await fetch(`${baseUrl}/api/jobs/actions`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "refresh_description",
+        jobIds: [job.id],
+      }),
+    });
     const body = await res.json();
 
-    expect(res.status).toBe(400);
-    expect(body.ok).toBe(false);
+    expect(res.status).toBe(200);
+    expect(body.ok).toBe(true);
+    expect(body.data.results[0].ok).toBe(false);
   });
 
   it("deletes jobs below a score threshold (excluding applied)", async () => {

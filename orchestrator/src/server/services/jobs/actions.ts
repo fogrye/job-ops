@@ -104,7 +104,8 @@ export function buildJobActionExecutionOptions(
   },
 ): JobActionExecutionOptions {
   return {
-    ...(action === "rescore" && !isDemoMode()
+    ...((action === "rescore" || action === "refresh_description") &&
+    !isDemoMode()
       ? { getProfileForRescore: createSharedRescoreProfileLoader() }
       : {}),
     ...(action === "move_to_ready" && options?.forceMoveToReady !== undefined
@@ -200,6 +201,10 @@ export async function executeJobActionForJob(
       }
 
       return { jobId, ok: true, job: updated };
+    }
+
+    if (action === "refresh_description") {
+      return await refreshJobDescriptionFromSourceAndRescore(jobId, options);
     }
 
     return await scoreAndPersistJob(job, options);
