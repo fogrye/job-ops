@@ -145,4 +145,52 @@ describe("Jobs.cz extractor", () => {
       }),
     ]);
   });
+
+  it("extracts the description from a script-bundle widget config (no inline push)", async () => {
+    const reactWidgetHtml = `
+      <html><body>
+        <div id="vacancy-detail" data-widget="main"></div>
+        <script src="/assets/js/script.min.js?av=abc123"></script>
+      </body></html>
+    `;
+    const scriptBundle = `
+      other(module.exports=JSON.parse('{"vacancyCount":{"wordOne":"job"}}'));
+      config(module.exports=JSON.parse('{"id":"tmobile","host":"t-mobile.jobs.cz","widgets":{"main":{"id":"widget-2","apiKey":"script-api-key"}}}'));
+    `;
+    const fetchImpl = vi.fn<typeof fetch>().mockImplementation(async (input, init) => {
+      const url = String(input);
+      if (url.includes("/prace/")) return new Response(page(card("123", "Prague")));
+      if (url.includes("/r/123")) return new Response(reactWidgetHtml);
+      if (url.includes("/assets/js/script.min.js")) return new Response(scriptBundle);
+      if (url === "https://api.capybara.lmc.cz/api/graphql/widget") {
+        expect(init?.headers).toMatchObject({ "x-api-key": "script-api-key" });
+        expect(JSON.parse(String(init?.body)).variables).toEqual({
+          widgetId: "widget-2",
+          jobAdId: "123",
+          host: "t-mobile.jobs.cz",
+        });
+        return Response.json({
+          data: {
+            widget: {
+              jobAd: { content: { htmlContent: "<p>Own our security operations.</p>" } },
+            },
+          },
+        });
+      }
+      return new Response("not found", { status: 404 });
+    });
+
+    const result = await runJobsCz({
+      searchTerms: ["platform engineer"],
+      maxJobsPerTerm: 1,
+      fetchImpl,
+    });
+
+    expect(result.jobs).toEqual([
+      expect.objectContaining({
+        sourceJobId: "123",
+        jobDescription: "Own our security operations.",
+      }),
+    ]);
+  });
 });

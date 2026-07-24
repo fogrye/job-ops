@@ -95,10 +95,13 @@ function attribute(tag: string, name: string): string | undefined {
   return getString(match?.[2]);
 }
 
-function absoluteUrl(value: string | undefined): string | undefined {
+function absoluteUrl(
+  value: string | undefined,
+  base: string = JOBS_CZ_BASE_URL,
+): string | undefined {
   if (!value) return undefined;
   try {
-    return new URL(value, JOBS_CZ_BASE_URL).toString();
+    return new URL(value, base).toString();
   } catch {
     return undefined;
   }
@@ -226,7 +229,7 @@ interface JobsCzWidgetConfig {
   host: string;
 }
 
-function extractJobsCzWidgetConfig(html: string): JobsCzWidgetConfig | undefined {
+function extractJobsCzInlineWidgetConfig(html: string): JobsCzWidgetConfig | undefined {
   const match = html.match(/__LMC_CAREER_WIDGET__\.push\((\{[\s\S]*?\})\);/);
   if (!match) return undefined;
   try {
@@ -238,12 +241,76 @@ function extractJobsCzWidgetConfig(html: string): JobsCzWidgetConfig | undefined
   }
 }
 
+function extractJsonParseLiteral(script: string, quoteStart: number): string | undefined {
+  let cursor = quoteStart;
+  let escaped = false;
+  while (cursor < script.length) {
+    const char = script[cursor];
+    if (escaped) {
+      escaped = false;
+    } else if (char === "\\") {
+      escaped = true;
+    } else if (char === "'") {
+      return script.slice(quoteStart, cursor).replace(/\\'/g, "'");
+    }
+    cursor += 1;
+  }
+  return undefined;
+}
+
+function extractJobsCzScriptWidgetConfig(
+  script: string,
+  widgetName: string,
+): JobsCzWidgetConfig | undefined {
+  const markerPattern = /JSON\.parse\('/g;
+  let marker: RegExpExecArray | null;
+  while ((marker = markerPattern.exec(script))) {
+    const literal = extractJsonParseLiteral(script, marker.index + marker[0].length);
+    if (!literal) continue;
+    try {
+      const parsed = JSON.parse(literal) as {
+        host?: string;
+        widgets?: Record<string, { id?: string; apiKey?: string }>;
+      };
+      const widget =
+        parsed.widgets?.[widgetName] ?? Object.values(parsed.widgets ?? {})[0];
+      if (parsed.host && widget?.id && widget.apiKey) {
+        return { apiKey: widget.apiKey, widgetId: widget.id, host: parsed.host };
+      }
+    } catch {
+      // Not the widget config blob; keep scanning other JSON.parse(...) literals.
+    }
+  }
+  return undefined;
+}
+
+async function fetchJobsCzScriptWidgetConfig(
+  html: string,
+  pageUrl: string,
+  fetchImpl: typeof fetch,
+): Promise<JobsCzWidgetConfig | undefined> {
+  const scriptSrc = html.match(
+    /<script\b[^>]*src=["']([^"']*script\.min\.js[^"']*)["']/i,
+  )?.[1];
+  const scriptUrl = absoluteUrl(scriptSrc, pageUrl);
+  if (!scriptUrl) return undefined;
+
+  const response = await fetchImpl(scriptUrl);
+  if (!response.ok) return undefined;
+  const script = await response.text();
+  const widgetName = html.match(/data-widget=["']([^"']+)["']/i)?.[1] ?? "main";
+  return extractJobsCzScriptWidgetConfig(script, widgetName);
+}
+
 async function fetchJobsCzWidgetDescription(
   html: string,
+  pageUrl: string,
   sourceJobId: string,
   fetchImpl: typeof fetch,
 ): Promise<string | undefined> {
-  const config = extractJobsCzWidgetConfig(html);
+  const config =
+    extractJobsCzInlineWidgetConfig(html) ??
+    (await fetchJobsCzScriptWidgetConfig(html, pageUrl, fetchImpl));
   if (!config) return undefined;
 
   const response = await fetchImpl(JOBS_CZ_WIDGET_API_URL, {
@@ -277,9 +344,10 @@ async function fetchJobsCzDescription(
     });
     if (!response.ok) return undefined;
     const html = await response.text();
+    const pageUrl = response.url || jobUrl;
     return (
       extractJobsCzNativeDescription(html) ??
-      (await fetchJobsCzWidgetDescription(html, sourceJobId, fetchImpl))
+      (await fetchJobsCzWidgetDescription(html, pageUrl, sourceJobId, fetchImpl))
     );
   } catch {
     return undefined;
