@@ -100,8 +100,8 @@ describe("JobPageRightSidebar actions", () => {
       screen.getAllByRole("button", { name: /view old pdf/i }).length,
     ).toBeGreaterThan(0);
     expect(
-      screen.getByRole("button", { name: /download old pdf/i }),
-    ).toBeInTheDocument();
+      screen.getAllByRole("button", { name: /download old pdf/i }).length,
+    ).toBeGreaterThan(0);
   });
 
   it("shows Refresh description & recalculate only for sources that support it", () => {
@@ -143,5 +143,54 @@ describe("JobPageRightSidebar actions", () => {
       screen.getAllByRole("button", { name: /upload pdf/i }).length,
     ).toBeGreaterThan(0);
     expect(screen.queryByRole("button", { name: /download pdf/i })).toBeNull();
+  });
+
+  it("exposes a standalone Download PDF button, not just the overflow menu entry", () => {
+    const onDownloadPdf = vi.fn();
+    render(
+      <JobPageRightSidebar
+        job={createJob({
+          status: "ready",
+          pdfPath: "data/pdfs/resume_job-1.pdf",
+          pdfFreshness: "stale",
+        })}
+        tasks={[]}
+        jobLink={null}
+        isDiscovered={false}
+        isReady
+        isApplied={false}
+        isInProgress={false}
+        canLogEvents={false}
+        isBusy={false}
+        isUploadingPdf={false}
+        pdfActionsDisabled={false}
+        pdfRegeneratingReason={null}
+        pdfViewLabel="View PDF"
+        pdfDownloadLabel="Download PDF"
+        onStartTailoring={noop}
+        onMarkApplied={noop}
+        onMoveToInProgress={noop}
+        onOpenLogEvent={noop}
+        onEditTailoring={noop}
+        onViewPdf={noop}
+        onDownloadPdf={onDownloadPdf}
+        onUploadPdf={noop}
+        onRegeneratePdf={noop}
+        onSkip={noop}
+        onOpenEditDetails={noop}
+        onViewJobDescription={noop}
+        onCopyJobInfo={noop}
+        onRescore={noop}
+        onRefreshDescription={noop}
+        onCheckSponsor={noop}
+      />,
+    );
+
+    const downloadButtons = screen.getAllByRole("button", {
+      name: /download pdf/i,
+    });
+    expect(downloadButtons.length).toBeGreaterThan(1);
+    downloadButtons[0].click();
+    expect(onDownloadPdf).toHaveBeenCalledTimes(1);
   });
 });
