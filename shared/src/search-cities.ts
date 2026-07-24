@@ -8,6 +8,8 @@ const LOCATION_ALIASES: Record<string, string> = {
   uk: "united kingdom",
   us: "united states",
   usa: "united states",
+};
+const LOCATION_TOKEN_ALIASES: Record<string, string> = {
   prague: "praha",
 };
 
@@ -17,6 +19,15 @@ export function normalizeLocationToken(
   const normalized = value?.trim().toLowerCase().replace(/\s+/g, " ") ?? "";
   if (!normalized) return "";
   return LOCATION_ALIASES[normalized] ?? normalized;
+}
+
+function normalizeLocationTokens(value: string | undefined): string[] {
+  return normalizeLocationToken(value)
+    .replace(/[^\p{L}\p{N}]+/gu, " ")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((token) => LOCATION_TOKEN_ALIASES[token] ?? token);
 }
 
 export function parseSearchCitiesSetting(
@@ -98,16 +109,10 @@ function matchesRequestedLocationTokens(
   jobLocation: string | undefined,
   requestedLocation: string,
 ): boolean {
-  const normalizedJobLocation = normalizeLocationToken(jobLocation)
-    .replace(/[^\p{L}\p{N}]+/gu, " ")
-    .trim();
-  const normalizedRequestedLocation = normalizeLocationToken(requestedLocation)
-    .replace(/[^\p{L}\p{N}]+/gu, " ")
-    .trim();
-  if (!normalizedJobLocation || !normalizedRequestedLocation) return false;
+  const jobTokens = normalizeLocationTokens(jobLocation);
+  const requestedTokens = normalizeLocationTokens(requestedLocation);
+  if (requestedTokens.length === 0 || jobTokens.length === 0) return false;
 
-  const jobTokens = normalizedJobLocation.split(" ");
-  const requestedTokens = normalizedRequestedLocation.split(" ");
   if (requestedTokens.length > jobTokens.length) return false;
 
   for (let i = 0; i <= jobTokens.length - requestedTokens.length; i += 1) {

@@ -80,6 +80,7 @@ describe("search-cities", () => {
       matchesRequestedCity("New York, NY, United States", "new york"),
     ).toBe(true);
     expect(matchesRequestedCity("Praha – Nové Město", "Prague")).toBe(true);
+    expect(matchesRequestedCity("Prague, Czechia", "Prague")).toBe(true);
   });
 
   it("matches requested countries using canonical names and common aliases", () => {
