@@ -5,7 +5,10 @@
 import "./config/env";
 import { logger } from "@infra/logger";
 import { sanitizeUnknown } from "@infra/sanitize";
+import { settingsRegistry } from "@shared/settings-registry";
 import { createApp } from "./app";
+import { getJobOpsAppConfig } from "./config/app-mode";
+import { isDemoMode } from "./config/demo";
 import { initializeExtractorRegistry } from "./extractors/registry";
 import { deleteExpiredOrRevokedAuthSessions } from "./repositories/auth-sessions";
 import * as settingsRepo from "./repositories/settings";
@@ -16,9 +19,17 @@ import {
   startBackupScheduler,
 } from "./services/backup/index";
 import { attachChallengeViewerUpgradeProxy } from "./services/challenge-viewer";
+import {
+  setDailySearchSettings,
+  startDailySearchScheduler,
+} from "./services/daily-search/index";
 import { initializeDemoModeServices } from "./services/demo-mode";
 import { applyStoredEnvOverrides } from "./services/envSettings";
 import { initializeHistoricalServerEventReplaySafely } from "./services/historical-product-analytics";
+import {
+  setMailboxSyncSettings,
+  startMailboxSyncScheduler,
+} from "./services/mailbox-sync/index";
 import { initialize as initializeVisaSponsors } from "./services/visa-sponsors/index";
 
 const AUTH_SESSION_CLEANUP_INTERVAL_MS = 60 * 60 * 1000;
@@ -130,6 +141,66 @@ async function startServer() {
       logger.warn("Failed to initialize backup service", {
         error: sanitizeUnknown(error),
       });
+    }
+
+    // Initialize daily active-search + mailbox-sync schedulers. Both need a
+    // resolved private-data scope (tenant/user), which only exists inside a
+    // request — unsupported in hosted multi-tenant mode, same restriction as
+    // the manual webhook trigger (see api/routes/webhook.ts).
+    if (!isDemoMode() && getJobOpsAppConfig().appMode !== "hosted") {
+      try {
+        const dailySearchEnabled =
+          settingsRegistry.dailySearchEnabled.parse(
+            (await settingsRepo.getSetting("dailySearchEnabled")) ?? undefined,
+          ) ?? settingsRegistry.dailySearchEnabled.default();
+        const dailySearchHour =
+          settingsRegistry.dailySearchHour.parse(
+            (await settingsRepo.getSetting("dailySearchHour")) ?? undefined,
+          ) ?? settingsRegistry.dailySearchHour.default();
+
+        setDailySearchSettings({
+          enabled: dailySearchEnabled,
+          hour: dailySearchHour,
+        });
+        startDailySearchScheduler();
+
+        console.log(
+          dailySearchEnabled
+            ? `✅ Daily search scheduler started (hour: ${dailySearchHour})`
+            : "ℹ️ Daily search disabled. Enable in settings to auto-run the pipeline daily.",
+        );
+      } catch (error) {
+        logger.warn("Failed to initialize daily search scheduler", {
+          error: sanitizeUnknown(error),
+        });
+      }
+
+      try {
+        const mailboxSyncEnabled =
+          settingsRegistry.mailboxSyncEnabled.parse(
+            (await settingsRepo.getSetting("mailboxSyncEnabled")) ?? undefined,
+          ) ?? settingsRegistry.mailboxSyncEnabled.default();
+        const mailboxSyncHour =
+          settingsRegistry.mailboxSyncHour.parse(
+            (await settingsRepo.getSetting("mailboxSyncHour")) ?? undefined,
+          ) ?? settingsRegistry.mailboxSyncHour.default();
+
+        setMailboxSyncSettings({
+          enabled: mailboxSyncEnabled,
+          hour: mailboxSyncHour,
+        });
+        startMailboxSyncScheduler();
+
+        console.log(
+          mailboxSyncEnabled
+            ? `✅ Mailbox sync scheduler started (hour: ${mailboxSyncHour})`
+            : "ℹ️ Mailbox sync disabled. Enable in settings to auto-sync Gmail daily.",
+        );
+      } catch (error) {
+        logger.warn("Failed to initialize mailbox sync scheduler", {
+          error: sanitizeUnknown(error),
+        });
+      }
     }
 
     try {

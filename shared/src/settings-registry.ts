@@ -847,6 +847,42 @@ export const settingsRegistry = {
     },
     serialize: serializeNullableNumber,
   },
+  dailySearchEnabled: {
+    kind: "typed" as const,
+    schema: z.boolean(),
+    default: (): boolean => true,
+    parse: parseBitBoolOrNull,
+    serialize: serializeBitBool,
+  },
+  dailySearchHour: {
+    kind: "typed" as const,
+    schema: z.number().int().min(0).max(23),
+    default: (): number => 6,
+    parse: (raw: string | undefined): number | null => {
+      const parsed = raw ? parseInt(raw, 10) : NaN;
+      if (Number.isNaN(parsed)) return null;
+      return Math.min(23, Math.max(0, parsed));
+    },
+    serialize: serializeNullableNumber,
+  },
+  mailboxSyncEnabled: {
+    kind: "typed" as const,
+    schema: z.boolean(),
+    default: (): boolean => true,
+    parse: parseBitBoolOrNull,
+    serialize: serializeBitBool,
+  },
+  mailboxSyncHour: {
+    kind: "typed" as const,
+    schema: z.number().int().min(0).max(23),
+    default: (): number => 7,
+    parse: (raw: string | undefined): number | null => {
+      const parsed = raw ? parseInt(raw, 10) : NaN;
+      if (Number.isNaN(parsed)) return null;
+      return Math.min(23, Math.max(0, parsed));
+    },
+    serialize: serializeNullableNumber,
+  },
   penalizeMissingSalary: {
     kind: "typed" as const,
     schema: z.boolean(),

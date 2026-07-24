@@ -9,10 +9,12 @@ import {
 import { asyncRoute, fail, ok } from "@infra/http";
 import { logger } from "@infra/logger";
 import { getRequestId } from "@infra/request-context";
+import { getJobOpsAppConfig } from "@server/config/app-mode";
 import { isDemoMode, sendDemoBlocked } from "@server/config/demo";
 import { getSetting } from "@server/repositories/settings";
 import { enqueueAutoPdfRegenerationForSettingsChanges } from "@server/services/auto-pdf-regeneration";
 import { setBackupSettings } from "@server/services/backup/index";
+import { setDailySearchSettings } from "@server/services/daily-search/index";
 import { getOriginalEnvValue } from "@server/services/envSettings";
 import { resetCodexSession } from "@server/services/llm/codex/client";
 import {
@@ -23,6 +25,7 @@ import {
 } from "@server/services/llm/codex/login";
 import { resolveLlmApiKey } from "@server/services/llm/credentials";
 import { LlmService } from "@server/services/llm/service";
+import { setMailboxSyncSettings } from "@server/services/mailbox-sync/index";
 import { clearProfileCache } from "@server/services/profile";
 import {
   clearRxResumeResumeCache,
@@ -53,6 +56,13 @@ const RXRESUME_SAVE_VALIDATION_KEYS: Array<keyof UpdateSettingsInput> = [
   "rxresumeUrl",
   "rxresumeApiKey",
 ];
+
+const DAILY_SEARCH_SETTING_KEYS: Partial<
+  Record<keyof UpdateSettingsInput, true>
+> = { dailySearchEnabled: true, dailySearchHour: true };
+const MAILBOX_SYNC_SETTING_KEYS: Partial<
+  Record<keyof UpdateSettingsInput, true>
+> = { mailboxSyncEnabled: true, mailboxSyncHour: true };
 
 function hasInputKey<K extends keyof UpdateSettingsInput>(
   input: UpdateSettingsInput,
@@ -363,6 +373,28 @@ settingsRouter.patch(
         enabled: data.backupEnabled.value,
         hour: data.backupHour.value,
         maxCount: data.backupMaxCount.value,
+      });
+    }
+
+    if (
+      !isDemoMode() &&
+      getJobOpsAppConfig().appMode !== "hosted" &&
+      plan.updatedSettingKeys.some((key) => key in DAILY_SEARCH_SETTING_KEYS)
+    ) {
+      setDailySearchSettings({
+        enabled: data.dailySearchEnabled.value,
+        hour: data.dailySearchHour.value,
+      });
+    }
+
+    if (
+      !isDemoMode() &&
+      getJobOpsAppConfig().appMode !== "hosted" &&
+      plan.updatedSettingKeys.some((key) => key in MAILBOX_SYNC_SETTING_KEYS)
+    ) {
+      setMailboxSyncSettings({
+        enabled: data.mailboxSyncEnabled.value,
+        hour: data.mailboxSyncHour.value,
       });
     }
     ok(res, data);
