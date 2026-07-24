@@ -1671,6 +1671,192 @@ describe.sequential("Jobs API routes", () => {
     expect(body.data.results[0].job.jobBrief).toContain("Build tools");
   });
 
+  it("refreshes a Jobs.cz job's description from source and rescores it in one write", async () => {
+    const { createJob } = await import("@server/repositories/jobs");
+    const { scoreJobSuitability } = await import("@server/services/scorer");
+    const { getProfile } = await import("@server/services/profile");
+    const registryModule = await import("@server/extractors/registry");
+    const { createTestExtractorRegistry } = await import("./test-utils");
+
+    vi.mocked(getProfile).mockResolvedValue({});
+    vi.mocked(scoreJobSuitability).mockResolvedValue({
+      score: 88,
+      reason: "Great fit for the real description",
+      jobBrief: null,
+    });
+
+    const job = await createJob({
+      source: "jobs-cz",
+      sourceJobId: "999",
+      title: "Platform Engineer",
+      employer: "Acme s.r.o.",
+      jobUrl: "https://www.jobs.cz/r/999",
+      jobDescription: "Odpověď do 2 týdnů",
+    });
+
+    const refreshJobDescription = vi
+      .fn()
+      .mockResolvedValue("Own our platform.");
+    const registry = createTestExtractorRegistry();
+    const jobsCzManifest = registry.manifestBySource.get("jobs-cz");
+    registry.manifestBySource.set("jobs-cz", {
+      ...jobsCzManifest,
+      id: jobsCzManifest?.id ?? "test-jobs-cz",
+      displayName: jobsCzManifest?.displayName ?? "Test jobs-cz",
+      providesSources: jobsCzManifest?.providesSources ?? ["jobs-cz"],
+      run: jobsCzManifest?.run ?? vi.fn(),
+      refreshJobDescription,
+    });
+    vi.mocked(registryModule.getExtractorRegistry).mockResolvedValueOnce(
+      registry,
+    );
+
+    const res = await fetch(
+      `${baseUrl}/api/jobs/${job.id}/refresh-description`,
+      { method: "POST" },
+    );
+    const body = await res.json();
+
+    expect(refreshJobDescription).toHaveBeenCalledWith({
+      jobUrl: "https://www.jobs.cz/r/999",
+      sourceJobId: "999",
+    });
+    expect(scoreJobSuitability).toHaveBeenCalledWith(
+      expect.objectContaining({ jobDescription: "Own our platform." }),
+      expect.anything(),
+    );
+    expect(body.ok).toBe(true);
+    expect(body.data.jobDescription).toBe("Own our platform.");
+    expect(body.data.suitabilityScore).toBe(88);
+    expect(body.data.suitabilityReason).toBe(
+      "Great fit for the real description",
+    );
+  });
+
+  it("leaves description and score untouched when scoring fails after a successful refresh", async () => {
+    const { createJob } = await import("@server/repositories/jobs");
+    const { scoreJobSuitability } = await import("@server/services/scorer");
+    const { getProfile } = await import("@server/services/profile");
+    const registryModule = await import("@server/extractors/registry");
+    const { createTestExtractorRegistry } = await import("./test-utils");
+
+    vi.mocked(getProfile).mockResolvedValue({});
+    vi.mocked(scoreJobSuitability).mockRejectedValueOnce(
+      new Error("Scoring service unavailable"),
+    );
+
+    const job = await createJob({
+      source: "jobs-cz",
+      sourceJobId: "997",
+      title: "Platform Engineer",
+      employer: "Acme s.r.o.",
+      jobUrl: "https://www.jobs.cz/r/997",
+      jobDescription: "Odpověď do 2 týdnů",
+    });
+    const { updateJob } = await import("@server/repositories/jobs");
+    await updateJob(job.id, {
+      suitabilityScore: 40,
+      suitabilityReason: "Old fit",
+    });
+
+    const refreshJobDescription = vi
+      .fn()
+      .mockResolvedValue("A fresh real description.");
+    const registry = createTestExtractorRegistry();
+    const jobsCzManifest = registry.manifestBySource.get("jobs-cz");
+    registry.manifestBySource.set("jobs-cz", {
+      ...jobsCzManifest,
+      id: jobsCzManifest?.id ?? "test-jobs-cz",
+      displayName: jobsCzManifest?.displayName ?? "Test jobs-cz",
+      providesSources: jobsCzManifest?.providesSources ?? ["jobs-cz"],
+      run: jobsCzManifest?.run ?? vi.fn(),
+      refreshJobDescription,
+    });
+    vi.mocked(registryModule.getExtractorRegistry).mockResolvedValueOnce(
+      registry,
+    );
+
+    const res = await fetch(
+      `${baseUrl}/api/jobs/${job.id}/refresh-description`,
+      { method: "POST" },
+    );
+    const body = await res.json();
+
+    expect(body.ok).toBe(false);
+
+    const detailRes = await fetch(`${baseUrl}/api/jobs/${job.id}`);
+    const detailBody = await detailRes.json();
+    expect(detailBody.data.jobDescription).toBe("Odpověď do 2 týdnů");
+    expect(detailBody.data.suitabilityScore).toBe(40);
+    expect(detailBody.data.suitabilityReason).toBe("Old fit");
+  });
+
+  it("does not change a job's description when the source refresh fails, and scoring is not run", async () => {
+    const { createJob } = await import("@server/repositories/jobs");
+    const { scoreJobSuitability } = await import("@server/services/scorer");
+    const registryModule = await import("@server/extractors/registry");
+    const { createTestExtractorRegistry } = await import("./test-utils");
+
+    vi.mocked(scoreJobSuitability).mockClear();
+
+    const job = await createJob({
+      source: "jobs-cz",
+      sourceJobId: "998",
+      title: "Platform Engineer",
+      employer: "Acme s.r.o.",
+      jobUrl: "https://www.jobs.cz/r/998",
+      jobDescription: "Odpověď do 2 týdnů",
+    });
+
+    const refreshJobDescription = vi.fn().mockResolvedValue(undefined);
+    const registry = createTestExtractorRegistry();
+    const jobsCzManifest = registry.manifestBySource.get("jobs-cz");
+    registry.manifestBySource.set("jobs-cz", {
+      ...jobsCzManifest,
+      id: jobsCzManifest?.id ?? "test-jobs-cz",
+      displayName: jobsCzManifest?.displayName ?? "Test jobs-cz",
+      providesSources: jobsCzManifest?.providesSources ?? ["jobs-cz"],
+      run: jobsCzManifest?.run ?? vi.fn(),
+      refreshJobDescription,
+    });
+    vi.mocked(registryModule.getExtractorRegistry).mockResolvedValueOnce(
+      registry,
+    );
+
+    const res = await fetch(
+      `${baseUrl}/api/jobs/${job.id}/refresh-description`,
+      { method: "POST" },
+    );
+    const body = await res.json();
+
+    expect(body.ok).toBe(false);
+    expect(scoreJobSuitability).not.toHaveBeenCalled();
+
+    const listRes = await fetch(`${baseUrl}/api/jobs/${job.id}`);
+    const listBody = await listRes.json();
+    expect(listBody.data.jobDescription).toBe("Odpověď do 2 týdnů");
+  });
+
+  it("rejects refresh-description for sources without the capability", async () => {
+    const { createJob } = await import("@server/repositories/jobs");
+    const job = await createJob({
+      source: "manual",
+      title: "Manual Role",
+      employer: "Acme",
+      jobUrl: "https://example.com/job/manual-refresh",
+      jobDescription: "Pasted description",
+    });
+
+    const res = await fetch(
+      `${baseUrl}/api/jobs/${job.id}/refresh-description`,
+      { method: "POST" },
+    );
+    const body = await res.json();
+
+    expect(res.status).toBe(400);
+    expect(body.ok).toBe(false);
+  });
+
   it("deletes jobs below a score threshold (excluding applied)", async () => {
     const { createJob, updateJob } = await import("@server/repositories/jobs");
 
