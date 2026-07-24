@@ -12,6 +12,7 @@ import type { FilterTab } from "./constants";
 import { JobActionProgressToast } from "./JobActionProgressToast";
 import {
   canMoveToReady,
+  canRefreshDescription,
   canRescore,
   canSkip,
   getFailedJobIds,
@@ -65,6 +66,10 @@ export function useJobSelectionActions({
   );
   const canRescoreSelected = useMemo(
     () => canRescore(selectedJobs),
+    [selectedJobs],
+  );
+  const canRefreshDescriptionSelected = useMemo(
+    () => canRefreshDescription(selectedJobs),
     [selectedJobs],
   );
 
@@ -284,6 +289,7 @@ export function useJobSelectionActions({
     canSkipSelected,
     canMoveSelected,
     canRescoreSelected,
+    canRefreshDescriptionSelected,
     jobActionInFlight,
     toggleSelectJob,
     toggleSelectAll,

@@ -7,26 +7,36 @@ import { trackProductEvent } from "@/lib/analytics";
 export function useRefreshJobDescription(
   onJobUpdated: () => void | Promise<void>,
 ) {
-  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [inFlightJobIds, setInFlightJobIds] = useState<Set<string>>(
+    () => new Set(),
+  );
   const refreshMutation = useRefreshJobDescriptionMutation();
+
+  const isRefreshing = useCallback(
+    (jobId?: string | null) => Boolean(jobId && inFlightJobIds.has(jobId)),
+    [inFlightJobIds],
+  );
 
   const refreshJobDescription = useCallback(
     async (jobId?: string | null) => {
-      if (!jobId || isRefreshing) return;
+      if (!jobId || inFlightJobIds.has(jobId)) return;
 
       const confirmed = window.confirm(
         "This replaces the current description, including any manual edits, and recalculates the match. Continue?",
       );
       if (!confirmed) return;
 
+      setInFlightJobIds((prev) => new Set(prev).add(jobId));
+      const toastId = toast.loading("Refreshing job description...");
       try {
-        setIsRefreshing(true);
         await refreshMutation.mutateAsync(jobId);
         trackProductEvent("jobs_job_action_completed", {
           action: "refresh_description",
           result: "success",
         });
-        toast.success("Description refreshed and match recalculated");
+        toast.success("Description refreshed and match recalculated", {
+          id: toastId,
+        });
         await onJobUpdated();
       } catch (error) {
         trackProductEvent("jobs_job_action_completed", {
@@ -36,12 +46,17 @@ export function useRefreshJobDescription(
         showErrorToast(
           error,
           "Couldn't refresh this job's description from its source",
+          { id: toastId },
         );
       } finally {
-        setIsRefreshing(false);
+        setInFlightJobIds((prev) => {
+          const next = new Set(prev);
+          next.delete(jobId);
+          return next;
+        });
       }
     },
-    [isRefreshing, onJobUpdated, refreshMutation],
+    [inFlightJobIds, onJobUpdated, refreshMutation],
   );
 
   return { isRefreshing, refreshJobDescription };

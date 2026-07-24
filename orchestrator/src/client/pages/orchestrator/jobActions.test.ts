@@ -3,6 +3,7 @@ import type { JobActionResponse } from "@shared/types.js";
 import { describe, expect, it } from "vitest";
 import {
   canMoveToReady,
+  canRefreshDescription,
   canRescore,
   canSkip,
   getFailedJobIds,
@@ -39,6 +40,19 @@ describe("jobActions", () => {
     ).toBe(true);
     expect(
       canRescore([
+        createJob({ id: "1", status: "ready" }),
+        createJob({ id: "2", status: "processing" }),
+      ]),
+    ).toBe(false);
+
+    expect(
+      canRefreshDescription([
+        createJob({ id: "1", status: "discovered" }),
+        createJob({ id: "2", status: "ready" }),
+      ]),
+    ).toBe(true);
+    expect(
+      canRefreshDescription([
         createJob({ id: "1", status: "ready" }),
         createJob({ id: "2", status: "processing" }),
       ]),

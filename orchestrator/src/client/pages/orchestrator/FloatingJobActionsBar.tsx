@@ -7,10 +7,12 @@ interface FloatingJobActionsBarProps {
   canMoveSelected: boolean;
   canSkipSelected: boolean;
   canRescoreSelected: boolean;
+  canRefreshDescriptionSelected: boolean;
   jobActionInFlight: boolean;
   onMoveToReady: () => void;
   onSkipSelected: () => void;
   onRescoreSelected: () => void;
+  onRefreshDescriptionSelected: () => void;
   onClear: () => void;
 }
 
@@ -19,10 +21,12 @@ export const FloatingJobActionsBar: React.FC<FloatingJobActionsBarProps> = ({
   canMoveSelected,
   canSkipSelected,
   canRescoreSelected,
+  canRefreshDescriptionSelected,
   jobActionInFlight,
   onMoveToReady,
   onSkipSelected,
   onRescoreSelected,
+  onRefreshDescriptionSelected,
   onClear,
 }) => {
   return (
@@ -74,6 +78,18 @@ export const FloatingJobActionsBar: React.FC<FloatingJobActionsBarProps> = ({
                   onClick={onRescoreSelected}
                 >
                   Recalculate match
+                </Button>
+              )}
+              {canRefreshDescriptionSelected && (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="w-full sm:w-auto"
+                  disabled={jobActionInFlight}
+                  onClick={onRefreshDescriptionSelected}
+                >
+                  Refresh description
                 </Button>
               )}
               <Button
