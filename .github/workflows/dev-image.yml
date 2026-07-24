@@ -1,6 +1,7 @@
 # Build the app image on every push to dev and publish it to the private
-# zot registry at registry.kuvsh.pro. Registry credentials are supplied as
-# repository secrets (see below) — set them before the first run.
+# zot registry at registry.kuvsh.pro. zot authenticates docker/login-action
+# the normal Basic Auth way: username is your zot username, password is a
+# zot API key (see "REGISTRY_USERNAME"/"REGISTRY_API_KEY" secrets below).
 name: dev-image
 
 on:
@@ -26,7 +27,7 @@ jobs:
         with:
           registry: registry.kuvsh.pro
           username: ${{ secrets.REGISTRY_USERNAME }}
-          password: ${{ secrets.REGISTRY_PASSWORD }}
+          password: ${{ secrets.REGISTRY_API_KEY }}
 
       - name: Build and push
         uses: docker/build-push-action@v6
