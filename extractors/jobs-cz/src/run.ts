@@ -384,15 +384,62 @@ async function fetchJobsCzScriptWidgetConfig(
   return extractJobsCzScriptWidgetConfig(script, widgetName);
 }
 
+/**
+ * Newer branded jobs.cz portals don't embed the widget config in
+ * script.min.js at all. Instead a tiny stub script (referenced by
+ * `id="react-chunks"`) lists hash-named chunk filenames and injects
+ * <script> tags for them at runtime, e.g.:
+ *   var e=["react.HASH1.react.min.js","react.HASH2.react.min.js"];
+ *   ...c.src = stubSrc.replace("react.min.js", e[n]);
+ * The actual widget config lives in one of those chunks. Follow the same
+ * replace the stub performs to reach them statically.
+ */
+async function fetchJobsCzReactChunkConfig(
+  html: string,
+  pageUrl: string,
+  widgetName: string,
+  fetchImpl: typeof fetch,
+): Promise<JobsCzWidgetConfig | undefined> {
+  const tag = html.match(/<script\b[^>]*id=["']react-chunks["'][^>]*>/i)?.[0];
+  const stubSrc = tag?.match(/\bsrc=["']([^"']+)["']/i)?.[1];
+  const stubUrl = absoluteUrl(stubSrc, pageUrl);
+  if (!stubUrl) return undefined;
+
+  const fetchedStub = await fetchJobsCzAllowlisted(stubUrl, fetchImpl);
+  if (!fetchedStub || !fetchedStub.response.ok) return undefined;
+  const stub = await fetchedStub.response.text();
+
+  const replaceTarget = stub.match(/\.replace\(["']([^"']+\.js)["']/)?.[1];
+  const arrayLiteral = stub.match(
+    /\[\s*(?:["'][^"']*\.js["']\s*,?\s*)+\]/,
+  )?.[0];
+  if (!replaceTarget || !arrayLiteral) return undefined;
+  const chunkNames = [...arrayLiteral.matchAll(/["']([^"']+)["']/g)].map(
+    (m) => m[1],
+  );
+
+  for (const chunkName of chunkNames) {
+    const chunkUrl = fetchedStub.url.replace(replaceTarget, chunkName);
+    const fetchedChunk = await fetchJobsCzAllowlisted(chunkUrl, fetchImpl);
+    if (!fetchedChunk || !fetchedChunk.response.ok) continue;
+    const chunkScript = await fetchedChunk.response.text();
+    const config = extractJobsCzScriptWidgetConfig(chunkScript, widgetName);
+    if (config) return config;
+  }
+  return undefined;
+}
+
 async function fetchJobsCzWidgetDescription(
   html: string,
   pageUrl: string,
   sourceJobId: string,
   fetchImpl: typeof fetch,
 ): Promise<string | undefined> {
+  const widgetName = html.match(/data-widget=["']([^"']+)["']/i)?.[1] ?? "main";
   const config =
     extractJobsCzInlineWidgetConfig(html) ??
-    (await fetchJobsCzScriptWidgetConfig(html, pageUrl, fetchImpl));
+    (await fetchJobsCzScriptWidgetConfig(html, pageUrl, fetchImpl)) ??
+    (await fetchJobsCzReactChunkConfig(html, pageUrl, widgetName, fetchImpl));
   if (!config) return undefined;
 
   const response = await fetchImpl(JOBS_CZ_WIDGET_API_URL, {
