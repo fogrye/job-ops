@@ -4,6 +4,8 @@ const JOBS_CZ_BASE_URL = "https://www.jobs.cz";
 const JOBS_CZ_SEARCH_PATH = "/prace/";
 const JOBS_CZ_MAX_PAGES = 50;
 const JOBS_CZ_WIDGET_API_URL = "https://api.capybara.lmc.cz/api/graphql/widget";
+const JOBS_CZ_ALLOWED_HOST = "jobs.cz";
+const JOBS_CZ_MAX_REDIRECTS = 5;
 const JOBS_CZ_WIDGET_DETAIL_QUERY = `
   query DETAIL_QUERY($widgetId: ID!, $jobAdId: ID!, $host: String) {
     widget(id: $widgetId, host: $host) {
@@ -13,6 +15,50 @@ const JOBS_CZ_WIDGET_DETAIL_QUERY = `
     }
   }
 `;
+
+function isAllowedJobsCzUrl(value: string): URL | undefined {
+  try {
+    const url = new URL(value);
+    if (url.protocol !== "https:") return undefined;
+    if (
+      url.hostname !== JOBS_CZ_ALLOWED_HOST &&
+      !url.hostname.endsWith(`.${JOBS_CZ_ALLOWED_HOST}`)
+    ) {
+      return undefined;
+    }
+    return url;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Fetches a URL that MUST resolve to https://jobs.cz or an https subdomain
+ * on every hop, following redirects manually so each hop is re-validated.
+ * `jobUrl` on a job row can be user-edited, so this is the SSRF boundary for
+ * every network call this extractor makes from a job-supplied URL.
+ */
+async function fetchJobsCzAllowlisted(
+  value: string,
+  fetchImpl: typeof fetch,
+  init?: RequestInit,
+): Promise<{ response: Response; url: string } | undefined> {
+  let current = isAllowedJobsCzUrl(value);
+  if (!current) return undefined;
+
+  for (let hop = 0; hop <= JOBS_CZ_MAX_REDIRECTS; hop += 1) {
+    const url = current.toString();
+    const response = await fetchImpl(url, { ...init, redirect: "manual" });
+    if (response.status < 300 || response.status >= 400) return { response, url };
+
+    const location = response.headers.get("location");
+    if (!location) return undefined;
+    const next = isAllowedJobsCzUrl(new URL(location, current).toString());
+    if (!next) return undefined;
+    current = next;
+  }
+  return undefined;
+}
 
 export type JobsCzProgressEvent =
   | {
@@ -305,9 +351,9 @@ async function fetchJobsCzScriptWidgetConfig(
   const scriptUrl = absoluteUrl(scriptSrc, pageUrl);
   if (!scriptUrl) return undefined;
 
-  const response = await fetchImpl(scriptUrl);
-  if (!response.ok) return undefined;
-  const script = await response.text();
+  const fetched = await fetchJobsCzAllowlisted(scriptUrl, fetchImpl);
+  if (!fetched || !fetched.response.ok) return undefined;
+  const script = await fetched.response.text();
   const widgetName = html.match(/data-widget=["']([^"']+)["']/i)?.[1] ?? "main";
   return extractJobsCzScriptWidgetConfig(script, widgetName);
 }
@@ -343,18 +389,18 @@ async function fetchJobsCzWidgetDescription(
   return htmlContent ? getString(stripHtml(htmlContent)) : undefined;
 }
 
-async function fetchJobsCzDescription(
+export async function fetchJobsCzDescription(
   jobUrl: string,
   sourceJobId: string,
   fetchImpl: typeof fetch,
 ): Promise<string | undefined> {
   try {
-    const response = await fetchImpl(jobUrl, {
+    const fetched = await fetchJobsCzAllowlisted(jobUrl, fetchImpl, {
       headers: { "user-agent": "job-ops/1.0" },
     });
-    if (!response.ok) return undefined;
-    const html = await response.text();
-    const pageUrl = response.url || jobUrl;
+    if (!fetched || !fetched.response.ok) return undefined;
+    const html = await fetched.response.text();
+    const pageUrl = fetched.url;
     return (
       extractJobsCzNativeDescription(html) ??
       (await fetchJobsCzWidgetDescription(html, pageUrl, sourceJobId, fetchImpl))
