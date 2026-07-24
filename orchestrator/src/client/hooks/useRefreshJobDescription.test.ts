@@ -12,6 +12,7 @@ vi.mock("../api", () => ({
 
 vi.mock("sonner", () => ({
   toast: {
+    loading: vi.fn(() => "toast-1"),
     success: vi.fn(),
     error: vi.fn(),
   },
@@ -37,7 +38,7 @@ describe("useRefreshJobDescription", () => {
     expect(window.confirm).toHaveBeenCalled();
     expect(api.refreshJobDescriptionFromSource).not.toHaveBeenCalled();
     expect(onJobUpdated).not.toHaveBeenCalled();
-    expect(result.current.isRefreshing).toBe(false);
+    expect(result.current.isRefreshing("job-1")).toBe(false);
   });
 
   it("refreshes the job and shows a toast once confirmed", async () => {
@@ -57,6 +58,7 @@ describe("useRefreshJobDescription", () => {
     expect(onJobUpdated).toHaveBeenCalled();
     expect(toast.success).toHaveBeenCalledWith(
       "Description refreshed and match recalculated",
+      { id: "toast-1" },
     );
   });
 
@@ -81,7 +83,7 @@ describe("useRefreshJobDescription", () => {
       firstCallPromise = result.current.refreshJobDescription("job-1");
       await Promise.resolve();
     });
-    expect(result.current.isRefreshing).toBe(true);
+    expect(result.current.isRefreshing("job-1")).toBe(true);
 
     await act(async () => {
       await result.current.refreshJobDescription("job-1");
@@ -92,6 +94,43 @@ describe("useRefreshJobDescription", () => {
     await act(async () => {
       await firstCallPromise;
     });
-    expect(result.current.isRefreshing).toBe(false);
+    expect(result.current.isRefreshing("job-1")).toBe(false);
+  });
+
+  it("tracks in-flight state per job so refreshing one job never blocks another", async () => {
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    const onJobUpdated = vi.fn().mockResolvedValue(undefined);
+    let resolveJob1: (value: Job) => void = () => {};
+    vi.mocked(api.refreshJobDescriptionFromSource).mockImplementation(
+      (jobId) =>
+        new Promise((resolve) => {
+          if (jobId === "job-1") resolveJob1 = resolve;
+          else resolve({} as Job);
+        }),
+    );
+
+    const { result } = renderHookWithQueryClient(() =>
+      useRefreshJobDescription(onJobUpdated),
+    );
+
+    let job1Promise: Promise<void> | undefined;
+    await act(async () => {
+      job1Promise = result.current.refreshJobDescription("job-1");
+      await Promise.resolve();
+    });
+    expect(result.current.isRefreshing("job-1")).toBe(true);
+    expect(result.current.isRefreshing("job-2")).toBe(false);
+
+    await act(async () => {
+      await result.current.refreshJobDescription("job-2");
+    });
+    expect(api.refreshJobDescriptionFromSource).toHaveBeenCalledWith("job-2");
+    expect(result.current.isRefreshing("job-2")).toBe(false);
+
+    resolveJob1({} as Job);
+    await act(async () => {
+      await job1Promise;
+    });
+    expect(result.current.isRefreshing("job-1")).toBe(false);
   });
 });

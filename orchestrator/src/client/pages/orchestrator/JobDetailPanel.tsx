@@ -768,28 +768,35 @@ export const JobDetailPanel: React.FC<JobDetailPanelProps> = ({
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   onSelect={() => rescoreJob(selectedJob.id)}
-                  disabled={isRescoring || isRefreshing}
+                  disabled={
+                    isRescoring(selectedJob.id) || isRefreshing(selectedJob.id)
+                  }
                 >
                   <RefreshCcw
                     className={cn(
                       "mr-2 h-4 w-4",
-                      isRescoring && "animate-spin",
+                      isRescoring(selectedJob.id) && "animate-spin",
                     )}
                   />
-                  {isRescoring ? "Recalculating..." : "Recalculate match"}
+                  {isRescoring(selectedJob.id)
+                    ? "Recalculating..."
+                    : "Recalculate match"}
                 </DropdownMenuItem>
                 {supportsDescriptionRefresh(selectedJob.source) && (
                   <DropdownMenuItem
                     onSelect={() => refreshJobDescription(selectedJob.id)}
-                    disabled={isRescoring || isRefreshing}
+                    disabled={
+                      isRescoring(selectedJob.id) ||
+                      isRefreshing(selectedJob.id)
+                    }
                   >
                     <Globe
                       className={cn(
                         "mr-2 h-4 w-4",
-                        isRefreshing && "animate-spin",
+                        isRefreshing(selectedJob.id) && "animate-spin",
                       )}
                     />
-                    {isRefreshing
+                    {isRefreshing(selectedJob.id)
                       ? "Refreshing..."
                       : "Refresh description & recalculate"}
                   </DropdownMenuItem>

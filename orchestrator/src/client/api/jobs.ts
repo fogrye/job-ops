@@ -345,34 +345,39 @@ export async function markAsApplied(id: string): Promise<Job> {
   });
 }
 
+type RefreshDescriptionStatus =
+  | { status: "pending" }
+  | { status: "succeeded"; job: Job };
+
+const REFRESH_DESCRIPTION_POLL_INTERVAL_MS = 1500;
+const REFRESH_DESCRIPTION_POLL_TIMEOUT_MS = 3 * 60 * 1000;
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * Kicks off the refresh in the background (POST returns as soon as the
+ * operation is recorded, well under a second) and polls for the result
+ * instead of holding one request open — the underlying work is a source-site
+ * fetch chain plus an LLM rescore that can run 15-40s+.
+ */
 export async function refreshJobDescriptionFromSource(
   id: string,
 ): Promise<Job> {
-  let finalResponse: JobActionResponse | undefined;
-  let streamError: string | undefined;
-  await streamJobAction(
-    { action: "refresh_description", jobIds: [id] },
-    {
-      onEvent: (event) => {
-        if (event.type === "error") {
-          streamError = event.message || "Failed to refresh job description";
-        } else if (event.type === "completed") {
-          finalResponse = {
-            action: event.action,
-            requested: event.requested,
-            succeeded: event.succeeded,
-            failed: event.failed,
-            results: event.results,
-          };
-        }
-      },
-    },
-  );
-  if (streamError) throw new ApiClientError(streamError);
-  if (!finalResponse) {
-    throw new ApiClientError("Job action stream ended before completion");
+  await fetchApi(`/jobs/${id}/refresh-description`, { method: "POST" });
+
+  const deadline = Date.now() + REFRESH_DESCRIPTION_POLL_TIMEOUT_MS;
+  while (Date.now() < deadline) {
+    const status = await fetchApi<RefreshDescriptionStatus>(
+      `/jobs/${id}/refresh-description/status`,
+    );
+    if (status.status === "succeeded") return status.job;
+    await delay(REFRESH_DESCRIPTION_POLL_INTERVAL_MS);
   }
-  return getSingleJobFromActionResult(finalResponse, id);
+  throw new ApiClientError(
+    "Timed out waiting for the description refresh to finish",
+  );
 }
 
 export async function skipJob(ids: string[]): Promise<JobActionResponse>;

@@ -1,8 +1,14 @@
-import { AppError, badRequest } from "@infra/errors";
+import { AppError, badRequest, conflict, notFound } from "@infra/errors";
 import { fail, ok } from "@infra/http";
 import { logger } from "@infra/logger";
 import { setupSse, startSseHeartbeat, writeSseData } from "@infra/sse";
+import { runWithRequestContext } from "@server/infra/request-context";
 import { resolveRequestOrigin } from "@server/infra/request-origin";
+import {
+  completeJobActionOperation,
+  getJobActionOperation,
+  startJobActionOperation,
+} from "@server/services/jobs/action-operations";
 import {
   buildJobActionExecutionOptions,
   executeJobActionForJob,
@@ -314,3 +320,82 @@ jobsActionsRouter.post("/:id/rescore", async (req: Request, res: Response) => {
   if (!result.ok) return fail(res, mapJobActionFailure(result));
   ok(res, await hydrateJobPdfFreshness(result.job));
 });
+
+/**
+ * Dispatches the refresh in the background instead of awaiting it: the
+ * underlying work is a source-site fetch chain plus an LLM rescore, which
+ * can run 15-40s+ and would otherwise hold this request open for that whole
+ * window. Poll GET /:id/refresh-description/status for the result.
+ */
+jobsActionsRouter.post(
+  "/:id/refresh-description",
+  (req: Request, res: Response) => {
+    const jobId = req.params.id;
+    const existing = getJobActionOperation(jobId, "refresh_description");
+    if (existing?.status === "pending") {
+      return fail(
+        res,
+        conflict("A description refresh is already in progress for this job"),
+      );
+    }
+
+    startJobActionOperation(jobId, "refresh_description");
+    const options = buildJobActionExecutionOptions("refresh_description");
+    runWithRequestContext({}, () => {
+      executeJobActionForJob("refresh_description", jobId, options)
+        .then((result) => {
+          completeJobActionOperation(jobId, "refresh_description", result);
+        })
+        .catch((error) => {
+          logger.error("Background refresh-description action failed", {
+            jobId,
+            error,
+          });
+          completeJobActionOperation(jobId, "refresh_description", {
+            jobId,
+            ok: false,
+            error: {
+              code: "INTERNAL_ERROR",
+              message: error instanceof Error ? error.message : "Unknown error",
+            },
+          });
+        });
+    });
+
+    ok(res, { jobId, status: "pending" as const }, 202);
+  },
+);
+
+jobsActionsRouter.get(
+  "/:id/refresh-description/status",
+  async (req: Request, res: Response) => {
+    const jobId = req.params.id;
+    const operation = getJobActionOperation(jobId, "refresh_description");
+    if (!operation) {
+      return fail(
+        res,
+        notFound("No refresh-description operation found for this job"),
+      );
+    }
+    if (operation.status === "pending") {
+      return ok(res, { status: "pending" as const });
+    }
+    const result = operation.result;
+    if (!result || !result.ok) {
+      return fail(
+        res,
+        result
+          ? mapJobActionFailure(result)
+          : new AppError({
+              status: 500,
+              code: "INTERNAL_ERROR",
+              message: "Operation completed without a result",
+            }),
+      );
+    }
+    ok(res, {
+      status: "succeeded" as const,
+      job: await hydrateJobPdfFreshness(result.job),
+    });
+  },
+);
