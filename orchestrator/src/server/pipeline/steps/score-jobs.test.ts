@@ -21,6 +21,7 @@ vi.mock("@server/repositories/settings", () => ({
 
 vi.mock("@server/services/scorer", () => ({
   scoreJobSuitability: vi.fn(),
+  ScoringFailedError: class ScoringFailedError extends Error {},
 }));
 
 vi.mock("@server/services/visa-sponsors/index", () => ({
@@ -347,6 +348,74 @@ describe("scoreJobsStep auto-skip behavior", () => {
       0,
     );
     expect(vi.mocked(progressHelpers.scoringComplete)).toHaveBeenCalledWith(2);
+  });
+
+  it("skips a job whose scoring exhausts retries without aborting the rest of the batch", async () => {
+    const jobsRepo = await import("@server/repositories/jobs");
+    const scorer = await import("@server/services/scorer");
+    const { logger } = await import("@infra/logger");
+
+    vi.mocked(jobsRepo.getUnscoredDiscoveredJobs).mockResolvedValue([
+      createJob({
+        id: "job-1",
+        title: "Flaky Role",
+        employer: "Acme",
+        suitabilityScore: null,
+      }),
+      createJob({
+        id: "job-2",
+        title: "Healthy Role",
+        employer: "Beta",
+        suitabilityScore: null,
+      }),
+    ]);
+
+    vi.mocked(scorer.scoreJobSuitability)
+      .mockRejectedValueOnce(
+        new scorer.ScoringFailedError("AI scoring failed after 3 attempts."),
+      )
+      .mockResolvedValueOnce({
+        score: 72,
+        reason: "Second score",
+        jobBrief: null,
+      });
+
+    const result = await scoreJobsStep({ profile: {} });
+
+    expect(result.scoredJobs).toHaveLength(1);
+    expect(result.scoredJobs[0]?.id).toBe("job-2");
+    expect(vi.mocked(jobsRepo.updateJob)).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(jobsRepo.updateJob)).toHaveBeenCalledWith(
+      "job-2",
+      expect.objectContaining({ suitabilityScore: 72 }),
+    );
+    expect(logger.warn).toHaveBeenCalledWith(
+      "Skipping job after exhausted scoring retries",
+      expect.objectContaining({ jobId: "job-1" }),
+    );
+  });
+
+  it("still propagates LlmNotConfiguredError (a genuine config issue affects every job)", async () => {
+    const jobsRepo = await import("@server/repositories/jobs");
+    const scorer = await import("@server/services/scorer");
+
+    vi.mocked(jobsRepo.getUnscoredDiscoveredJobs).mockResolvedValue([
+      createJob({
+        id: "job-1",
+        title: "First Role",
+        employer: "Acme",
+        suitabilityScore: null,
+      }),
+    ]);
+
+    class LlmNotConfiguredError extends Error {}
+    vi.mocked(scorer.scoreJobSuitability).mockRejectedValueOnce(
+      new LlmNotConfiguredError("LLM API key not configured"),
+    );
+
+    await expect(scoreJobsStep({ profile: {} })).rejects.toThrow(
+      LlmNotConfiguredError,
+    );
   });
 
   it("stops before processing when cancellation is requested", async () => {

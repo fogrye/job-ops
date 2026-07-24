@@ -24,7 +24,22 @@ export class LlmNotConfiguredError extends Error {
   }
 }
 
-interface SuitabilityResult {
+/**
+ * Thrown when scoring a specific job failed after retries for reasons
+ * unrelated to LLM configuration (e.g. transient provider errors, or the
+ * model repeatedly returning an unusable response). Callers that process
+ * many jobs (the pipeline) should treat this as a per-job failure, not a
+ * reason to abort the whole batch — unlike LlmNotConfiguredError, which
+ * signals every job would fail identically until the user fixes settings.
+ */
+export class ScoringFailedError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "ScoringFailedError";
+  }
+}
+
+export interface SuitabilityResult {
   score: number | null; // 0-100, or null when scoring failed
   reason: string; // Explanation
   jobBrief: string | null;
@@ -266,47 +281,79 @@ export async function scoreJobSuitability(
   });
 
   const llm = await createConfiguredLlmService("scoring");
-  const result = await llm.callJson<{
-    score: number;
-    reason: string;
-    jobBrief?: JobBrief;
-    jobPatches?: JobFactPatch[];
-    jobWarnings?: string[];
-  }>({
-    model,
-    messages: [{ role: "user", content: prompt }],
-    jsonSchema: SCORING_SCHEMA,
-    maxRetries: 2,
-    jobId: job.id,
-  });
 
-  if (!result.success) {
-    logger.warn("Scoring failed — pausing pipeline", {
-      jobId: job.id,
-      error: result.error,
-    });
-    throw new LlmNotConfiguredError(
-      `AI scoring failed: ${result.error}. Check your LLM configuration in Settings → Integrations, then resume scoring.`,
-    );
-  }
+  // callJson already retries network/parse/5xx/429 failures internally
+  // (with backoff) via maxRetries below. What it can't see is a technically
+  // successful response whose score field is unusable — that's retried here.
+  const SCORE_VALIDATION_RETRIES = 2;
+  let scoreData:
+    | {
+        score: number;
+        reason: string;
+        jobBrief?: JobBrief;
+        jobPatches?: JobFactPatch[];
+        jobWarnings?: string[];
+      }
+    | undefined;
 
-  const { score, reason } = result.data;
-
-  // Validate we got a reasonable response
-  if (typeof score !== "number" || Number.isNaN(score)) {
-    logger.warn("Invalid score in AI response — pausing pipeline", {
+  for (let attempt = 1; attempt <= 1 + SCORE_VALIDATION_RETRIES; attempt += 1) {
+    const result = await llm.callJson<{
+      score: number;
+      reason: string;
+      jobBrief?: JobBrief;
+      jobPatches?: JobFactPatch[];
+      jobWarnings?: string[];
+    }>({
+      model,
+      messages: [{ role: "user", content: prompt }],
+      jsonSchema: SCORING_SCHEMA,
+      maxRetries: 2,
       jobId: job.id,
     });
-    throw new LlmNotConfiguredError(
-      "AI returned invalid scoring data. Check your LLM configuration in Settings → Integrations, then resume scoring.",
-    );
+
+    if (!result.success) {
+      if (result.error === "LLM API key not configured") {
+        throw new LlmNotConfiguredError(
+          `AI scoring failed: ${result.error}. Check your LLM configuration in Settings → Integrations, then resume scoring.`,
+        );
+      }
+      logger.warn("Scoring failed", { jobId: job.id, error: result.error });
+      throw new ScoringFailedError(`AI scoring failed: ${result.error}`);
+    }
+
+    const { score } = result.data;
+    if (typeof score === "number" && !Number.isNaN(score)) {
+      scoreData = result.data;
+      break;
+    }
+
+    if (attempt > SCORE_VALIDATION_RETRIES) {
+      logger.warn("Invalid score in AI response after retries", {
+        jobId: job.id,
+        attempts: attempt,
+      });
+      throw new ScoringFailedError(
+        `AI returned invalid scoring data after ${attempt} attempts.`,
+      );
+    }
+    logger.warn("Invalid score in AI response, retrying", {
+      jobId: job.id,
+      attempt,
+      maxAttempts: 1 + SCORE_VALIDATION_RETRIES,
+    });
   }
+
+  if (!scoreData) {
+    throw new ScoringFailedError("AI scoring failed after retries.");
+  }
+
+  const { score, reason } = scoreData;
 
   const clampedScore = Math.min(100, Math.max(0, Math.round(score)));
   const clampedReason = reason || "No explanation provided";
   const patchResult = validateAndApplyJobPatches(
     job,
-    result.data.jobPatches ?? [],
+    scoreData.jobPatches ?? [],
   );
 
   if (patchResult.accepted.length > 0 || patchResult.rejected.length > 0) {
@@ -316,10 +363,10 @@ export async function scoreJobSuitability(
       rejected: patchResult.rejected,
     });
   }
-  if (result.data.jobWarnings?.length) {
+  if (scoreData.jobWarnings?.length) {
     logger.warn("AI job fact review warnings", {
       jobId: job.id,
-      warnings: result.data.jobWarnings,
+      warnings: scoreData.jobWarnings,
     });
   }
 
@@ -338,8 +385,8 @@ export async function scoreJobSuitability(
     score: penaltyResult.score,
     reason: penaltyResult.reason,
     jobBrief:
-      job.jobDescription?.trim() && result.data.jobBrief
-        ? JSON.stringify(result.data.jobBrief)
+      job.jobDescription?.trim() && scoreData.jobBrief
+        ? JSON.stringify(scoreData.jobBrief)
         : null,
     jobUpdates: patchResult.updates,
   };
