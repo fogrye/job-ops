@@ -3,8 +3,8 @@ import type {
   ExtractorManifest,
   ExtractorProgressEvent,
 } from "@shared/types/extractors";
-import { runJobsCz } from "./run";
 import type { JobsCzProgressEvent } from "./run";
+import { fetchJobsCzDescription, runJobsCz } from "./run";
 
 function toProgress(event: JobsCzProgressEvent): ExtractorProgressEvent {
   if (event.type === "term_start") {
@@ -62,6 +62,10 @@ export const manifest: ExtractorManifest = {
       supportsNativeRadius: false,
     },
   },
+  refreshJobDescription: ({ jobUrl, sourceJobId }) =>
+    sourceJobId
+      ? fetchJobsCzDescription(jobUrl, sourceJobId, fetch)
+      : Promise.resolve(undefined),
   run: async (context) => {
     if (context.shouldCancel?.()) {
       return { success: true, jobs: [] };

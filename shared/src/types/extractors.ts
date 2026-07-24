@@ -52,6 +52,11 @@ export interface ExtractorRunResult {
   challengeRequired?: string;
 }
 
+export interface ExtractorRefreshDescriptionInput {
+  jobUrl: string;
+  sourceJobId: string | null;
+}
+
 export interface ExtractorManifest {
   id: string;
   displayName: string;
@@ -61,5 +66,13 @@ export interface ExtractorManifest {
   locationCapabilities?: Partial<
     Record<string, ExtractorSourceLocationCapabilities>
   >;
+  /** Optional: re-fetch a single job's description directly from its
+   *  source page (bypassing search-result parsing). Used to heal an
+   *  already-imported job whose stored description is missing or wrong.
+   *  Returns undefined when the source can't be refreshed, or nothing
+   *  changed. Never used implicitly — only from an explicit user action. */
+  refreshJobDescription?: (
+    input: ExtractorRefreshDescriptionInput,
+  ) => Promise<string | undefined>;
   run: (context: ExtractorRuntimeContext) => Promise<ExtractorRunResult>;
 }

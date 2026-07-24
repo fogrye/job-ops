@@ -10,7 +10,7 @@ export function useRescoreJob(onJobUpdated: () => void | Promise<void>) {
 
   const rescoreJob = useCallback(
     async (jobId?: string | null) => {
-      if (!jobId) return;
+      if (!jobId || isRescoring) return;
 
       try {
         setIsRescoring(true);
@@ -31,7 +31,7 @@ export function useRescoreJob(onJobUpdated: () => void | Promise<void>) {
         setIsRescoring(false);
       }
     },
-    [onJobUpdated, rescoreMutation],
+    [isRescoring, onJobUpdated, rescoreMutation],
   );
 
   return { isRescoring, rescoreJob };

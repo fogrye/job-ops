@@ -146,7 +146,7 @@ const nativeConsoleWarn = console.warn;
 const nativeConsoleError = console.error;
 let migratedDbTemplatePromise: Promise<string> | null = null;
 
-function createTestExtractorRegistry(): ExtractorRegistry {
+export function createTestExtractorRegistry(): ExtractorRegistry {
   const manifests = new Map<string, ExtractorManifest>();
   const manifestBySource = new Map<ExtractorSourceId, ExtractorManifest>();
 

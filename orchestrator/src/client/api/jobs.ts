@@ -345,6 +345,14 @@ export async function markAsApplied(id: string): Promise<Job> {
   });
 }
 
+export async function refreshJobDescriptionFromSource(
+  id: string,
+): Promise<Job> {
+  return fetchApi<Job>(`/jobs/${id}/refresh-description`, {
+    method: "POST",
+  });
+}
+
 export async function skipJob(ids: string[]): Promise<JobActionResponse>;
 export async function skipJob(id: string): Promise<Job>;
 export async function skipJob(

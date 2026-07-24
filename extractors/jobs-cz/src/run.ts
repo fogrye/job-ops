@@ -4,6 +4,8 @@ const JOBS_CZ_BASE_URL = "https://www.jobs.cz";
 const JOBS_CZ_SEARCH_PATH = "/prace/";
 const JOBS_CZ_MAX_PAGES = 50;
 const JOBS_CZ_WIDGET_API_URL = "https://api.capybara.lmc.cz/api/graphql/widget";
+const JOBS_CZ_ALLOWED_HOST = "jobs.cz";
+const JOBS_CZ_MAX_REDIRECTS = 5;
 const JOBS_CZ_WIDGET_DETAIL_QUERY = `
   query DETAIL_QUERY($widgetId: ID!, $jobAdId: ID!, $host: String) {
     widget(id: $widgetId, host: $host) {
@@ -13,6 +15,51 @@ const JOBS_CZ_WIDGET_DETAIL_QUERY = `
     }
   }
 `;
+
+function isAllowedJobsCzUrl(value: string): URL | undefined {
+  try {
+    const url = new URL(value);
+    if (url.protocol !== "https:") return undefined;
+    if (
+      url.hostname !== JOBS_CZ_ALLOWED_HOST &&
+      !url.hostname.endsWith(`.${JOBS_CZ_ALLOWED_HOST}`)
+    ) {
+      return undefined;
+    }
+    return url;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Fetches a URL that MUST resolve to https://jobs.cz or an https subdomain
+ * on every hop, following redirects manually so each hop is re-validated.
+ * `jobUrl` on a job row can be user-edited, so this is the SSRF boundary for
+ * every network call this extractor makes from a job-supplied URL.
+ */
+async function fetchJobsCzAllowlisted(
+  value: string,
+  fetchImpl: typeof fetch,
+  init?: RequestInit,
+): Promise<{ response: Response; url: string } | undefined> {
+  let current = isAllowedJobsCzUrl(value);
+  if (!current) return undefined;
+
+  for (let hop = 0; hop <= JOBS_CZ_MAX_REDIRECTS; hop += 1) {
+    const url = current.toString();
+    const response = await fetchImpl(url, { ...init, redirect: "manual" });
+    if (response.status < 300 || response.status >= 400)
+      return { response, url };
+
+    const location = response.headers.get("location");
+    if (!location) return undefined;
+    const next = isAllowedJobsCzUrl(new URL(location, current).toString());
+    if (!next) return undefined;
+    current = next;
+  }
+  return undefined;
+}
 
 export type JobsCzProgressEvent =
   | {
@@ -66,17 +113,29 @@ function getString(value: string | undefined): string | undefined {
   return text || undefined;
 }
 
+const HTML_NAMED_ENTITIES: Record<string, string> = {
+  nbsp: " ",
+  amp: "&",
+  quot: '"',
+  lt: "<",
+  gt: ">",
+};
+
 function decodeHtml(value: string): string {
-  return value
-    .replace(/&nbsp;/gi, " ")
-    .replace(/&amp;/gi, "&")
-    .replace(/&quot;/gi, '"')
-    .replace(/&lt;/gi, "<")
-    .replace(/&gt;/gi, ">")
-    .replace(/&#x([0-9a-f]+);/gi, (_, code: string) =>
-      String.fromCodePoint(Number.parseInt(code, 16)),
-    )
-    .replace(/&#(\d+);/g, (_, code: string) => String.fromCodePoint(Number(code)));
+  return value.replace(
+    /&(#x[0-9a-f]+|#\d+|[a-z]+);/gi,
+    (entity, body: string) => {
+      if (body[0] !== "#")
+        return HTML_NAMED_ENTITIES[body.toLowerCase()] ?? entity;
+      const codePoint =
+        body[1]?.toLowerCase() === "x"
+          ? Number.parseInt(body.slice(2), 16)
+          : Number.parseInt(body.slice(1), 10);
+      if (!Number.isInteger(codePoint) || codePoint < 0 || codePoint > 0x10ffff)
+        return entity;
+      return String.fromCodePoint(codePoint);
+    },
+  );
 }
 
 function stripHtml(value: string): string {
@@ -92,9 +151,7 @@ function stripHtml(value: string): string {
 }
 
 function attribute(tag: string, name: string): string | undefined {
-  const match = tag.match(
-    new RegExp(`\\b${name}\\s*=\\s*(["'])(.*?)\\1`, "i"),
-  );
+  const match = tag.match(new RegExp(`\\b${name}\\s*=\\s*(["'])(.*?)\\1`, "i"));
   return getString(match?.[2]);
 }
 
@@ -114,10 +171,7 @@ function firstMatchText(card: string, pattern: RegExp): string | undefined {
   return getString(stripHtml(card.match(pattern)?.[1] ?? ""));
 }
 
-export function buildJobsCzSearchUrl(
-  searchTerm: string,
-  page = 1,
-): string {
+export function buildJobsCzSearchUrl(searchTerm: string, page = 1): string {
   const url = new URL(JOBS_CZ_SEARCH_PATH, JOBS_CZ_BASE_URL);
   url.searchParams.set("q", searchTerm);
   if (page > 1) url.searchParams.set("page", String(page));
@@ -207,20 +261,26 @@ async function fetchPage(
   return response.text();
 }
 
-function extractBalancedDiv(html: string, contentStart: number): string | undefined {
+function extractBalancedDiv(
+  html: string,
+  contentStart: number,
+): string | undefined {
   const tagPattern = /<(\/)?div\b[^>]*>/gi;
   tagPattern.lastIndex = contentStart;
   let depth = 1;
-  let match: RegExpExecArray | null;
-  while ((match = tagPattern.exec(html))) {
+  let match = tagPattern.exec(html);
+  while (match) {
     depth += match[1] ? -1 : 1;
     if (depth === 0) return html.slice(contentStart, match.index);
+    match = tagPattern.exec(html);
   }
   return undefined;
 }
 
 function extractJobsCzNativeDescription(html: string): string | undefined {
-  const marker = html.match(/<div\b[^>]*data-test=["']jd-body-richtext["'][^>]*>/i);
+  const marker = html.match(
+    /<div\b[^>]*data-test=["']jd-body-richtext["'][^>]*>/i,
+  );
   if (!marker || marker.index === undefined) return undefined;
   const inner = extractBalancedDiv(html, marker.index + marker[0].length);
   return inner ? getString(stripHtml(inner)) : undefined;
@@ -232,19 +292,28 @@ interface JobsCzWidgetConfig {
   host: string;
 }
 
-function extractJobsCzInlineWidgetConfig(html: string): JobsCzWidgetConfig | undefined {
+function extractJobsCzInlineWidgetConfig(
+  html: string,
+): JobsCzWidgetConfig | undefined {
   const match = html.match(/__LMC_CAREER_WIDGET__\.push\((\{[\s\S]*?\})\);/);
   if (!match) return undefined;
   try {
     const config = JSON.parse(match[1]) as Partial<JobsCzWidgetConfig>;
     if (!config.apiKey || !config.widgetId || !config.host) return undefined;
-    return { apiKey: config.apiKey, widgetId: config.widgetId, host: config.host };
+    return {
+      apiKey: config.apiKey,
+      widgetId: config.widgetId,
+      host: config.host,
+    };
   } catch {
     return undefined;
   }
 }
 
-function extractJsonParseLiteral(script: string, quoteStart: number): string | undefined {
+function extractJsonParseLiteral(
+  script: string,
+  quoteStart: number,
+): string | undefined {
   let cursor = quoteStart;
   let escaped = false;
   while (cursor < script.length) {
@@ -266,9 +335,15 @@ function extractJobsCzScriptWidgetConfig(
   widgetName: string,
 ): JobsCzWidgetConfig | undefined {
   const markerPattern = /JSON\.parse\('/g;
-  let marker: RegExpExecArray | null;
-  while ((marker = markerPattern.exec(script))) {
-    const literal = extractJsonParseLiteral(script, marker.index + marker[0].length);
+  for (
+    let marker = markerPattern.exec(script);
+    marker;
+    marker = markerPattern.exec(script)
+  ) {
+    const literal = extractJsonParseLiteral(
+      script,
+      marker.index + marker[0].length,
+    );
     if (!literal) continue;
     try {
       const parsed = JSON.parse(literal) as {
@@ -278,7 +353,11 @@ function extractJobsCzScriptWidgetConfig(
       const widget =
         parsed.widgets?.[widgetName] ?? Object.values(parsed.widgets ?? {})[0];
       if (parsed.host && widget?.id && widget.apiKey) {
-        return { apiKey: widget.apiKey, widgetId: widget.id, host: parsed.host };
+        return {
+          apiKey: widget.apiKey,
+          widgetId: widget.id,
+          host: parsed.host,
+        };
       }
     } catch {
       // Not the widget config blob; keep scanning other JSON.parse(...) literals.
@@ -298,9 +377,9 @@ async function fetchJobsCzScriptWidgetConfig(
   const scriptUrl = absoluteUrl(scriptSrc, pageUrl);
   if (!scriptUrl) return undefined;
 
-  const response = await fetchImpl(scriptUrl);
-  if (!response.ok) return undefined;
-  const script = await response.text();
+  const fetched = await fetchJobsCzAllowlisted(scriptUrl, fetchImpl);
+  if (!fetched || !fetched.response.ok) return undefined;
+  const script = await fetched.response.text();
   const widgetName = html.match(/data-widget=["']([^"']+)["']/i)?.[1] ?? "main";
   return extractJobsCzScriptWidgetConfig(script, widgetName);
 }
@@ -324,7 +403,11 @@ async function fetchJobsCzWidgetDescription(
     },
     body: JSON.stringify({
       query: JOBS_CZ_WIDGET_DETAIL_QUERY,
-      variables: { widgetId: config.widgetId, jobAdId: sourceJobId, host: config.host },
+      variables: {
+        widgetId: config.widgetId,
+        jobAdId: sourceJobId,
+        host: config.host,
+      },
     }),
   });
   if (!response.ok) return undefined;
@@ -336,21 +419,26 @@ async function fetchJobsCzWidgetDescription(
   return htmlContent ? getString(stripHtml(htmlContent)) : undefined;
 }
 
-async function fetchJobsCzDescription(
+export async function fetchJobsCzDescription(
   jobUrl: string,
   sourceJobId: string,
   fetchImpl: typeof fetch,
 ): Promise<string | undefined> {
   try {
-    const response = await fetchImpl(jobUrl, {
+    const fetched = await fetchJobsCzAllowlisted(jobUrl, fetchImpl, {
       headers: { "user-agent": "job-ops/1.0" },
     });
-    if (!response.ok) return undefined;
-    const html = await response.text();
-    const pageUrl = response.url || jobUrl;
+    if (!fetched || !fetched.response.ok) return undefined;
+    const html = await fetched.response.text();
+    const pageUrl = fetched.url;
     return (
       extractJobsCzNativeDescription(html) ??
-      (await fetchJobsCzWidgetDescription(html, pageUrl, sourceJobId, fetchImpl))
+      (await fetchJobsCzWidgetDescription(
+        html,
+        pageUrl,
+        sourceJobId,
+        fetchImpl,
+      ))
     );
   } catch {
     return undefined;
@@ -360,7 +448,9 @@ async function fetchJobsCzDescription(
 export async function runJobsCz(
   options: RunJobsCzOptions = {},
 ): Promise<JobsCzResult> {
-  const searchTerms = (options.searchTerms ?? []).map((term) => term.trim()).filter(Boolean);
+  const searchTerms = (options.searchTerms ?? [])
+    .map((term) => term.trim())
+    .filter(Boolean);
   const maxJobsPerTerm = Math.max(1, Math.floor(options.maxJobsPerTerm ?? 50));
   const fetchImpl = options.fetchImpl ?? fetch;
   const jobs: CreateJobInput[] = [];
@@ -378,7 +468,11 @@ export async function runJobsCz(
         searchTerm,
       });
 
-      for (let page = 1; page <= JOBS_CZ_MAX_PAGES && termJobs < maxJobsPerTerm; page += 1) {
+      for (
+        let page = 1;
+        page <= JOBS_CZ_MAX_PAGES && termJobs < maxJobsPerTerm;
+        page += 1
+      ) {
         if (options.shouldCancel?.()) break;
         const html = await fetchPage(
           buildJobsCzSearchUrl(searchTerm, page),
@@ -388,7 +482,8 @@ export async function runJobsCz(
         if (cards.length === 0) break;
 
         for (const card of cards) {
-          if (termJobs >= maxJobsPerTerm || seenIds.has(card.sourceJobId)) continue;
+          if (termJobs >= maxJobsPerTerm || seenIds.has(card.sourceJobId))
+            continue;
           seenIds.add(card.sourceJobId);
           const job = mapJobsCzCard(card);
           const description = await fetchJobsCzDescription(

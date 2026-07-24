@@ -7,6 +7,7 @@ import {
   buildJobActionExecutionOptions,
   executeJobActionForJob,
   mapJobActionFailure,
+  refreshJobDescriptionFromSourceAndRescore,
 } from "@server/services/jobs/actions";
 import { resolvePdfFingerprintContext } from "@server/services/pdf-fingerprint";
 import { asyncPool } from "@server/utils/async-pool";
@@ -314,3 +315,15 @@ jobsActionsRouter.post("/:id/rescore", async (req: Request, res: Response) => {
   if (!result.ok) return fail(res, mapJobActionFailure(result));
   ok(res, await hydrateJobPdfFreshness(result.job));
 });
+
+jobsActionsRouter.post(
+  "/:id/refresh-description",
+  async (req: Request, res: Response) => {
+    const result = await refreshJobDescriptionFromSourceAndRescore(
+      req.params.id,
+      buildJobActionExecutionOptions("rescore"),
+    );
+    if (!result.ok) return fail(res, mapJobActionFailure(result));
+    ok(res, await hydrateJobPdfFreshness(result.job));
+  },
+);

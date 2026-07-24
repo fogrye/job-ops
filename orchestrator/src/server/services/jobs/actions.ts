@@ -1,5 +1,6 @@
 import { AppError, type AppErrorCode, badRequest } from "@infra/errors";
 import { isDemoMode } from "@server/config/demo";
+import { getExtractorRegistry } from "@server/extractors/registry";
 import { processJob } from "@server/pipeline/index";
 import * as jobsRepo from "@server/repositories/jobs";
 import {
@@ -8,7 +9,14 @@ import {
 } from "@server/services/demo-simulator";
 import { getProfile } from "@server/services/profile";
 import { scoreJobSuitability } from "@server/services/scorer";
-import type { JobAction, JobActionResult, JobStatus } from "@shared/types";
+import type { ExtractorSourceId } from "@shared/extractors";
+import type {
+  Job,
+  JobAction,
+  JobActionResult,
+  JobStatus,
+  UpdateJobInput,
+} from "@shared/types";
 
 const SKIPPABLE_STATUSES: ReadonlySet<JobStatus> = new Set([
   "discovered",
@@ -194,47 +202,100 @@ export async function executeJobActionForJob(
       return { jobId, ok: true, job: updated };
     }
 
-    if (job.status === "processing") {
-      throw badRequest(`Job is not rescorable from status "${job.status}"`, {
-        jobId,
-        status: job.status,
-        disallowedStatus: "processing",
-      });
-    }
+    return await scoreAndPersistJob(job, options);
+  } catch (error) {
+    const mapped = mapErrorForResult(error);
+    return {
+      jobId,
+      ok: false,
+      error: {
+        code: mapped.code,
+        message: mapped.message,
+      },
+    };
+  }
+}
 
-    if (isDemoMode()) {
-      const simulated = await simulateRescoreJob(job.id);
-      return { jobId, ok: true, job: simulated };
-    }
-
-    const profile = options?.getProfileForRescore
-      ? await options.getProfileForRescore()
-      : await (async () => {
-          const rawProfile = await getProfile();
-          if (
-            !rawProfile ||
-            typeof rawProfile !== "object" ||
-            Array.isArray(rawProfile)
-          ) {
-            throw badRequest("Invalid resume profile format");
-          }
-          return rawProfile as Record<string, unknown>;
-        })();
-
-    const {
-      score,
-      reason,
-      jobBrief,
-      jobUpdates = {},
-    } = await scoreJobSuitability(job, profile);
-
-    const updated = await jobsRepo.updateJob(job.id, {
-      ...jobUpdates,
-      suitabilityScore: score,
-      suitabilityReason: reason,
-      jobBrief,
+/**
+ * Scores a job against the given (or current) profile and persists the
+ * score, reason, and brief in one write. `extraUpdates` — when set — is
+ * merged into that SAME write and into the object passed to the scorer, so
+ * a field like a freshly re-fetched description and the score computed
+ * from it always land together: scoring failure persists nothing at all,
+ * never a description with a stale, mismatched score.
+ */
+async function scoreAndPersistJob(
+  job: Job,
+  options: JobActionExecutionOptions | undefined,
+  extraUpdates?: Partial<UpdateJobInput>,
+): Promise<JobActionResult> {
+  if (job.status === "processing") {
+    throw badRequest(`Job is not rescorable from status "${job.status}"`, {
+      jobId: job.id,
+      status: job.status,
+      disallowedStatus: "processing",
     });
-    if (!updated) {
+  }
+
+  if (isDemoMode()) {
+    const simulated = await simulateRescoreJob(job.id);
+    return { jobId: job.id, ok: true, job: simulated };
+  }
+
+  const profile = options?.getProfileForRescore
+    ? await options.getProfileForRescore()
+    : await (async () => {
+        const rawProfile = await getProfile();
+        if (
+          !rawProfile ||
+          typeof rawProfile !== "object" ||
+          Array.isArray(rawProfile)
+        ) {
+          throw badRequest("Invalid resume profile format");
+        }
+        return rawProfile as Record<string, unknown>;
+      })();
+
+  const {
+    score,
+    reason,
+    jobBrief,
+    jobUpdates = {},
+  } = await scoreJobSuitability({ ...job, ...extraUpdates }, profile);
+
+  const updated = await jobsRepo.updateJob(job.id, {
+    ...extraUpdates,
+    ...jobUpdates,
+    suitabilityScore: score,
+    suitabilityReason: reason,
+    jobBrief,
+  });
+  if (!updated) {
+    throw new AppError({
+      status: 404,
+      code: "NOT_FOUND",
+      message: "Job not found",
+    });
+  }
+
+  return { jobId: job.id, ok: true, job: updated };
+}
+
+/**
+ * Re-fetches a job's description directly from its source page (via the
+ * owning extractor manifest's optional `refreshJobDescription` capability),
+ * then scores and persists the description together with the resulting
+ * score/reason/brief in one write. Explicit, single-job action only — never
+ * runs implicitly from a bulk rescore, and never falls back to leaving
+ * stale data if the fetch fails.
+ */
+export async function refreshJobDescriptionFromSourceAndRescore(
+  jobId: string,
+  options?: JobActionExecutionOptions,
+): Promise<JobActionResult> {
+  try {
+    const job = await jobsRepo.getJobById(jobId);
+    if (!job) {
       throw new AppError({
         status: 404,
         code: "NOT_FOUND",
@@ -242,7 +303,43 @@ export async function executeJobActionForJob(
       });
     }
 
-    return { jobId, ok: true, job: updated };
+    if (job.status === "processing") {
+      throw badRequest(`Job is not refreshable from status "${job.status}"`, {
+        jobId,
+        status: job.status,
+        disallowedStatus: "processing",
+      });
+    }
+
+    const registry = await getExtractorRegistry();
+    const manifest = registry.manifestBySource.get(
+      job.source as ExtractorSourceId,
+    );
+    if (!manifest?.refreshJobDescription) {
+      throw badRequest(
+        `Source "${job.source}" doesn't support refreshing the description from source.`,
+        { jobId, source: job.source },
+      );
+    }
+
+    const refreshed = await manifest
+      .refreshJobDescription({
+        jobUrl: job.jobUrl,
+        sourceJobId: job.sourceJobId,
+      })
+      .catch(() => undefined);
+
+    if (!refreshed) {
+      throw new AppError({
+        status: 502,
+        code: "UPSTREAM_ERROR",
+        message: "Couldn't fetch an updated description from the source site.",
+      });
+    }
+
+    return await scoreAndPersistJob(job, options, {
+      jobDescription: refreshed,
+    });
   } catch (error) {
     const mapped = mapErrorForResult(error);
     return {
