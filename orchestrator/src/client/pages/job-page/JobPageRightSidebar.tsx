@@ -197,6 +197,24 @@ export const JobPageRightSidebar: React.FC<JobPageRightSidebarProps> = ({
           </TooltipWhenDisabled>
         )}
 
+        {job.pdfPath && (
+          <TooltipWhenDisabled
+            reason={pdfRegeneratingReason}
+            className="w-full"
+          >
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-9 w-full justify-start"
+              onClick={onDownloadPdf}
+              disabled={pdfActionsDisabled}
+            >
+              <Download className="mr-1.5 h-3.5 w-3.5" />
+              {pdfDownloadLabel}
+            </Button>
+          </TooltipWhenDisabled>
+        )}
+
         <Button
           size="sm"
           variant="outline"
