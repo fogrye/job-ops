@@ -459,4 +459,102 @@ describe("generateTailoring", () => {
       "Never return replacement work-history prose",
     );
   });
+
+  it("scopes the work-history prompt to the most recent role when latest-only is enabled", async () => {
+    vi.mocked(getSetting).mockImplementation(async (key) => {
+      if (key === "tailorWorkHistory") return "1";
+      if (key === "tailorLatestExperienceOnly") return "1";
+      return null;
+    });
+    callJsonMock.mockResolvedValue({
+      success: true,
+      data: {
+        summary: "Tailored summary",
+        headline: "Senior Engineer",
+        skills: [],
+        experience: { entries: [] },
+      },
+    });
+
+    await generateTailoring("Build APIs", {
+      sections: {
+        experience: {
+          items: [
+            {
+              id: "experience-recent",
+              company: "Acme",
+              position: "Engineer",
+              location: "",
+              date: "",
+              summary: "<ul><li>Most recent role.</li></ul>",
+              description: "<ul><li>Most recent role.</li></ul>",
+              visible: true,
+            },
+            {
+              id: "experience-older",
+              company: "Old Co",
+              position: "Junior Engineer",
+              location: "",
+              date: "",
+              summary: "<ul><li>Older role.</li></ul>",
+              description: "<ul><li>Older role.</li></ul>",
+              visible: true,
+            },
+          ],
+        },
+      },
+    });
+
+    const request = callJsonMock.mock.calls.at(-1)?.[0];
+    expect(request?.messages?.[0]?.content).toContain("Most recent role.");
+    expect(request?.messages?.[0]?.content).not.toContain("Older role.");
+  });
+
+  it("ignores a stale latest-only preference once work-history tailoring is disabled", async () => {
+    vi.mocked(getSetting).mockImplementation(async (key) => {
+      if (key === "tailorWorkHistory") return "0";
+      if (key === "tailorLatestExperienceOnly") return "1";
+      return null;
+    });
+    callJsonMock.mockResolvedValue({
+      success: true,
+      data: {
+        summary: "Tailored summary",
+        headline: "Senior Engineer",
+        skills: [],
+      },
+    });
+
+    await generateTailoring("Build APIs", {
+      sections: {
+        experience: {
+          items: [
+            {
+              id: "experience-recent",
+              company: "Acme",
+              position: "Engineer",
+              location: "",
+              date: "",
+              summary: "Most recent role.",
+              visible: true,
+            },
+            {
+              id: "experience-older",
+              company: "Old Co",
+              position: "Junior Engineer",
+              location: "",
+              date: "",
+              summary: "Older role.",
+              visible: true,
+            },
+          ],
+        },
+      },
+    });
+
+    const request = callJsonMock.mock.calls.at(-1)?.[0];
+    // General context for summary/headline/skills should still see both
+    // employers; only the work-history-selection feature narrows scope.
+    expect(request?.messages?.[0]?.content).toContain("Older role.");
+  });
 });

@@ -28,6 +28,7 @@ describe("settings constants", () => {
           summaryMaxWords: { effective: null, default: null },
           maxKeywordsPerSkill: { effective: null, default: null },
           tailorWorkHistory: { effective: false, default: false },
+          tailorLatestExperienceOnly: { effective: false, default: false },
         },
       }),
     ).toEqual({
@@ -61,6 +62,7 @@ describe("settings constants", () => {
           summaryMaxWords: { effective: null, default: null },
           maxKeywordsPerSkill: { effective: null, default: null },
           tailorWorkHistory: { effective: false, default: false },
+          tailorLatestExperienceOnly: { effective: false, default: false },
         },
       }),
     ).toEqual({

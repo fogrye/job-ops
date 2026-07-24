@@ -1,9 +1,10 @@
 import { rm } from "node:fs/promises";
-import { AppError, badRequest } from "@infra/errors";
+import { AppError, badRequest, conflict, notFound } from "@infra/errors";
 import { fail, ok, okWithMeta } from "@infra/http";
 import { logger } from "@infra/logger";
 import { trackServerProductEvent } from "@infra/product-analytics";
 import { isDemoMode } from "@server/config/demo";
+import { runWithRequestContext } from "@server/infra/request-context";
 import { resolveRequestOrigin } from "@server/infra/request-origin";
 import { generateFinalPdf, summarizeJob } from "@server/pipeline/index";
 import * as jobDocumentsRepo from "@server/repositories/job-documents";
@@ -17,6 +18,12 @@ import {
   storeJobDocument,
 } from "@server/services/job-document-storage";
 import { uploadJobPdf } from "@server/services/job-pdf-upload";
+import {
+  completeJobActionOperation,
+  getJobActionOperation,
+  startJobActionOperation,
+} from "@server/services/jobs/action-operations";
+import { mapJobActionFailure } from "@server/services/jobs/actions";
 import { getProfile } from "@server/services/profile";
 import { buildTailoredExperienceView } from "@server/services/rxresume/tailoring";
 import { getSafeInlineJobDocumentMediaType } from "@shared/job-document-classification.js";
@@ -473,26 +480,96 @@ jobsDocumentsRouter.post(
       }
 
       const previousJob = await requireJob(req.params.id);
-      const result = await summarizeJob(req.params.id, { force, fields });
 
-      if (!result.success) {
+      const existing = getJobActionOperation(req.params.id, "summarize");
+      if (existing?.status === "pending") {
         return fail(
           res,
-          badRequest(result.error ?? "Failed to summarize the job"),
+          conflict(
+            "A tailoring generation is already in progress for this job",
+          ),
         );
       }
 
-      const job = await requireJob(req.params.id);
-      ok(res, await hydrateJobPdfFreshness(job));
+      startJobActionOperation(req.params.id, "summarize");
+      runWithRequestContext({}, () => {
+        summarizeJob(req.params.id, { force, fields })
+          .then(async (result) => {
+            if (!result.success) {
+              completeJobActionOperation(req.params.id, "summarize", {
+                jobId: req.params.id,
+                ok: false,
+                error: {
+                  code: "INVALID_REQUEST",
+                  message: result.error ?? "Failed to summarize the job",
+                },
+              });
+              return;
+            }
+            const job = await requireJob(req.params.id);
+            completeJobActionOperation(req.params.id, "summarize", {
+              jobId: req.params.id,
+              ok: true,
+              job,
+            });
+            queueTailoringAutoPdfRegenerationIfNeeded(
+              previousJob,
+              job,
+              "POST /api/jobs/:id/summarize",
+            );
+          })
+          .catch((error) => {
+            logger.error("Background summarize action failed", {
+              jobId: req.params.id,
+              error,
+            });
+            completeJobActionOperation(req.params.id, "summarize", {
+              jobId: req.params.id,
+              ok: false,
+              error: {
+                code: "INTERNAL_ERROR",
+                message:
+                  error instanceof Error ? error.message : "Unknown error",
+              },
+            });
+          });
+      });
 
-      queueTailoringAutoPdfRegenerationIfNeeded(
-        previousJob,
-        job,
-        "POST /api/jobs/:id/summarize",
-      );
+      ok(res, { jobId: req.params.id, status: "pending" as const }, 202);
     } catch (error) {
       fail(res, toJobsRouteError(error));
     }
+  },
+);
+
+jobsDocumentsRouter.get(
+  "/:id/summarize/status",
+  async (req: Request, res: Response) => {
+    const jobId = req.params.id;
+    const operation = getJobActionOperation(jobId, "summarize");
+    if (!operation) {
+      return fail(res, notFound("No summarize operation found for this job"));
+    }
+    if (operation.status === "pending") {
+      return ok(res, { status: "pending" as const });
+    }
+    const result = operation.result;
+    if (!result || !result.ok) {
+      return fail(
+        res,
+        result
+          ? mapJobActionFailure(result)
+          : new AppError({
+              status: 500,
+              code: "INTERNAL_ERROR",
+              message: "Operation completed without a result",
+            }),
+      );
+    }
+    ok(res, {
+      status: "succeeded" as const,
+      job: await hydrateJobPdfFreshness(result.job),
+    });
   },
 );
 

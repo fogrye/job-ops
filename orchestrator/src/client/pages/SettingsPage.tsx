@@ -85,6 +85,7 @@ const DEFAULT_FORM_VALUES: UpdateSettingsInput = {
   renderMarkdownInJobDescriptions: null,
   autoTailorOnManualImport: null,
   tailorWorkHistory: null,
+  tailorLatestExperienceOnly: null,
   chatStyleTone: "",
   chatStyleFormality: "",
   chatStyleConstraints: "",
@@ -310,6 +311,7 @@ const SECTION_FIELD_MAP: Record<
     "chatStyleLanguageMode",
     "chatStyleManualLanguage",
     "tailorWorkHistory",
+    "tailorLatestExperienceOnly",
   ],
   "prompt-templates": [
     "ghostwriterSystemPromptTemplate",
@@ -417,6 +419,7 @@ const NULL_SETTINGS_PAYLOAD: UpdateSettingsInput = {
   renderMarkdownInJobDescriptions: null,
   autoTailorOnManualImport: null,
   tailorWorkHistory: null,
+  tailorLatestExperienceOnly: null,
   chatStyleTone: null,
   chatStyleFormality: null,
   chatStyleConstraints: null,
@@ -486,6 +489,7 @@ const mapSettingsToForm = (data: AppSettings): UpdateSettingsInput => ({
     data.renderMarkdownInJobDescriptions.override,
   autoTailorOnManualImport: data.autoTailorOnManualImport.override,
   tailorWorkHistory: data.tailorWorkHistory.override,
+  tailorLatestExperienceOnly: data.tailorLatestExperienceOnly.override,
   chatStyleTone: data.chatStyleTone.override ?? "",
   chatStyleFormality: data.chatStyleFormality.override ?? "",
   chatStyleConstraints: data.chatStyleConstraints.override ?? "",
@@ -702,6 +706,10 @@ const getDerivedSettings = (settings: AppSettings | null) => {
       tailorWorkHistory: {
         effective: settings?.tailorWorkHistory?.value ?? false,
         default: settings?.tailorWorkHistory?.default ?? false,
+      },
+      tailorLatestExperienceOnly: {
+        effective: settings?.tailorLatestExperienceOnly?.value ?? false,
+        default: settings?.tailorLatestExperienceOnly?.default ?? false,
       },
     },
     envSettings: {
@@ -1210,6 +1218,10 @@ export const SettingsPage: React.FC = () => {
         tailorWorkHistory: nullIfSame(
           data.tailorWorkHistory,
           chat.tailorWorkHistory.default,
+        ),
+        tailorLatestExperienceOnly: nullIfSame(
+          data.tailorLatestExperienceOnly,
+          chat.tailorLatestExperienceOnly.default,
         ),
         chatStyleTone: normalizeString(data.chatStyleTone),
         chatStyleFormality: normalizeString(data.chatStyleFormality),

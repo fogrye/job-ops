@@ -190,6 +190,14 @@ async function isWorkHistoryTailoringEnabled(): Promise<boolean> {
   );
 }
 
+async function isLatestExperienceOnlyEnabled(): Promise<boolean> {
+  const raw = await settingsRepo.getSetting("tailorLatestExperienceOnly");
+  return (
+    settingsRegistry.tailorLatestExperienceOnly.parse(raw ?? undefined) ??
+    settingsRegistry.tailorLatestExperienceOnly.default()
+  );
+}
+
 /**
  * Generate tailored resume content (summary, headline, skills) for a job.
  */
@@ -197,11 +205,13 @@ export async function generateTailoring(
   jobDescription: string,
   profile: ResumeProfile,
 ): Promise<TailoringResult> {
-  const [model, writingStyle, tailorWorkHistory] = await Promise.all([
-    resolveLlmModel("tailoring"),
-    getWritingStyle(),
-    isWorkHistoryTailoringEnabled(),
-  ]);
+  const [model, writingStyle, tailorWorkHistory, latestExperienceOnly] =
+    await Promise.all([
+      resolveLlmModel("tailoring"),
+      getWritingStyle(),
+      isWorkHistoryTailoringEnabled(),
+      isLatestExperienceOnlyEnabled(),
+    ]);
   const profileSkills = profile.sections?.skills?.items;
   const flatSkills =
     profileSkills !== undefined &&
@@ -213,6 +223,7 @@ export async function generateTailoring(
     writingStyle,
     flatSkills,
     tailorWorkHistory,
+    latestExperienceOnly,
   );
 
   const llm = await createConfiguredLlmService("tailoring");
@@ -275,6 +286,7 @@ async function buildTailoringPrompt(
   writingStyle: WritingStyle,
   flatSkills: boolean,
   tailorWorkHistory: boolean,
+  latestExperienceOnly: boolean,
 ): Promise<string> {
   const jobDescription = stripHtmlTags(jd);
   const resolvedLanguage = resolveWritingOutputLanguage({
@@ -300,6 +312,16 @@ async function buildTailoringPrompt(
         profile as unknown as Record<string, unknown>,
       )
     : null;
+  // Resumes list experience most-recent-first by convention; when the user
+  // opts into tailoring only the latest role, keep just that first item so
+  // a long career history doesn't blow up prompt size and generation time.
+  // Only meaningful (and only surfaced in Settings) while work-history
+  // tailoring itself is on — otherwise this experience list is just general
+  // context for summary/headline/skills and shouldn't be narrowed.
+  const experienceItems =
+    tailorWorkHistory && latestExperienceOnly
+      ? profile.sections?.experience?.items?.slice(0, 1)
+      : profile.sections?.experience?.items;
   const relevantProfile = {
     basics: {
       name: profile.basics?.name,
@@ -312,7 +334,7 @@ async function buildTailoringPrompt(
       description: p.description,
       keywords: p.keywords,
     })),
-    experience: profile.sections?.experience?.items?.map((e) => ({
+    experience: experienceItems?.map((e) => ({
       id: e.id,
       company: e.company,
       position: e.position,

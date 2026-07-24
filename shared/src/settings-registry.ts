@@ -725,6 +725,13 @@ export const settingsRegistry = {
     parse: parseBitBoolOrNull,
     serialize: serializeBitBool,
   },
+  tailorLatestExperienceOnly: {
+    kind: "typed" as const,
+    schema: z.boolean(),
+    default: (): boolean => false,
+    parse: parseBitBoolOrNull,
+    serialize: serializeBitBool,
+  },
   chatStyleTone: {
     kind: "typed" as const,
     schema: z.string().trim().max(100),
