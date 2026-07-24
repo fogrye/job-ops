@@ -12,7 +12,7 @@ const card = (id: string, location: string) => `
     <span translate="no">Acme s.r.o.</span>
     <span data-test="serp-locality"><svg viewBox="0 0 16 16"><path d="M1 1"/></svg>${location}</span>
     <div class="SearchResultCard__status">Today</div>
-    <div class="SearchResultCard__body"><p>Build reliable systems.</p></div>
+    <div class="SearchResultCard__body">Možnost práce z domova</div>
   </article>
 `;
 
@@ -23,17 +23,18 @@ describe("Jobs.cz extractor", () => {
     );
   });
 
-  it("parses normalized job fields from result cards", () => {
-    expect(parseJobsCzCards(page(card("123", "Prague")))).toEqual([
+  it("parses normalized job fields from result cards, ignoring perk badge text", () => {
+    const [job] = parseJobsCzCards(page(card("123", "Prague")));
+    expect(job).toEqual(
       expect.objectContaining({
         sourceJobId: "123",
         title: "Platform Engineer",
         employer: "Acme s.r.o.",
         jobUrl: "https://www.jobs.cz/r/123",
         location: "Prague",
-        jobDescription: "Build reliable systems.",
       }),
-    ]);
+    );
+    expect(job).not.toHaveProperty("jobDescription");
   });
 
   it("paginates, deduplicates, and emits normalized source jobs", async () => {
