@@ -395,7 +395,7 @@ async function fetchJobsCzScriptWidgetConfig(
   fetchImpl: typeof fetch,
 ): Promise<JobsCzWidgetConfig | undefined> {
   const scriptSrc = html.match(
-    /<script\b[^>]*src=["']([^"']*script\.min\.js[^"']*)["']/i,
+    /<script\b[^>]*src=["']([^"']*\/assets\/js\/script\.min\.js[^"']*)["']/i,
   )?.[1];
   const scriptUrl = absoluteUrl(scriptSrc, pageUrl);
   if (!scriptUrl) return undefined;
