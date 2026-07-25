@@ -120,38 +120,60 @@ function findJobPosting(value: unknown): JsonRecord | undefined {
   return undefined;
 }
 
-export function extractStartupJobsDescription(
-  html: string,
-): string | undefined {
+type StartupJobsDetails = {
+  description?: string;
+  employer?: string;
+};
+
+function toEmployerName(value: unknown): string | undefined {
+  if (typeof value === "string") return toDescriptionText(value);
+  if (!value || typeof value !== "object") return undefined;
+  return toDescriptionText((value as JsonRecord).name);
+}
+
+function extractStartupJobsDetails(html: string): StartupJobsDetails {
+  const details: StartupJobsDetails = {};
   const scripts = html.matchAll(
     /<script\b[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi,
   );
   for (const script of scripts) {
     try {
       const posting = findJobPosting(JSON.parse(script[1]));
-      const description = toDescriptionText(posting?.description);
-      if (description) return description;
+      if (!posting) continue;
+      details.description ??= toDescriptionText(posting.description);
+      details.employer ??= toEmployerName(posting.hiringOrganization);
+      if (details.description && details.employer) return details;
     } catch {}
   }
-  return undefined;
+  return details;
 }
 
-async function fetchStartupJobsDescription(
+export function extractStartupJobsDescription(
+  html: string,
+): string | undefined {
+  return extractStartupJobsDetails(html).description;
+}
+
+async function fetchStartupJobsDetails(
   jobUrl: string,
-): Promise<string | undefined> {
+): Promise<StartupJobsDetails | undefined> {
   try {
     const response = await fetch(jobUrl, {
       headers: { "user-agent": "JobOps/1.0" },
       signal: AbortSignal.timeout(10_000),
     });
     if (!response.ok) return undefined;
-    return extractStartupJobsDescription(await response.text());
+    return extractStartupJobsDetails(await response.text());
   } catch {
     return undefined;
   }
 }
 
-async function enrichMissingDescriptions(
+function isPlaceholderEmployer(value: string | undefined): boolean {
+  return value?.trim().toLowerCase() === "view company profile";
+}
+
+async function enrichMissingDetails(
   records: StartupJobRecord[],
 ): Promise<StartupJobRecord[]> {
   const enriched = [...records];
@@ -164,11 +186,21 @@ async function enrichMissingDescriptions(
     const batch = records.slice(index, index + DESCRIPTION_CONCURRENCY);
     await Promise.all(
       batch.map(async (record, batchIndex) => {
-        if (record.jobDescription) return;
-        const jobDescription = await fetchStartupJobsDescription(record.jobUrl);
-        if (jobDescription) {
-          enriched[index + batchIndex] = { ...record, jobDescription };
+        const needsDescription = !record.jobDescription;
+        const needsEmployer = isPlaceholderEmployer(record.employer);
+        if (!needsDescription && !needsEmployer) return;
+
+        const details = await fetchStartupJobsDetails(record.jobUrl);
+        if (!details) return;
+
+        const nextRecord = { ...record };
+        if (needsDescription && details.description) {
+          nextRecord.jobDescription = details.description;
         }
+        if (needsEmployer && details.employer) {
+          nextRecord.employer = details.employer;
+        }
+        enriched[index + batchIndex] = nextRecord;
       }),
     );
   }
@@ -264,7 +296,7 @@ export async function runStartupJobs(
           location: location ?? undefined,
           workplaceType,
         });
-        const enrichedRecords = await enrichMissingDescriptions(records);
+        const enrichedRecords = await enrichMissingDetails(records);
         let jobsFoundTerm = 0;
 
         for (const record of enrichedRecords) {

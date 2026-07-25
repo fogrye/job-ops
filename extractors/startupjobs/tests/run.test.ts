@@ -31,6 +31,7 @@ describe("runStartupJobs", () => {
     expect(scrapeMock).toHaveBeenCalledWith(
       expect.objectContaining({
         requestedCount: 50,
+        enrichDetails: true,
       }),
     );
   });
@@ -168,5 +169,36 @@ describe("runStartupJobs", () => {
     const result = await runStartupJobs({ searchTerms: ["platform engineer"] });
 
     expect(result.jobs[0]?.jobDescription).toBe("Build reliable platforms.");
+  });
+  it("repairs a placeholder employer from JSON-LD", async () => {
+    const { scrapeStartupJobsViaAlgolia } = await import(
+      "startup-jobs-scraper"
+    );
+    const { runStartupJobs } = await import("../src/run");
+    vi.mocked(scrapeStartupJobsViaAlgolia).mockResolvedValueOnce([
+      {
+        title: "Platform Engineer",
+        employer: "View company profile",
+        jobUrl: "https://startup.jobs/platform-engineer-example-1",
+        jobDescription: "Existing enriched description.",
+        applicationLink: "https://example.com/apply",
+      },
+    ]);
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        text: async () =>
+          '<script type="application/ld+json">{"@type":"JobPosting","hiringOrganization":{"name":"Example Startup"}}</script>',
+      }),
+    );
+
+    const result = await runStartupJobs({ searchTerms: ["platform engineer"] });
+
+    expect(result.jobs[0]?.employer).toBe("Example Startup");
+    expect(result.jobs[0]?.jobDescription).toBe(
+      "Existing enriched description.",
+    );
+    expect(result.jobs[0]?.applicationLink).toBe("https://example.com/apply");
   });
 });
