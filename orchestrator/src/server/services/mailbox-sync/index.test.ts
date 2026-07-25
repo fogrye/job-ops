@@ -39,7 +39,11 @@ describe("Mailbox Sync Scheduler", () => {
   beforeEach(() => {
     vi.mocked(listConnectedPostApplicationIntegrations).mockReset();
     vi.mocked(runGmailIngestionSync).mockReset();
-    mailboxSync.setMailboxSyncSettings({ enabled: false, hour: 7 });
+    mailboxSync.setMailboxSyncSettings({
+      enabled: false,
+      hour: 7,
+      weekendEnabled: true,
+    });
     mailboxSync.stopMailboxSyncScheduler();
   });
 
@@ -106,6 +110,39 @@ describe("Mailbox Sync Scheduler", () => {
       });
       expect(runGmailIngestionSync).toHaveBeenCalledWith({
         accountKey: "work",
+      });
+    });
+
+    it("skips the scheduled sync on weekends when disabled", async () => {
+      vi.setSystemTime(new Date("2026-01-17T10:00:00Z"));
+
+      mailboxSync.setMailboxSyncSettings({
+        enabled: true,
+        hour: 11,
+        weekendEnabled: false,
+      });
+      await vi.advanceTimersByTimeAsync(60 * 60 * 1000);
+
+      expect(listConnectedPostApplicationIntegrations).not.toHaveBeenCalled();
+      expect(runGmailIngestionSync).not.toHaveBeenCalled();
+    });
+
+    it("runs the scheduled sync on weekends when enabled", async () => {
+      vi.mocked(listConnectedPostApplicationIntegrations).mockResolvedValue([
+        integration("weekend"),
+      ]);
+      vi.mocked(runGmailIngestionSync).mockResolvedValue(emptySummary);
+      vi.setSystemTime(new Date("2026-01-17T10:00:00Z"));
+
+      mailboxSync.setMailboxSyncSettings({
+        enabled: true,
+        hour: 11,
+        weekendEnabled: true,
+      });
+      await vi.advanceTimersByTimeAsync(60 * 60 * 1000);
+
+      expect(runGmailIngestionSync).toHaveBeenCalledWith({
+        accountKey: "weekend",
       });
     });
 

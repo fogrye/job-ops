@@ -98,9 +98,11 @@ const SchedulerSettingsHarness = ({
     defaultValues: {
       dailySearchEnabled: null,
       dailySearchHour: null,
+      dailySearchWeekendEnabled: null,
       dailySearchPresetId: null,
       mailboxSyncEnabled: null,
       mailboxSyncHour: null,
+      mailboxSyncWeekendEnabled: null,
     },
   });
 
@@ -111,9 +113,11 @@ const SchedulerSettingsHarness = ({
           values={{
             dailySearchEnabled: { effective: true, default: true },
             dailySearchHour: { effective: 6, default: 6 },
+            dailySearchWeekendEnabled: { effective: true, default: true },
             dailySearchPresetId: { effective: "", default: "" },
             mailboxSyncEnabled: { effective: true, default: true },
             mailboxSyncHour: { effective: 7, default: 7 },
+            mailboxSyncWeekendEnabled: { effective: true, default: true },
           }}
           presets={presets}
           isLoadingPresets={isLoadingPresets}
@@ -134,6 +138,9 @@ describe("SchedulerSettingsSection", () => {
     ).toBeInTheDocument();
     expect(screen.getByLabelText("Daily Search Hour")).toBeInTheDocument();
     expect(
+      screen.getByLabelText("Run daily active search on weekends"),
+    ).toBeInTheDocument();
+    expect(
       screen.getByRole("button", { name: "Remote Backend Roles" }),
     ).toBeInTheDocument();
     expect(
@@ -150,6 +157,23 @@ describe("SchedulerSettingsSection", () => {
     fireEvent.click(checkbox);
 
     expect(checkbox).toHaveAttribute("aria-checked", "false");
+  });
+
+  it("toggles weekend automation independently from the daily schedule", () => {
+    render(<SchedulerSettingsHarness />);
+
+    const weekendCheckbox = screen.getByLabelText(
+      "Run daily active search on weekends",
+    );
+    expect(weekendCheckbox).toHaveAttribute("aria-checked", "true");
+
+    fireEvent.click(weekendCheckbox);
+
+    expect(weekendCheckbox).toHaveAttribute("aria-checked", "false");
+    expect(screen.getByLabelText("Enable daily active search")).toHaveAttribute(
+      "aria-checked",
+      "true",
+    );
   });
 
   it("updates the preset field when a preset is selected", () => {
@@ -178,6 +202,9 @@ describe("SchedulerSettingsSection", () => {
 
     expect(
       screen.getByLabelText("Enable daily mailbox sync"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByLabelText("Run mailbox sync on weekends"),
     ).toBeInTheDocument();
     expect(screen.getByLabelText("Mailbox Sync Hour")).toBeInTheDocument();
   });

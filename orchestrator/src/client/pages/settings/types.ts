@@ -62,9 +62,11 @@ export type BackupValues = {
 export type SchedulerValues = {
   dailySearchEnabled: EffectiveDefault<boolean>;
   dailySearchHour: EffectiveDefault<number>;
+  dailySearchWeekendEnabled: EffectiveDefault<boolean>;
   dailySearchPresetId: EffectiveDefault<string>;
   mailboxSyncEnabled: EffectiveDefault<boolean>;
   mailboxSyncHour: EffectiveDefault<number>;
+  mailboxSyncWeekendEnabled: EffectiveDefault<boolean>;
 };
 
 export type ScoringValues = {

@@ -157,10 +157,16 @@ async function startServer() {
           settingsRegistry.dailySearchHour.parse(
             (await settingsRepo.getSetting("dailySearchHour")) ?? undefined,
           ) ?? settingsRegistry.dailySearchHour.default();
+        const dailySearchWeekendEnabled =
+          settingsRegistry.dailySearchWeekendEnabled.parse(
+            (await settingsRepo.getSetting("dailySearchWeekendEnabled")) ??
+              undefined,
+          ) ?? settingsRegistry.dailySearchWeekendEnabled.default();
 
         setDailySearchSettings({
           enabled: dailySearchEnabled,
           hour: dailySearchHour,
+          weekendEnabled: dailySearchWeekendEnabled,
         });
         startDailySearchScheduler();
 
@@ -184,10 +190,16 @@ async function startServer() {
           settingsRegistry.mailboxSyncHour.parse(
             (await settingsRepo.getSetting("mailboxSyncHour")) ?? undefined,
           ) ?? settingsRegistry.mailboxSyncHour.default();
+        const mailboxSyncWeekendEnabled =
+          settingsRegistry.mailboxSyncWeekendEnabled.parse(
+            (await settingsRepo.getSetting("mailboxSyncWeekendEnabled")) ??
+              undefined,
+          ) ?? settingsRegistry.mailboxSyncWeekendEnabled.default();
 
         setMailboxSyncSettings({
           enabled: mailboxSyncEnabled,
           hour: mailboxSyncHour,
+          weekendEnabled: mailboxSyncWeekendEnabled,
         });
         startMailboxSyncScheduler();
 

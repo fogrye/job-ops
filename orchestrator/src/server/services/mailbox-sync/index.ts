@@ -15,14 +15,25 @@ import { createScheduler } from "@server/utils/scheduler";
 interface MailboxSyncSettings {
   enabled: boolean;
   hour: number;
+  weekendEnabled: boolean;
 }
 
 let currentSettings: MailboxSyncSettings = {
   enabled: false,
   hour: 7,
+  weekendEnabled: true,
 };
 
+function isWeekendUtc(): boolean {
+  const day = new Date().getUTCDay();
+  return day === 0 || day === 6;
+}
+
 const scheduler = createScheduler("mailbox-sync", async () => {
+  if (!currentSettings.weekendEnabled && isWeekendUtc()) {
+    logger.info("Mailbox sync skipped on weekend");
+    return;
+  }
   await runWithRequestContext({}, async () => {
     const integrations =
       await listConnectedPostApplicationIntegrations("gmail");

@@ -865,6 +865,13 @@ export const settingsRegistry = {
     },
     serialize: serializeNullableNumber,
   },
+  dailySearchWeekendEnabled: {
+    kind: "typed" as const,
+    schema: z.boolean(),
+    default: (): boolean => true,
+    parse: parseBitBoolOrNull,
+    serialize: serializeBitBool,
+  },
   mailboxSyncEnabled: {
     kind: "typed" as const,
     schema: z.boolean(),
@@ -882,6 +889,13 @@ export const settingsRegistry = {
       return Math.min(23, Math.max(0, parsed));
     },
     serialize: serializeNullableNumber,
+  },
+  mailboxSyncWeekendEnabled: {
+    kind: "typed" as const,
+    schema: z.boolean(),
+    default: (): boolean => true,
+    parse: parseBitBoolOrNull,
+    serialize: serializeBitBool,
   },
   dailySearchPresetId: {
     kind: "typed" as const,
