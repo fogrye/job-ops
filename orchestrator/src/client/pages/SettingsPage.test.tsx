@@ -150,6 +150,11 @@ const openModelSection = async () => {
   await clickLastButtonByName(/models/i);
 };
 
+const openSchedulerSection = async () => {
+  await openNavGroup(/^automation$/i);
+  await clickLastButtonByName(/^scheduler$/i);
+};
+
 const openWritingStyleSection = async () => {
   await openNavGroup(/^ai$/i);
   await clickLastButtonByName(/writing style/i);
@@ -248,6 +253,29 @@ describe("SettingsPage", () => {
       }),
     );
     expect(toast.success).toHaveBeenCalledWith("Settings saved");
+  });
+
+  it("saves weekend automation switches", async () => {
+    vi.mocked(api.getSettings).mockResolvedValue(baseSettings);
+    vi.mocked(api.updateSettings).mockResolvedValue(baseSettings);
+
+    renderPage();
+    await openSchedulerSection();
+
+    fireEvent.click(
+      screen.getByLabelText(/run daily active search on weekends/i),
+    );
+    fireEvent.click(screen.getByLabelText(/run mailbox sync on weekends/i));
+    await waitFor(() => expect(getSaveButton()).toBeEnabled());
+    fireEvent.click(getSaveButton());
+
+    await waitFor(() => expect(api.updateSettings).toHaveBeenCalled());
+    expect(api.updateSettings).toHaveBeenCalledWith(
+      expect.objectContaining({
+        dailySearchWeekendEnabled: false,
+        mailboxSyncWeekendEnabled: false,
+      }),
+    );
   });
 
   it("starts codex sign-in from model settings", async () => {
