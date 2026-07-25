@@ -233,6 +233,62 @@ describe("Jobs.cz extractor", () => {
       }),
     ]);
   });
+  it("skips unrelated script.min.js assets before the jobs.cz widget bundle", async () => {
+    const jobUrl =
+      "https://almacareer.jobs.cz/vacancy-detail?r=detail&id=2001331823&rps=0&impressionId=3904bb75-35c9-43fc-9f18-b409368440f5#fms";
+    const detailHtml = `
+      <div id="vacancy-detail" data-widget="main-en"></div>
+      <script src="https://cdn.capybara.lmc.cz/libs/fms/4.x.x/script.min.js?v=1"></script>
+      <script src="/assets/js/script.min.js?av=abc123"></script>
+    `;
+    const scriptBundle = `
+      config(module.exports=JSON.parse('{"id":"almacareerjobs","host":"almacareer.jobs.cz","widgets":{"main-en":{"id":"widget-alma","apiKey":"alma-api-key"}}}'));
+    `;
+    const fetchImpl = vi
+      .fn<typeof fetch>()
+      .mockImplementation(async (input, init) => {
+        const url = String(input);
+        if (url === jobUrl) return new Response(detailHtml);
+        if (url.includes("/assets/js/script.min.js"))
+          return new Response(scriptBundle);
+        if (url === "https://api.capybara.lmc.cz/api/graphql/widget") {
+          expect(init?.headers).toMatchObject({
+            "x-api-key": "alma-api-key",
+          });
+          expect(JSON.parse(String(init?.body)).variables).toEqual({
+            widgetId: "widget-alma",
+            jobAdId: "2001331823",
+            host: "almacareer.jobs.cz",
+          });
+          return Response.json({
+            data: {
+              widget: {
+                jobAd: {
+                  content: {
+                    htmlContent:
+                      "<p>Support and improve the OneCRM system.</p>",
+                  },
+                },
+              },
+            },
+          });
+        }
+        return new Response("not found", { status: 404 });
+      });
+
+    const description = await fetchJobsCzDescription(
+      jobUrl,
+      "2001331823",
+      fetchImpl,
+    );
+
+    expect(description).toBe("Support and improve the OneCRM system.");
+    expect(
+      fetchImpl.mock.calls.some(([input]) =>
+        String(input).includes("cdn.capybara.lmc.cz/libs/fms"),
+      ),
+    ).toBe(false);
+  });
 
   it("extracts the description from a widget config loaded via a react-chunks stub", async () => {
     const reactChunksHtml = `
