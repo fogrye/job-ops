@@ -1341,6 +1341,10 @@ export const SettingsPage: React.FC = () => {
           data.dailySearchHour,
           scheduler.dailySearchHour.default,
         ),
+        dailySearchWeekendEnabled: nullIfSame(
+          data.dailySearchWeekendEnabled,
+          scheduler.dailySearchWeekendEnabled.default,
+        ),
         dailySearchPresetId: nullIfSame(
           data.dailySearchPresetId,
           scheduler.dailySearchPresetId.default,
@@ -1352,6 +1356,10 @@ export const SettingsPage: React.FC = () => {
         mailboxSyncHour: nullIfSame(
           data.mailboxSyncHour,
           scheduler.mailboxSyncHour.default,
+        ),
+        mailboxSyncWeekendEnabled: nullIfSame(
+          data.mailboxSyncWeekendEnabled,
+          scheduler.mailboxSyncWeekendEnabled.default,
         ),
         penalizeMissingSalary: nullIfSame(
           data.penalizeMissingSalary,
