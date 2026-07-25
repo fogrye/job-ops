@@ -299,8 +299,10 @@ export interface AppSettings {
   backupMaxCount: Resolved<number>;
   dailySearchEnabled: Resolved<boolean>;
   dailySearchHour: Resolved<number>;
+  dailySearchWeekendEnabled: Resolved<boolean>;
   mailboxSyncEnabled: Resolved<boolean>;
   mailboxSyncHour: Resolved<number>;
+  mailboxSyncWeekendEnabled: Resolved<boolean>;
   dailySearchPresetId: Resolved<string>;
   penalizeMissingSalary: Resolved<boolean>;
   missingSalaryPenalty: Resolved<number>;

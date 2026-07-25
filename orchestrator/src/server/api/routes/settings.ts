@@ -59,10 +59,18 @@ const RXRESUME_SAVE_VALIDATION_KEYS: Array<keyof UpdateSettingsInput> = [
 
 const DAILY_SEARCH_SETTING_KEYS: Partial<
   Record<keyof UpdateSettingsInput, true>
-> = { dailySearchEnabled: true, dailySearchHour: true };
+> = {
+  dailySearchEnabled: true,
+  dailySearchHour: true,
+  dailySearchWeekendEnabled: true,
+};
 const MAILBOX_SYNC_SETTING_KEYS: Partial<
   Record<keyof UpdateSettingsInput, true>
-> = { mailboxSyncEnabled: true, mailboxSyncHour: true };
+> = {
+  mailboxSyncEnabled: true,
+  mailboxSyncHour: true,
+  mailboxSyncWeekendEnabled: true,
+};
 
 function hasInputKey<K extends keyof UpdateSettingsInput>(
   input: UpdateSettingsInput,
@@ -384,6 +392,7 @@ settingsRouter.patch(
       setDailySearchSettings({
         enabled: data.dailySearchEnabled.value,
         hour: data.dailySearchHour.value,
+        weekendEnabled: data.dailySearchWeekendEnabled.value,
       });
     }
 
@@ -395,6 +404,7 @@ settingsRouter.patch(
       setMailboxSyncSettings({
         enabled: data.mailboxSyncEnabled.value,
         hour: data.mailboxSyncHour.value,
+        weekendEnabled: data.mailboxSyncWeekendEnabled.value,
       });
     }
     ok(res, data);

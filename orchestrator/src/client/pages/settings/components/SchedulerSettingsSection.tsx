@@ -41,9 +41,11 @@ export const SchedulerSettingsSection: React.FC<
   const {
     dailySearchEnabled,
     dailySearchHour,
+    dailySearchWeekendEnabled,
     dailySearchPresetId,
     mailboxSyncEnabled,
     mailboxSyncHour,
+    mailboxSyncWeekendEnabled,
   } = values;
   const { control, watch } = useFormContext<UpdateSettingsInput>();
 
@@ -88,6 +90,37 @@ export const SchedulerSettingsSection: React.FC<
               <p className="text-xs text-muted-foreground">
                 Automatically run the active-search pipeline once a day using a
                 saved search preset.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-start space-x-3">
+            <Controller
+              name="dailySearchWeekendEnabled"
+              control={control}
+              render={({ field }) => (
+                <Checkbox
+                  id="dailySearchWeekendEnabled"
+                  checked={field.value ?? dailySearchWeekendEnabled.default}
+                  onCheckedChange={(checked) => {
+                    field.onChange(
+                      checked === "indeterminate" ? null : checked === true,
+                    );
+                  }}
+                  disabled={isLoading || isSaving}
+                />
+              )}
+            />
+            <div className="flex flex-col gap-1.5">
+              <label
+                htmlFor="dailySearchWeekendEnabled"
+                className="cursor-pointer text-sm font-medium leading-none"
+              >
+                Run daily active search on weekends
+              </label>
+              <p className="text-xs text-muted-foreground">
+                Run the scheduled active-search pipeline on Saturdays and
+                Sundays (UTC).
               </p>
             </div>
           </div>
@@ -206,6 +239,36 @@ export const SchedulerSettingsSection: React.FC<
               </label>
               <p className="text-xs text-muted-foreground">
                 Automatically sync Gmail for all connected accounts once a day.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-start space-x-3">
+            <Controller
+              name="mailboxSyncWeekendEnabled"
+              control={control}
+              render={({ field }) => (
+                <Checkbox
+                  id="mailboxSyncWeekendEnabled"
+                  checked={field.value ?? mailboxSyncWeekendEnabled.default}
+                  onCheckedChange={(checked) => {
+                    field.onChange(
+                      checked === "indeterminate" ? null : checked === true,
+                    );
+                  }}
+                  disabled={isLoading || isSaving}
+                />
+              )}
+            />
+            <div className="flex flex-col gap-1.5">
+              <label
+                htmlFor="mailboxSyncWeekendEnabled"
+                className="cursor-pointer text-sm font-medium leading-none"
+              >
+                Run mailbox sync on weekends
+              </label>
+              <p className="text-xs text-muted-foreground">
+                Run the scheduled Gmail sync on Saturdays and Sundays (UTC).
               </p>
             </div>
           </div>

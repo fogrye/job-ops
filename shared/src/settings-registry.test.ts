@@ -475,4 +475,12 @@ describe("settingsRegistry helpers", () => {
       ).toBe(JSON.stringify({ tailoring: { model: "gpt-5.4-mini" } }));
     });
   });
+  it("defaults weekend automation toggles on and parses stored false", () => {
+    expect(settingsRegistry.dailySearchWeekendEnabled.default()).toBe(true);
+    expect(settingsRegistry.mailboxSyncWeekendEnabled.default()).toBe(true);
+    expect(settingsRegistry.dailySearchWeekendEnabled.parse("0")).toBe(false);
+    expect(settingsRegistry.mailboxSyncWeekendEnabled.parse("false")).toBe(
+      false,
+    );
+  });
 });

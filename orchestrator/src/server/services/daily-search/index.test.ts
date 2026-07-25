@@ -69,7 +69,11 @@ describe("Daily Search Scheduler", () => {
       jobsDiscovered: 0,
       jobsProcessed: 0,
     });
-    dailySearch.setDailySearchSettings({ enabled: false, hour: 6 });
+    dailySearch.setDailySearchSettings({
+      enabled: false,
+      hour: 6,
+      weekendEnabled: true,
+    });
     dailySearch.stopDailySearchScheduler();
   });
 
@@ -128,6 +132,32 @@ describe("Daily Search Scheduler", () => {
       vi.setSystemTime(new Date("2026-01-15T10:00:00Z"));
 
       dailySearch.setDailySearchSettings({ enabled: true, hour: 11 });
+      await vi.advanceTimersByTimeAsync(60 * 60 * 1000);
+
+      expect(runPipeline).toHaveBeenCalledTimes(1);
+    });
+
+    it("skips the scheduled pipeline on weekends when disabled", async () => {
+      vi.setSystemTime(new Date("2026-01-17T10:00:00Z"));
+
+      dailySearch.setDailySearchSettings({
+        enabled: true,
+        hour: 11,
+        weekendEnabled: false,
+      });
+      await vi.advanceTimersByTimeAsync(60 * 60 * 1000);
+
+      expect(runPipeline).not.toHaveBeenCalled();
+    });
+
+    it("runs the scheduled pipeline on weekends when enabled", async () => {
+      vi.setSystemTime(new Date("2026-01-17T10:00:00Z"));
+
+      dailySearch.setDailySearchSettings({
+        enabled: true,
+        hour: 11,
+        weekendEnabled: true,
+      });
       await vi.advanceTimersByTimeAsync(60 * 60 * 1000);
 
       expect(runPipeline).toHaveBeenCalledTimes(1);

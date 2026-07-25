@@ -26,11 +26,13 @@ import { presetConfigToPipelineConfig } from "./preset-config";
 interface DailySearchSettings {
   enabled: boolean;
   hour: number;
+  weekendEnabled: boolean;
 }
 
 let currentSettings: DailySearchSettings = {
   enabled: false,
   hour: 6,
+  weekendEnabled: true,
 };
 
 /**
@@ -48,7 +50,16 @@ async function resolveDailySearchPreset(): Promise<PipelineSearchPreset | null> 
   return getMostRecentlyUsedPipelineSearchPresetForTenant();
 }
 
+function isWeekendUtc(): boolean {
+  const day = new Date().getUTCDay();
+  return day === 0 || day === 6;
+}
+
 const scheduler = createScheduler("daily-search", async () => {
+  if (!currentSettings.weekendEnabled && isWeekendUtc()) {
+    logger.info("Daily search skipped on weekend");
+    return;
+  }
   await runWithRequestContext({}, async () => {
     const preset = await resolveDailySearchPreset();
     logger.info("Daily search resolved run source", {
