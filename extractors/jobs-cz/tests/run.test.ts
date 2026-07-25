@@ -53,6 +53,38 @@ describe("Jobs.cz extractor", () => {
     expect(job?.title).toBe("R+D Engineer – &#43; literal");
   });
 
+  it("strips volatile searchId/rps query params so the same vacancy yields a stable jobUrl", () => {
+    const volatileCard = `
+      <article class="SearchResultCard">
+        <a href="/rpd/2001334990/?searchId=1f678c7e-d726-4c55-b587-67644d8c3bfc&amp;rps=233" data-jobad-id="2001334990">AI Engineer</a>
+        <span translate="no">Skupina Klik.cz</span>
+      </article>
+    `;
+    const [firstRun] = parseJobsCzCards(page(volatileCard));
+    const secondRunCard = volatileCard.replace(
+      "searchId=1f678c7e-d726-4c55-b587-67644d8c3bfc",
+      "searchId=cc8e9a45-08cc-4598-b573-ccff5471a4c3",
+    );
+    const [secondRun] = parseJobsCzCards(page(secondRunCard));
+
+    expect(firstRun?.jobUrl).toBe("https://www.jobs.cz/rpd/2001334990/");
+    expect(secondRun?.jobUrl).toBe("https://www.jobs.cz/rpd/2001334990/");
+    expect(firstRun?.jobUrl).toBe(secondRun?.jobUrl);
+  });
+
+  it("leaves non-volatile query params untouched", () => {
+    const cardWithOtherParam = `
+      <article class="SearchResultCard">
+        <a href="/vacancy-detail?r=detail&amp;id=2001308564" data-jobad-id="2001308564">Backend Engineer</a>
+        <span translate="no">itm8</span>
+      </article>
+    `;
+    const [job] = parseJobsCzCards(page(cardWithOtherParam));
+    expect(job?.jobUrl).toBe(
+      "https://www.jobs.cz/vacancy-detail?r=detail&id=2001308564",
+    );
+  });
+
   it("paginates, deduplicates, and emits normalized source jobs", async () => {
     const fetchImpl = vi
       .fn<typeof fetch>()

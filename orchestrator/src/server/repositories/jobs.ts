@@ -601,11 +601,47 @@ export async function createJobs(
     .where(and(jobsScopeFilter(), inArray(jobs.jobUrl, uniqueUrls)));
   const existingUrlSet = new Set(existingRows.map((row) => row.jobUrl));
 
+  // Cross-run dedup backstop. Some sources (e.g. jobs-cz) put volatile query
+  // params (searchId, rps) in jobUrl, so the same vacancy gets a different URL
+  // every pipeline run and slips past the URL check above, re-importing the
+  // same posting endlessly. When a stable (source, sourceJobId) identity is
+  // present, skip inputs whose vacancy is already stored under that identity
+  // regardless of URL.
+  const sourceIdKey = (input: CreateJobInput): string | null =>
+    input.sourceJobId ? `${input.source}\u0000${input.sourceJobId}` : null;
+  const batchSourceJobIds = Array.from(
+    new Set(
+      Array.from(byUrl.values())
+        .map(({ input }) => input.sourceJobId)
+        .filter((id): id is string => Boolean(id)),
+    ),
+  );
+  const existingSourceIdSet = new Set<string>();
+  if (batchSourceJobIds.length > 0) {
+    const rows = await db
+      .select({ source: jobs.source, sourceJobId: jobs.sourceJobId })
+      .from(jobs)
+      .where(
+        and(jobsScopeFilter(), inArray(jobs.sourceJobId, batchSourceJobIds)),
+      );
+    for (const row of rows) {
+      if (row.sourceJobId) {
+        existingSourceIdSet.add(`${row.source}\u0000${row.sourceJobId}`);
+      }
+    }
+  }
+  const insertedSourceIdSet = new Set<string>();
+
   for (const { input, count } of byUrl.values()) {
     processed += 1;
     onProgress?.(input, processed, byUrl.size);
 
-    if (existingUrlSet.has(input.jobUrl)) {
+    const sidKey = sourceIdKey(input);
+    if (
+      existingUrlSet.has(input.jobUrl) ||
+      (sidKey !== null &&
+        (existingSourceIdSet.has(sidKey) || insertedSourceIdSet.has(sidKey)))
+    ) {
       skipped += count;
       continue;
     }
@@ -616,6 +652,9 @@ export async function createJobs(
       continue;
     }
 
+    if (sidKey !== null) {
+      insertedSourceIdSet.add(sidKey);
+    }
     created += 1;
     skipped += count - 1;
   }

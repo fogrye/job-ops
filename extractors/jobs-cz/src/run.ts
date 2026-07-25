@@ -167,6 +167,27 @@ function absoluteUrl(
   }
 }
 
+// Search-result cards embed a per-request `searchId` (and `rps` ranking
+// token) in the vacancy href. Those values change on every crawl even for
+// the exact same vacancy, so leaving them in `jobUrl` breaks import dedup
+// (jobs are keyed by URL) and causes the same posting to be re-imported on
+// every pipeline run. Strip only these known volatile keys -- never a
+// blanket query-string wipe -- so branded portal URLs that encode the
+// vacancy id itself in the query string are left untouched.
+const JOBS_CZ_VOLATILE_URL_PARAMS = ["searchId", "rps"] as const;
+
+function canonicalizeJobsCzUrl(value: string): string {
+  try {
+    const url = new URL(value);
+    for (const param of JOBS_CZ_VOLATILE_URL_PARAMS) {
+      url.searchParams.delete(param);
+    }
+    return url.toString();
+  } catch {
+    return value;
+  }
+}
+
 function firstMatchText(card: string, pattern: RegExp): string | undefined {
   return getString(stripHtml(card.match(pattern)?.[1] ?? ""));
 }
@@ -192,7 +213,9 @@ export function parseJobsCzCards(html: string): JobsCzCard[] {
     const anchorTag = anchor[0].slice(0, anchor[0].indexOf(">") + 1);
     const sourceJobId = getString(anchor[2]);
     const title = getString(stripHtml(anchor[0].replace(anchorTag, "")));
-    const jobUrl = absoluteUrl(attribute(anchorTag, "href"));
+    const rawHref = attribute(anchorTag, "href");
+    const resolvedUrl = absoluteUrl(rawHref ? decodeHtml(rawHref) : undefined);
+    const jobUrl = resolvedUrl ? canonicalizeJobsCzUrl(resolvedUrl) : undefined;
     if (!sourceJobId || !title || !jobUrl) return [];
 
     const employer =
