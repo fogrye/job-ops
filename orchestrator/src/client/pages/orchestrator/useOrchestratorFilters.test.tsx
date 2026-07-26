@@ -96,6 +96,26 @@ describe("useOrchestratorFilters", () => {
     expect(getLocation()).toBe("/all");
   });
 
+  it("round-trips closure visibility and resets it with other filters", () => {
+    const { Wrapper, getLocation } = createWrapper("/jobs/all?source=manual");
+    const { result } = renderHook(() => useOrchestratorFilters(), {
+      wrapper: Wrapper,
+    });
+
+    expect(result.current.closureFilter).toBe("active");
+    act(() => result.current.setClosureFilter("rejected"));
+    expect(getLocation()).toBe("/jobs/all?source=manual&closure=rejected");
+
+    act(() => result.current.setClosureFilter("active"));
+    expect(getLocation()).toBe("/jobs/all?source=manual");
+
+    act(() => result.current.setClosureFilter("all"));
+    expect(getLocation()).toBe("/jobs/all?source=manual&closure=all");
+
+    act(() => result.current.resetFilters());
+    expect(getLocation()).toBe("/jobs/all");
+  });
+
   it("strips sponsor URL state when sponsorship is disabled", async () => {
     const { Wrapper, getLocation } = createWrapper("/all?sponsor=confirmed");
     const { result } = renderHook(() => useOrchestratorFilters(false), {

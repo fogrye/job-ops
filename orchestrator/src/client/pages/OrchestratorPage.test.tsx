@@ -1634,9 +1634,8 @@ describe("OrchestratorPage", () => {
     });
 
     pressKey("5");
-    await waitFor(() => {
-      expect(locationText()).toContain("/archive");
-    });
+    expect(locationText()).toContain("/all");
+    expect(locationText()).not.toContain("/archive");
   });
 
   it("opens the In Progress board directly", async () => {

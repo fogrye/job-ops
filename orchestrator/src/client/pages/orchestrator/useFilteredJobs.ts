@@ -26,6 +26,7 @@ const getSponsorCategory = (score: number | null): SponsorFilter => {
 export const useFilteredJobs = (jobs: JobListItem[], filters: JobFilters) => {
   const {
     activeTab,
+    closureFilter,
     dateFilter,
     sourceFilter,
     sponsorFilter,
@@ -40,7 +41,9 @@ export const useFilteredJobs = (jobs: JobListItem[], filters: JobFilters) => {
   return useMemo(() => {
     let filtered = [...jobs];
 
-    filtered = filtered.filter((job) => jobMatchesTab(job, activeTab));
+    filtered = filtered.filter((job) =>
+      jobMatchesTab(job, activeTab, closureFilter),
+    );
 
     if (dateFilter.dimensions.length > 0) {
       filtered = filtered.filter((job) =>
@@ -120,6 +123,7 @@ export const useFilteredJobs = (jobs: JobListItem[], filters: JobFilters) => {
     jobs,
     activeTab,
     dateFilter,
+    closureFilter,
     sourceFilter,
     sponsorFilter,
     showSponsorInfo,

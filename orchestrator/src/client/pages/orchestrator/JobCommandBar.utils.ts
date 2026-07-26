@@ -1,5 +1,5 @@
 import type { JobListItem, JobStatus } from "@shared/types.js";
-import { type FilterTab, jobMatchesTab } from "./constants";
+import type { FilterTab } from "./constants";
 
 export type CommandGroupId = "ready" | "discovered" | "applied" | "other";
 export type StatusLock =
@@ -106,7 +106,7 @@ export const getCommandGroup = (status: JobStatus): CommandGroupId => {
 export const getFilterTab = (
   job: Pick<JobListItem, "status" | "closedAt">,
 ): FilterTab => {
-  if (jobMatchesTab(job, "archive")) return "archive";
+  if (job.closedAt != null) return "all";
   if (job.status === "ready") return "ready";
   if (job.status === "discovered" || job.status === "processing") {
     return "discovered";

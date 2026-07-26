@@ -1,7 +1,8 @@
-import type { JobSource } from "@shared/types.js";
+import { APPLICATION_OUTCOMES, type JobSource } from "@shared/types.js";
 import { useCallback, useEffect, useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
 import type {
+  ClosureFilter,
   DateFilterDimension,
   DateFilterPreset,
   EmploymentType,
@@ -45,6 +46,12 @@ const allowedDateFilterPresets: DateFilterPreset[] = [
   "30",
   "90",
   "custom",
+];
+const allowedClosureFilters: ClosureFilter[] = [
+  "active",
+  "closed",
+  "all",
+  ...APPLICATION_OUTCOMES,
 ];
 
 const isValidDateInput = (value: string | null): value is string =>
@@ -141,6 +148,26 @@ export const useOrchestratorFilters = (showSponsorInfo = true) => {
     [setSearchParams, showSponsorInfo],
   );
 
+  const closureFilter = useMemo((): ClosureFilter => {
+    const raw = searchParams.get("closure") ?? "active";
+    return allowedClosureFilters.includes(raw as ClosureFilter)
+      ? (raw as ClosureFilter)
+      : "active";
+  }, [searchParams]);
+
+  const setClosureFilter = useCallback(
+    (value: ClosureFilter) => {
+      setSearchParams(
+        (prev) => {
+          if (value === "active") prev.delete("closure");
+          else prev.set("closure", value);
+          return prev;
+        },
+        { replace: true },
+      );
+    },
+    [setSearchParams],
+  );
   const salaryFilter = useMemo((): SalaryFilter => {
     const modeRaw = searchParams.get("salaryMode") ?? "at_least";
     const mode = allowedSalaryModes.includes(modeRaw as SalaryFilterMode)
@@ -330,6 +357,7 @@ export const useOrchestratorFilters = (showSponsorInfo = true) => {
   const resetFilters = useCallback(() => {
     setSearchParams(
       (prev) => {
+        prev.delete("closure");
         prev.delete("source");
         prev.delete("sponsor");
         prev.delete("salaryMode");
@@ -352,6 +380,8 @@ export const useOrchestratorFilters = (showSponsorInfo = true) => {
 
   return {
     searchParams,
+    closureFilter,
+    setClosureFilter,
     sourceFilter,
     setSourceFilter,
     sponsorFilter,

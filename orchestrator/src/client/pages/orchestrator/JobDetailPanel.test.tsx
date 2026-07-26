@@ -55,6 +55,23 @@ vi.mock("@/components/ui/dropdown-menu", () => {
       </button>
     ),
     DropdownMenuSeparator: () => <hr />,
+    DropdownMenuSub: ({ children }: { children: React.ReactNode }) => (
+      <div>{children}</div>
+    ),
+    DropdownMenuSubTrigger: ({
+      children,
+      ...props
+    }: {
+      children: React.ReactNode;
+      disabled?: boolean;
+    }) => (
+      <button type="button" role="menuitem" {...props}>
+        {children}
+      </button>
+    ),
+    DropdownMenuSubContent: ({ children }: { children: React.ReactNode }) => (
+      <div role="menu">{children}</div>
+    ),
   };
 });
 
@@ -781,6 +798,87 @@ describe("JobDetailPanel", () => {
     await waitFor(() => expect(onJobUpdated).toHaveBeenCalled());
   });
 
+  it("only offers closing after application", async () => {
+    const ready = await renderJobDetailPanel({
+      activeTab: "ready",
+      activeJobs: [],
+      selectedJob: createJob({ status: "ready" }),
+      onSelectJobId: vi.fn(),
+      onJobUpdated: vi.fn().mockResolvedValue(undefined),
+    });
+    fireEvent.pointerDown(
+      screen.getByRole("button", { name: /more actions/i }),
+    );
+    expect(
+      screen.queryByRole("menuitem", { name: /close application/i }),
+    ).not.toBeInTheDocument();
+    ready.unmount();
+
+    await renderJobDetailPanel({
+      activeTab: "applied",
+      activeJobs: [],
+      selectedJob: createJob({ status: "applied" }),
+      onSelectJobId: vi.fn(),
+      onJobUpdated: vi.fn().mockResolvedValue(undefined),
+    });
+    fireEvent.pointerDown(
+      screen.getByRole("button", { name: /more actions/i }),
+    );
+    expect(
+      await screen.findByRole("menuitem", { name: /close application/i }),
+    ).toBeInTheDocument();
+  });
+
+  it("closes with a selected outcome and reopens through the outcome route", async () => {
+    vi.mocked(api.updateJobOutcome).mockResolvedValue(
+      createJob({ status: "applied", outcome: "withdrawn", closedAt: 1 }),
+    );
+
+    const open = await renderJobDetailPanel({
+      activeTab: "applied",
+      activeJobs: [],
+      selectedJob: createJob({ status: "applied" }),
+      onSelectJobId: vi.fn(),
+      onJobUpdated: vi.fn().mockResolvedValue(undefined),
+    });
+    fireEvent.pointerDown(
+      screen.getByRole("button", { name: /more actions/i }),
+    );
+    fireEvent.click(
+      await screen.findByRole("menuitem", { name: /close application/i }),
+    );
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Withdrawn" }));
+
+    await waitFor(() =>
+      expect(api.updateJobOutcome).toHaveBeenCalledWith("job-1", {
+        outcome: "withdrawn",
+      }),
+    );
+    open.unmount();
+
+    await renderJobDetailPanel({
+      activeTab: "all",
+      activeJobs: [],
+      selectedJob: createJob({
+        status: "applied",
+        closedAt: 1,
+        outcome: "withdrawn",
+      }),
+      onSelectJobId: vi.fn(),
+      onJobUpdated: vi.fn().mockResolvedValue(undefined),
+    });
+    fireEvent.pointerDown(
+      screen.getByRole("button", { name: /more actions/i }),
+    );
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Reopen" }));
+
+    await waitFor(() =>
+      expect(api.updateJobOutcome).toHaveBeenCalledWith("job-1", {
+        outcome: null,
+      }),
+    );
+  });
+
   it("declines a job through the closed outcome path", async () => {
     const onJobUpdated = vi.fn().mockResolvedValue(undefined);
     vi.mocked(api.updateJobOutcome).mockResolvedValue(
@@ -839,9 +937,9 @@ describe("JobDetailPanel", () => {
     });
   });
 
-  it("hides mutating actions for archived jobs", async () => {
+  it("hides mutating actions for closed jobs", async () => {
     await renderJobDetailPanel({
-      activeTab: "archive",
+      activeTab: "all",
       activeJobs: [],
       selectedJob: createJob({
         closedAt: 1,
@@ -852,7 +950,7 @@ describe("JobDetailPanel", () => {
       onJobUpdated: vi.fn().mockResolvedValue(undefined),
     });
 
-    expect(screen.getByRole("button", { name: /archived/i })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /closed/i })).toBeDisabled();
     expect(
       screen.queryByRole("menuitem", {
         name: /refresh description & recalculate/i,

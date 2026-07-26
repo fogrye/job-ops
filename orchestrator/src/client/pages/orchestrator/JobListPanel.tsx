@@ -76,7 +76,7 @@ export const JobListPanel = forwardRef<VirtualListHandle, JobListPanelProps>(
 
     if (isLoading && jobs.length === 0) {
       return (
-        <div className="min-w-0 rounded-xl border border-border bg-card shadow-sm">
+        <div className="min-w-0 rounded-xl border border-border bg-card shadow-sm lg:sticky lg:top-24 lg:max-h-[calc(100vh-8rem)] lg:overflow-y-auto">
           <div className="flex flex-col items-center justify-center gap-3 px-6 py-12 text-center">
             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
             <div className="text-sm text-muted-foreground">Loading jobs...</div>

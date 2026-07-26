@@ -4,6 +4,7 @@ import { resolveRequestOrigin } from "@server/infra/request-origin";
 import * as jobsRepo from "@server/repositories/jobs";
 import { reconcileActivationMilestonesFromHistorySafely } from "@server/services/activation-funnel";
 import {
+  deleteClosureStageEvents,
   deleteStageEvent,
   getStageEvents,
   getTasks,
@@ -11,6 +12,7 @@ import {
   updateStageEvent,
 } from "@server/services/applicationTracking";
 import { trackApplicationAcceptedIfNeeded } from "@server/services/jobs/analytics";
+import { type Job, OUTCOME_LABELS } from "@shared/types";
 import { type Request, type Response, Router } from "express";
 import { z } from "zod";
 import {
@@ -117,13 +119,34 @@ jobsStagesRouter.patch("/:id/outcome", async (req: Request, res: Response) => {
     if (!currentJob) {
       return fail(res, notFound("Job not found"));
     }
-    const closedAt = input.outcome
-      ? (input.closedAt ?? Math.floor(Date.now() / 1000))
-      : null;
-    const job = await jobsRepo.updateJob(req.params.id, {
-      outcome: input.outcome,
-      closedAt,
-    });
+
+    let job: Job | null = currentJob;
+    if (input.outcome && currentJob.closedAt == null) {
+      transitionStage(
+        req.params.id,
+        "closed",
+        input.closedAt ?? Math.floor(Date.now() / 1000),
+        {
+          actor: "user",
+          eventType: "status_update",
+          eventLabel: `Closed · ${OUTCOME_LABELS[input.outcome]}`,
+        },
+        input.outcome,
+        { preserveJobStatus: true },
+      );
+      job = await jobsRepo.getJobById(req.params.id);
+    } else {
+      const closedAt = input.outcome
+        ? (input.closedAt ?? Math.floor(Date.now() / 1000))
+        : null;
+      job = await jobsRepo.updateJob(req.params.id, {
+        outcome: input.outcome,
+        closedAt,
+      });
+      if (!input.outcome) {
+        deleteClosureStageEvents(req.params.id);
+      }
+    }
 
     if (!job) {
       return fail(res, notFound("Job not found"));

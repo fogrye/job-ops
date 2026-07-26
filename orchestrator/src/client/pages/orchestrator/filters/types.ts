@@ -1,6 +1,7 @@
 import type { JobSource } from "@shared/types.js";
 import type React from "react";
 import type {
+  ClosureFilter,
   EmploymentType,
   FilterTab,
   JobDateFilter,
@@ -15,6 +16,8 @@ export interface OrchestratorFiltersProps {
   counts: Record<FilterTab, number>;
   onOpenCommandBar: () => void;
   showSponsorInfo?: boolean;
+  closureFilter: ClosureFilter;
+  onClosureFilterChange: (value: ClosureFilter) => void;
   sourceFilter: JobSource | "all";
   onSourceFilterChange: (value: JobSource | "all") => void;
   sponsorFilter: SponsorFilter;
@@ -72,6 +75,11 @@ export type SponsorFilterPillProps = Pick<
   sponsorLabel: string | null;
 };
 
+export type ClosureFilterPillProps = Pick<
+  OrchestratorFiltersProps,
+  "closureFilter" | "onClosureFilterChange"
+>;
+
 export type SalaryFilterPillProps = Pick<
   OrchestratorFiltersProps,
   "salaryFilter" | "onSalaryFilterChange"
@@ -89,7 +97,7 @@ export type SortFilterPillProps = Pick<
 
 export type OrchestratorTabRowProps = Pick<
   OrchestratorFiltersProps,
-  "activeTab" | "counts" | "onOpenCommandBar" | "onResetFilters" | "onTabChange"
+  "counts" | "onOpenCommandBar" | "onResetFilters"
 > & {
   isFiltersOpen: boolean;
   onFiltersOpenChange: (open: boolean) => void;

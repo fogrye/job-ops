@@ -22,6 +22,20 @@ vi.mock("./components/OnboardingGate", () => ({
   OnboardingGate: () => null,
 }));
 
+vi.mock("./components/layout", () => ({
+  NavigationPanel: ({
+    collapsed,
+    onCollapse,
+  }: {
+    collapsed: boolean;
+    onCollapse: () => void;
+  }) => (
+    <button type="button" onClick={onCollapse}>
+      {collapsed ? "expand navigation" : "collapse navigation"}
+    </button>
+  ),
+}));
+
 vi.mock("./pages/GmailOauthCallbackPage", () => ({
   GmailOauthCallbackPage: () => null,
 }));
@@ -125,6 +139,30 @@ describe("App demo banner", () => {
 
     expect(screen.getByText("sign-in")).toBeInTheDocument();
     expect(useDemoInfo).toHaveBeenCalledWith({ enabled: false });
+  });
+
+  it("renders desktop navigation for application routes but not sign-in", () => {
+    vi.mocked(useDemoInfo).mockReturnValue(null);
+    const application = render(
+      <MemoryRouter initialEntries={["/overview"]}>
+        <App />
+      </MemoryRouter>,
+    );
+    expect(application.container.querySelector("aside")).toHaveClass("lg:w-64");
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "collapse navigation" }),
+    );
+    expect(application.container.querySelector("aside")).toHaveClass("lg:w-16");
+
+    application.unmount();
+    render(
+      <MemoryRouter initialEntries={["/sign-in"]}>
+        <App />
+      </MemoryRouter>,
+    );
+
+    expect(screen.queryByRole("button", { name: /navigation/i })).toBeNull();
   });
 
   it("lets the user dismiss the waitlist banner and keeps it hidden", () => {

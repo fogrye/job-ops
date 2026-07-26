@@ -13,7 +13,7 @@ import { CommandDialog, CommandInput } from "@/components/ui/command";
 import { DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { bucketQueryLength, trackProductEvent } from "@/lib/analytics";
 import { cn } from "@/lib/utils";
-import type { FilterTab } from "./constants";
+import type { ClosureFilter, FilterTab } from "./constants";
 import {
   buildCommandBarRows,
   type CommandBarRow,
@@ -34,7 +34,11 @@ import { useVirtualizedList } from "./virtualizedList";
 
 interface JobCommandBarProps {
   jobs: JobListItem[];
-  onSelectJob: (tab: FilterTab, jobId: string) => void;
+  onSelectJob: (
+    tab: FilterTab,
+    jobId: string,
+    closureFilter?: ClosureFilter,
+  ) => void;
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
   enabled?: boolean;
@@ -349,7 +353,11 @@ export const JobCommandBar: React.FC<JobCommandBarProps> = ({
         ),
       });
       closeDialog();
-      onSelectJob(getFilterTab(row.job), row.job.id);
+      onSelectJob(
+        getFilterTab(row.job),
+        row.job.id,
+        row.job.closedAt != null ? "closed" : undefined,
+      );
     },
     [activeLock, applyLock, closeDialog, onSelectJob, query],
   );
