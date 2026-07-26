@@ -325,11 +325,6 @@ export const JobDetailPanel: React.FC<JobDetailPanelProps> = ({
   const [isClosing, setIsClosing] = useState(false);
   const [isEditDetailsOpen, setIsEditDetailsOpen] = useState(false);
   const [isJobDescriptionOpen, setIsJobDescriptionOpen] = useState(false);
-  useEffect(() => {
-    if (selectedJob?.id) {
-      setIsJobDescriptionOpen(false);
-    }
-  }, [selectedJob?.id]);
   const [catalog, setCatalog] = useState<ResumeProjectCatalogItem[]>([]);
   const [isUploadingPdf, setIsUploadingPdf] = useState(false);
   const [openedListingJobIds, setOpenedListingJobIds] = useState<Set<string>>(

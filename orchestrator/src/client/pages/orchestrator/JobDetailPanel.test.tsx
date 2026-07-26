@@ -593,7 +593,7 @@ describe("JobDetailPanel", () => {
         .closest("div.max-h-none"),
     ).toBeInTheDocument();
   });
-  it("collapses the description when navigating to another job", async () => {
+  it("keeps the description expanded when navigating to another job", async () => {
     const rendered = await renderJobDetailPanel({
       activeTab: "all",
       activeJobs: [],
@@ -635,7 +635,7 @@ describe("JobDetailPanel", () => {
     await waitFor(() =>
       expect(
         screen.getByRole("button", { name: /job description/i }),
-      ).toHaveAttribute("aria-expanded", "false"),
+      ).toHaveAttribute("aria-expanded", "true"),
     );
   });
 
