@@ -10,7 +10,7 @@ import type {
   StageEvent,
   StageEventMetadata,
 } from "@shared/types";
-import { and, asc, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq, isNotNull } from "drizzle-orm";
 import { z } from "zod";
 import { db, schema } from "../db/index";
 import {
@@ -129,6 +129,18 @@ export async function getTasks(
     notes: row.notes ?? null,
   }));
 }
+export function deleteClosureStageEvents(applicationId: string): void {
+  db.delete(stageEvents)
+    .where(
+      and(
+        stageEventsScopeFilter(),
+        eq(stageEvents.applicationId, applicationId),
+        eq(stageEvents.toStage, "closed"),
+        isNotNull(stageEvents.outcome),
+      ),
+    )
+    .run();
+}
 
 export function transitionStage(
   applicationId: string,
@@ -136,6 +148,7 @@ export function transitionStage(
   occurredAt?: number,
   metadata?: StageEventMetadata | null,
   outcome?: JobOutcome | null,
+  options?: { preserveJobStatus?: boolean },
 ): StageEvent {
   const parsedMetadata = metadata
     ? stageEventMetadataSchema.parse(metadata)
@@ -196,10 +209,12 @@ export function transitionStage(
     };
 
     if (toStage !== "no_change" && !isNoteEvent) {
-      updates.status = STAGE_TO_STATUS[finalToStage];
+      if (!options?.preserveJobStatus) {
+        updates.status = STAGE_TO_STATUS[finalToStage];
 
-      if (finalToStage === "applied" && !job.appliedAt) {
-        updates.appliedAt = new Date().toISOString();
+        if (finalToStage === "applied" && !job.appliedAt) {
+          updates.appliedAt = new Date().toISOString();
+        }
       }
 
       if (finalToStage === "closed") {
