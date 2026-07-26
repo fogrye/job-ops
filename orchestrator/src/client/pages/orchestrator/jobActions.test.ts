@@ -59,6 +59,22 @@ describe("jobActions", () => {
     ).toBe(false);
   });
 
+  it("enables bulk refresh across sources only when every job is non-processing", () => {
+    expect(
+      canRefreshDescription([
+        createJob({ id: "1", source: "gradcracker", status: "ready" }),
+        createJob({ id: "2", source: "jobs-cz", status: "applied" }),
+        createJob({ id: "3", source: "manual", status: "skipped" }),
+      ]),
+    ).toBe(true);
+    expect(
+      canRefreshDescription([
+        createJob({ id: "1", source: "gradcracker", status: "ready" }),
+        createJob({ id: "2", source: "manual", status: "processing" }),
+      ]),
+    ).toBe(false);
+  });
+
   it("extracts failed job ids from an action response", () => {
     const response: JobActionResponse = {
       action: "skip",

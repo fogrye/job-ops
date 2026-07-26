@@ -2,27 +2,12 @@
  * Shared layout components for consistent page structure.
  */
 
-import { logout } from "@client/api";
-import {
-  ExternalLink,
-  LogOut,
-  type LucideIcon,
-  Menu,
-  UserRound,
-} from "lucide-react";
+import { ExternalLink, type LucideIcon, Menu, UserRound } from "lucide-react";
 import type React from "react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import {
   Sheet,
   SheetContent,
@@ -31,27 +16,11 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
+import { useSettings } from "../hooks/useSettings";
 import { useVersionCheck } from "../hooks/useVersionCheck";
-import {
-  loadRememberedAuthUsers,
-  type RememberedAuthUser,
-} from "../lib/remembered-auth-users";
 import { isNavActive, NAV_LINKS } from "./navigation";
 import { StatusBadgeIndicator } from "./StatusIndicator";
 import { Tip } from "./Tip";
-
-const buildSignInPath = (username: string, nextPath: string): string => {
-  const params = new URLSearchParams();
-  params.set("user", username);
-  if (
-    nextPath &&
-    nextPath !== "/sign-in" &&
-    !nextPath.startsWith("/sign-in?")
-  ) {
-    params.set("next", nextPath);
-  }
-  return `/sign-in?${params.toString()}`;
-};
 
 // ============================================================================
 // Page Header
@@ -83,18 +52,10 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
   const location = useLocation();
   const navigate = useNavigate();
   const [internalNavOpen, setInternalNavOpen] = useState(false);
-  const [rememberedUsers, setRememberedUsers] = useState<RememberedAuthUser[]>(
-    () => loadRememberedAuthUsers(),
-  );
   const navOpen = controlledNavOpen ?? internalNavOpen;
   const setNavOpen = onNavOpenChange ?? setInternalNavOpen;
+  const { showSponsorInfo } = useSettings();
   const { version, updateAvailable } = useVersionCheck();
-
-  useEffect(() => {
-    if (navOpen) {
-      setRememberedUsers(loadRememberedAuthUsers());
-    }
-  }, [navOpen]);
 
   const handleNavClick = (to: string, activePaths?: string[]) => {
     if (isNavActive(location.pathname, to, activePaths)) {
@@ -103,17 +64,6 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
     }
     setNavOpen(false);
     setTimeout(() => navigate(to), 150);
-  };
-
-  const handleRememberedUserClick = async (username: string) => {
-    setNavOpen(false);
-    await logout({ redirect: false });
-    navigate(buildSignInPath(username, location.pathname), { replace: true });
-  };
-
-  const handleSignOut = async () => {
-    setNavOpen(false);
-    await logout();
   };
 
   return (
@@ -132,7 +82,9 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
                 <SheetTitle>JobOps</SheetTitle>
               </SheetHeader>
               <nav className="mt-6 flex flex-col gap-2">
-                {NAV_LINKS.map(({ to, label, icon: NavIcon, activePaths }) => (
+                {NAV_LINKS.filter(
+                  ({ to }) => showSponsorInfo || to !== "/visa-sponsors",
+                ).map(({ to, label, icon: NavIcon, activePaths }) => (
                   <button
                     key={to}
                     type="button"
@@ -151,57 +103,19 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
               </nav>
               <div className="mt-auto space-y-4 pt-6 pb-2">
                 <div className="space-y-2 border-t border-border/60 pt-4">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        className="h-8 w-full justify-start gap-2 px-2 text-xs"
-                      >
-                        <UserRound className="h-3.5 w-3.5" />
-                        <span>Account</span>
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="start" className="w-56">
-                      <DropdownMenuLabel>Remembered</DropdownMenuLabel>
-                      {rememberedUsers.length > 0 ? (
-                        rememberedUsers.map((user) => (
-                          <DropdownMenuItem
-                            key={user.username}
-                            onSelect={() =>
-                              void handleRememberedUserClick(user.username)
-                            }
-                            className="flex min-w-0 items-start gap-2"
-                          >
-                            <UserRound className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                            <span className="min-w-0">
-                              <span className="block truncate font-medium">
-                                {user.displayName ?? user.username}
-                              </span>
-                              {user.displayName ? (
-                                <span className="block truncate text-xs text-muted-foreground">
-                                  {user.username}
-                                </span>
-                              ) : null}
-                            </span>
-                          </DropdownMenuItem>
-                        ))
-                      ) : (
-                        <DropdownMenuItem disabled>
-                          Sign in once to remember a username here.
-                        </DropdownMenuItem>
-                      )}
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem
-                        onSelect={() => void handleSignOut()}
-                        className="gap-2"
-                      >
-                        <LogOut className="h-3.5 w-3.5" />
-                        <span>Sign out</span>
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setNavOpen(false);
+                      navigate("/settings#account");
+                    }}
+                    className="h-8 w-full justify-start gap-2 px-2 text-xs"
+                  >
+                    <UserRound className="h-3.5 w-3.5" />
+                    <span>Account</span>
+                  </Button>
                 </div>
                 {showVersionFooter && (
                   <div className="flex flex-col items-start gap-2">

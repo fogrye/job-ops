@@ -1,3 +1,6 @@
+import * as jobsRepo from "@server/repositories/jobs";
+import * as settingsRepo from "@server/repositories/settings";
+import * as visaSponsors from "@server/services/visa-sponsors/index";
 import { createJob } from "@shared/testing/factories";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { scoreJobsStep } from "./score-jobs";
@@ -108,6 +111,20 @@ describe("scoreJobsStep auto-skip behavior", () => {
       minScore: 50,
       countryKey: "united kingdom",
     });
+  });
+
+  it("skips sponsor matching and sponsor fields when sponsorship is disabled", async () => {
+    vi.mocked(settingsRepo.getSetting).mockImplementation(async (key) =>
+      key === "showSponsorInfo" ? "0" : null,
+    );
+
+    await scoreJobsStep({ profile: {} });
+
+    expect(visaSponsors.searchSponsors).not.toHaveBeenCalled();
+    expect(visaSponsors.calculateSponsorMatchSummary).not.toHaveBeenCalled();
+    const [, update] = vi.mocked(jobsRepo.updateJob).mock.calls[0];
+    expect(update).not.toHaveProperty("sponsorMatchScore");
+    expect(update).not.toHaveProperty("sponsorMatchNames");
   });
 
   it("passes per-run scoring instructions to the scorer", async () => {

@@ -53,6 +53,7 @@ const renderFilters = (
       discovered: 1,
       applied: 3,
       all: 6,
+      archive: 0,
     },
     onOpenCommandBar: vi.fn(),
     sourceFilter: "all" as const,
@@ -123,6 +124,21 @@ describe("OrchestratorFilters", () => {
     expect(screen.getByRole("button", { name: /^filters/i })).toHaveTextContent(
       "1",
     );
+  });
+
+  it("hides sponsor filtering and excludes it from the active count when disabled", () => {
+    renderFilters({
+      isFiltersOpen: true,
+      showSponsorInfo: false,
+      sponsorFilter: "potential",
+    });
+
+    expect(
+      screen.queryByRole("button", { name: /^sponsor/i }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /^filters/i }),
+    ).not.toHaveTextContent("1");
   });
 
   it("notifies when tabs and command search shortcut are used", () => {

@@ -44,6 +44,9 @@ interface TailoringWorkspaceEditorProps extends TailoringWorkspaceBaseProps {
   onUpdate: () => void | Promise<void>;
   onRegisterSave?: (save: () => Promise<void>) => void;
   onBeforeGenerate?: () => boolean | Promise<boolean>;
+  startGenerationToken?: number;
+  onGenerationChange?: (isGenerating: boolean) => void;
+  onTailoringCompleted?: (job: Job) => void;
 }
 
 type TailoringWorkspaceProps = TailoringWorkspaceEditorProps;
@@ -171,6 +174,7 @@ export const TailoringWorkspace: React.FC<TailoringWorkspaceProps> = (
   const saveAgainRef = useRef(false);
   const latestPayloadRef = useRef<TailoringSavePayload | null>(null);
   const persistedPayloadKeyRef = useRef(savedPayloadKey);
+  const startedGenerationTokenRef = useRef(0);
   const isMountedRef = useRef(true);
   const { profile, error: profileError } = useProfile();
   const { settings, isLoading: isSettingsLoading } = useSettings();
@@ -433,9 +437,52 @@ export const TailoringWorkspace: React.FC<TailoringWorkspaceProps> = (
     [props.onUpdate, flushAutosave, props.job.id, applyIncomingDraft],
   );
 
-  const handleSummarizeEditor = useCallback(async () => {
-    await handleGenerateTailoring("all");
-  }, [handleGenerateTailoring]);
+  const handleGenerateAll = useCallback(async () => {
+    try {
+      setGenerateTarget("all");
+      await flushAutosave();
+      let updatedJob: Job;
+      if (props.job.status === "discovered") {
+        updatedJob = await api.processJob(props.job.id, { force: true });
+      } else {
+        await api.summarizeJob(props.job.id, { force: true });
+        updatedJob = await api.generateJobPdf(props.job.id);
+      }
+      applyIncomingDraft(updatedJob);
+      setAiBaseline(toBaselineFromJob(updatedJob));
+      setExperienceView(await api.getJobTailoredExperienceView(props.job.id));
+      toast.success(
+        props.job.status === "discovered"
+          ? "Job moved to Ready"
+          : "Resume regenerated",
+        { description: "Your tailored PDF has been generated." },
+      );
+      await props.onUpdate();
+      props.onTailoringCompleted?.(updatedJob);
+    } catch (error) {
+      showErrorToast(error, "AI generation failed");
+    } finally {
+      setGenerateTarget(null);
+    }
+  }, [
+    applyIncomingDraft,
+    flushAutosave,
+    props.job.id,
+    props.job.status,
+    props.onTailoringCompleted,
+    props.onUpdate,
+  ]);
+
+  useEffect(() => {
+    if (
+      !props.startGenerationToken ||
+      props.startGenerationToken === startedGenerationTokenRef.current
+    ) {
+      return;
+    }
+    startedGenerationTokenRef.current = props.startGenerationToken;
+    void handleGenerateAll();
+  }, [handleGenerateAll, props.startGenerationToken]);
 
   const handleGenerateSummary = useCallback(async () => {
     await handleGenerateTailoring("summary");
@@ -538,7 +585,11 @@ export const TailoringWorkspace: React.FC<TailoringWorkspaceProps> = (
     setSkillsDraft(toEditableSkillGroups(skills));
   }, [aiBaseline.skillsJson, setSkillsMode, setSkillsDraft]);
 
-  const disableInputs = Boolean(generateTarget) || isGeneratingPdf;
+  const isGenerating = Boolean(generateTarget) || isGeneratingPdf;
+  useEffect(() => {
+    props.onGenerationChange?.(isGenerating);
+  }, [isGenerating, props.onGenerationChange]);
+  const disableInputs = isGenerating;
   const isDraftReady = textHasValue(summary) && textHasValue(headline);
 
   const tailoringSectionsProps = useMemo<TailoringSectionsProps>(
@@ -562,6 +613,7 @@ export const TailoringWorkspace: React.FC<TailoringWorkspaceProps> = (
         generateTarget === "skills"
           ? generateTarget
           : null,
+      isGeneratingAll: generateTarget === "all",
       experienceView,
       experienceDisabled,
       experienceGenerating:
@@ -689,7 +741,7 @@ export const TailoringWorkspace: React.FC<TailoringWorkspaceProps> = (
 
         <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-1">
           <Button
-            onClick={handleSummarizeEditor}
+            onClick={handleGenerateAll}
             disabled={Boolean(generateTarget) || isGeneratingPdf}
             variant="outline"
             size="sm"

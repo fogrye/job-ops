@@ -59,7 +59,7 @@ type JobPageRightSidebarProps = {
   onCopyJobInfo: () => void;
   onRescore: () => void;
   onRefreshDescription: () => void;
-  onCheckSponsor: () => void;
+  onCheckSponsor?: () => void;
 };
 
 export const JobPageRightSidebar: React.FC<JobPageRightSidebarProps> = ({
@@ -286,15 +286,16 @@ export const JobPageRightSidebar: React.FC<JobPageRightSidebarProps> = ({
                 Recalculate match
               </DropdownMenuItem>
             )}
-            {supportsDescriptionRefresh(job.source) && (
-              <DropdownMenuItem
-                onSelect={onRefreshDescription}
-                disabled={isBusy}
-              >
-                <Globe className="mr-2 h-4 w-4" />
-                Refresh description & recalculate
-              </DropdownMenuItem>
-            )}
+            {job.status !== "processing" &&
+              supportsDescriptionRefresh(job.source) && (
+                <DropdownMenuItem
+                  onSelect={onRefreshDescription}
+                  disabled={isBusy}
+                >
+                  <Globe className="mr-2 h-4 w-4" />
+                  Refresh description & recalculate
+                </DropdownMenuItem>
+              )}
             <DropdownMenuSeparator />
             <DropdownMenuItem onSelect={onUploadPdf} disabled={isUploadingPdf}>
               <Upload className="mr-2 h-4 w-4" />
@@ -323,9 +324,11 @@ export const JobPageRightSidebar: React.FC<JobPageRightSidebarProps> = ({
                 <DropdownMenuSeparator />
               </>
             )}
-            <DropdownMenuItem onSelect={onCheckSponsor}>
-              Check sponsorship status
-            </DropdownMenuItem>
+            {onCheckSponsor ? (
+              <DropdownMenuItem onSelect={onCheckSponsor}>
+                Check sponsorship status
+              </DropdownMenuItem>
+            ) : null}
           </DropdownMenuContent>
         </DropdownMenu>
       </div>

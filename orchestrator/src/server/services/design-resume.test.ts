@@ -181,6 +181,21 @@ describe("design resume service", () => {
     );
   });
 
+  it("uses My Resume as the blank document title", async () => {
+    repo.getLatestDesignResumeDocument.mockResolvedValueOnce(null);
+
+    await replaceCurrentDesignResumeDocument({
+      importedAt: "2026-04-11T00:00:00.000Z",
+      resumeJson: makeValidResumeJson(),
+      sourceResumeId: null,
+      sourceMode: null,
+    });
+
+    expect(repo.upsertDesignResumeDocument).toHaveBeenCalledWith(
+      expect.objectContaining({ title: "My Resume" }),
+    );
+  });
+
   it("uses a user-scoped design resume id in hosted mode", async () => {
     repo.getLatestDesignResumeDocument.mockResolvedValueOnce(null);
     vi.mocked(getPrivateDataScope).mockReturnValue({

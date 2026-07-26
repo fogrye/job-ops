@@ -65,6 +65,9 @@ vi.mock("@server/services/manualJob", () => ({
   inferManualJobDetails: vi.fn(),
 }));
 
+vi.mock("@server/services/source-job-description", () => ({
+  fetchJobDescriptionFromUrl: vi.fn(),
+}));
 vi.mock("@server/services/scorer", () => ({
   scoreJobSuitability: vi.fn(),
 }));

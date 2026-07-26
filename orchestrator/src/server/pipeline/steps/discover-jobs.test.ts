@@ -739,7 +739,7 @@ describe("discoverJobsStep", () => {
     ).not.toHaveBeenCalled();
   });
 
-  it("drops discovered jobs when employer matches blocked company keywords", async () => {
+  it("drops discovered jobs when employer or title matches blocked keywords", async () => {
     const settingsRepo = await import("@server/repositories/settings");
     const registryModule = await import("@server/extractors/registry");
 
@@ -762,6 +762,12 @@ describe("discoverJobsStep", () => {
             employer: "Contoso",
             jobUrl: "https://example.com/job-2",
           },
+          {
+            source: "linkedin",
+            title: "Senior Engineer",
+            employer: "Fabrikam",
+            jobUrl: "https://example.com/job-3",
+          },
         ],
       }),
     };
@@ -769,6 +775,7 @@ describe("discoverJobsStep", () => {
     vi.mocked(settingsRepo.getAllSettings).mockResolvedValue({
       searchTerms: JSON.stringify(["engineer"]),
       blockedCompanyKeywords: JSON.stringify(["recruit", "staffing"]),
+      blockedPositionKeywords: JSON.stringify(["SENIOR"]),
     } as any);
 
     vi.mocked(registryModule.getExtractorRegistry).mockResolvedValue({
@@ -790,6 +797,7 @@ describe("discoverJobsStep", () => {
 
     expect(result.discoveredJobs).toHaveLength(1);
     expect(result.discoveredJobs[0]?.employer).toBe("Contoso");
+    expect(getProgress().fanout).toMatchObject({ results: 3, unique: 1 });
   });
 
   it("applies shared city filtering for sources without native city filtering", async () => {

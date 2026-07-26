@@ -13,6 +13,7 @@ vi.mock("../api", () => ({
   getPostApplicationInbox: vi.fn(),
   getPostApplicationRuns: vi.fn(),
   getJobs: vi.fn(),
+  getSettings: vi.fn().mockResolvedValue(null),
   approvePostApplicationInboxItem: vi.fn(),
   denyPostApplicationInboxItem: vi.fn(),
   getPostApplicationRunMessages: vi.fn(),

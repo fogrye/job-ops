@@ -18,6 +18,7 @@ type ReactiveResumeSectionProps = {
   rxResumeBaseResumeIdDraft: string | null;
   setRxResumeBaseResumeIdDraft: (value: string | null) => void;
   // True when v5 API key is configured.
+  baseResumeIdMissing?: boolean;
   hasRxResumeAccess: boolean;
   onCredentialFieldEdit?: () => void;
   validationStatus?: {
@@ -38,6 +39,7 @@ type ReactiveResumeSectionProps = {
 export const ReactiveResumeSection: React.FC<ReactiveResumeSectionProps> = ({
   rxResumeBaseResumeIdDraft,
   setRxResumeBaseResumeIdDraft,
+  baseResumeIdMissing,
   hasRxResumeAccess,
   onCredentialFieldEdit,
   validationStatus,
@@ -88,6 +90,15 @@ export const ReactiveResumeSection: React.FC<ReactiveResumeSectionProps> = ({
       title="Reactive Resume"
       value="reactive-resume"
     >
+      {baseResumeIdMissing ? (
+        <div
+          role="alert"
+          className="rounded-md border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-100"
+        >
+          The selected base resume no longer exists. Choose another
+          resume/template to continue.
+        </div>
+      ) : null}
       <ReactiveResumeConfigPanel
         pdfRenderer={pdfRendererValue}
         onPdfRendererChange={(value) =>

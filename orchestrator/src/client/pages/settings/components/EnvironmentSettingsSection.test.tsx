@@ -100,7 +100,7 @@ describe("EnvironmentSettingsSection", () => {
 
     // Sections
     expect(screen.getByText("Service Accounts")).toBeInTheDocument();
-    expect(screen.getByText("Security")).toBeInTheDocument();
+    expect(screen.getByText("Workspace Administration")).toBeInTheDocument();
     expect(screen.queryByText("RxResume")).not.toBeInTheDocument();
   });
 

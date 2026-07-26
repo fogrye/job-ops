@@ -1671,12 +1671,15 @@ describe.sequential("Jobs API routes", () => {
     expect(body.data.results[0].job.jobBrief).toContain("Build tools");
   });
 
-  it("refreshes a Jobs.cz job's description from source and rescores it in one write", async () => {
+  it("prefers a provider-specific refresh over generic source extraction", async () => {
     const { createJob } = await import("@server/repositories/jobs");
     const { scoreJobSuitability } = await import("@server/services/scorer");
     const { getProfile } = await import("@server/services/profile");
     const registryModule = await import("@server/extractors/registry");
     const { createTestExtractorRegistry } = await import("./test-utils");
+    const { fetchJobDescriptionFromUrl } = await import(
+      "@server/services/source-job-description"
+    );
 
     vi.mocked(getProfile).mockResolvedValue({});
     vi.mocked(scoreJobSuitability).mockResolvedValue({
@@ -1725,6 +1728,7 @@ describe.sequential("Jobs API routes", () => {
       jobUrl: "https://www.jobs.cz/r/999",
       sourceJobId: "999",
     });
+    expect(fetchJobDescriptionFromUrl).not.toHaveBeenCalled();
     expect(scoreJobSuitability).toHaveBeenCalledWith(
       expect.objectContaining({ jobDescription: "Own our platform." }),
       expect.anything(),
@@ -1851,14 +1855,30 @@ describe.sequential("Jobs API routes", () => {
     expect(listBody.data.jobDescription).toBe("Odpověď do 2 týdnů");
   });
 
-  it("rejects refresh-description for sources without the capability", async () => {
+  it("falls back to generic source URL extraction when a provider has no refresh function", async () => {
     const { createJob } = await import("@server/repositories/jobs");
+    const { getProfile } = await import("@server/services/profile");
+    const { scoreJobSuitability } = await import("@server/services/scorer");
+    const { fetchJobDescriptionFromUrl } = await import(
+      "@server/services/source-job-description"
+    );
+
+    vi.mocked(getProfile).mockResolvedValue({});
+    vi.mocked(scoreJobSuitability).mockResolvedValue({
+      score: 86,
+      reason: "Good source refresh",
+      jobBrief: null,
+    });
+    vi.mocked(fetchJobDescriptionFromUrl).mockResolvedValue(
+      "Fresh generic description.",
+    );
+
     const job = await createJob({
-      source: "manual",
-      title: "Manual Role",
+      source: "gradcracker",
+      title: "Graduate Engineer",
       employer: "Acme",
-      jobUrl: "https://example.com/job/manual-refresh",
-      jobDescription: "Pasted description",
+      jobUrl: "https://gradcracker.example/jobs/42",
+      jobDescription: "Stale description",
     });
 
     const res = await fetch(`${baseUrl}/api/jobs/actions`, {
@@ -1871,9 +1891,50 @@ describe.sequential("Jobs API routes", () => {
     });
     const body = await res.json();
 
-    expect(res.status).toBe(200);
-    expect(body.ok).toBe(true);
-    expect(body.data.results[0].ok).toBe(false);
+    expect(fetchJobDescriptionFromUrl).toHaveBeenCalledWith(job.jobUrl);
+    expect(body.data.results[0]).toMatchObject({
+      ok: true,
+      job: {
+        jobDescription: "Fresh generic description.",
+        suitabilityScore: 86,
+      },
+    });
+  });
+
+  it("reports generic source retrieval failures without rescoring", async () => {
+    const { createJob } = await import("@server/repositories/jobs");
+    const { scoreJobSuitability } = await import("@server/services/scorer");
+    const { fetchJobDescriptionFromUrl } = await import(
+      "@server/services/source-job-description"
+    );
+
+    vi.mocked(scoreJobSuitability).mockClear();
+    vi.mocked(fetchJobDescriptionFromUrl).mockRejectedValue(
+      new Error("Source unavailable"),
+    );
+
+    const job = await createJob({
+      source: "gradcracker",
+      title: "Graduate Engineer",
+      employer: "Acme",
+      jobUrl: "https://gradcracker.example/jobs/43",
+      jobDescription: "Stale description",
+    });
+    const res = await fetch(`${baseUrl}/api/jobs/actions`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "refresh_description",
+        jobIds: [job.id],
+      }),
+    });
+    const body = await res.json();
+
+    expect(body.data.results[0]).toMatchObject({
+      ok: false,
+      error: { code: "UPSTREAM_ERROR" },
+    });
+    expect(scoreJobSuitability).not.toHaveBeenCalled();
   });
 
   it("dispatches refresh-description in the background and reports status via polling", async () => {
@@ -2145,6 +2206,32 @@ describe.sequential("Jobs API routes", () => {
     expect(body.ok).toBe(true);
     expect(body.data.sponsorMatchScore).toBe(100);
     expect(body.data.sponsorMatchNames).toContain("ACME CORP SPONSOR");
+
+    const settingsRes = await fetch(`${baseUrl}/api/settings`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ showSponsorInfo: false }),
+    });
+    expect(settingsRes.status).toBe(200);
+    vi.mocked(searchSponsors).mockClear();
+
+    const disabledRes = await fetch(
+      `${baseUrl}/api/jobs/${job.id}/check-sponsor`,
+      { method: "POST" },
+    );
+    const disabledBody = await disabledRes.json();
+    expect(disabledBody.ok).toBe(true);
+    expect(disabledBody.data).not.toHaveProperty("sponsorMatchScore");
+    expect(disabledBody.data).not.toHaveProperty("sponsorMatchNames");
+    expect(disabledBody.data).not.toHaveProperty("matchResults");
+    expect(searchSponsors).not.toHaveBeenCalled();
+
+    const disabledListRes = await fetch(`${baseUrl}/api/jobs?view=full`);
+    const disabledListBody = await disabledListRes.json();
+    expect(disabledListBody.data.jobs[0]).not.toHaveProperty(
+      "sponsorMatchScore",
+    );
+    expect(disabledListBody.data.jobs[0]).not.toHaveProperty("jobBrief");
   });
 
   describe("Application Tracking", () => {

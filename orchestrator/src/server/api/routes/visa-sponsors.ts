@@ -5,9 +5,11 @@ import {
   toAppError,
 } from "@infra/errors";
 import { fail, ok } from "@infra/http";
+import * as settingsRepo from "@server/repositories/settings";
 import * as visaSponsors from "@server/services/visa-sponsors/index";
 import { getVisaSponsorProviderRegistry } from "@server/services/visa-sponsors/providers/registry";
 import { normalizeCountryKey } from "@shared/location-support.js";
+import { settingsRegistry } from "@shared/settings-registry";
 import type {
   VisaSponsorSearchResponse,
   VisaSponsorStatusResponse,
@@ -18,6 +20,52 @@ import { z } from "zod";
 
 export const visaSponsorsRouter = Router();
 
+async function sponsorInfoEnabled(): Promise<boolean> {
+  return (
+    settingsRegistry.showSponsorInfo.parse(
+      (await settingsRepo.getSetting("showSponsorInfo")) ?? undefined,
+    ) ?? settingsRegistry.showSponsorInfo.default()
+  );
+}
+
+visaSponsorsRouter.use((req, res, next) => {
+  void (async () => {
+    try {
+      if (await sponsorInfoEnabled()) {
+        next();
+        return;
+      }
+
+      if (req.method === "GET" && req.path === "/status") {
+        ok<VisaSponsorStatusResponse>(res, { providers: [] });
+        return;
+      }
+      if (req.method === "POST" && req.path === "/search") {
+        ok<VisaSponsorSearchResponse>(res, {
+          results: [],
+          query: "",
+          total: 0,
+        });
+        return;
+      }
+      if (req.method === "GET" && req.path.startsWith("/organization/")) {
+        ok(res, []);
+        return;
+      }
+      if (req.method === "POST" && req.path.startsWith("/update")) {
+        ok(res, {
+          message: "Sponsor information is disabled.",
+          status: { providers: [] },
+        });
+        return;
+      }
+
+      next();
+    } catch (error) {
+      fail(res, toAppError(error));
+    }
+  })();
+});
 /**
  * GET /api/visa-sponsors/status - Get status of all registered providers
  */

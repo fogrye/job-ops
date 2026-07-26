@@ -198,11 +198,6 @@ export function createAuthGuard() {
     if (normalizedPath === "/api/profile/status") return true;
     if (
       normalizedMethod === "POST" &&
-      normalizedPath === "/api/visa-sponsors/search"
-    )
-      return true;
-    if (
-      normalizedMethod === "POST" &&
       normalizedPath === "/api/webhook/trigger"
     )
       return Boolean(process.env.WEBHOOK_SECRET?.trim());

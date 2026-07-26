@@ -4,6 +4,7 @@ import { MemoryRouter } from "react-router-dom";
 import { toast } from "sonner";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import * as api from "../api";
+import { useSettings } from "../hooks/useSettings";
 import { renderWithQueryClient } from "../test/renderWithQueryClient";
 import { VisaSponsorsPage } from "./VisaSponsorsPage";
 
@@ -20,6 +21,9 @@ vi.mock("../hooks/useVersionCheck", () => ({
     updateAvailable: false,
     latestVersion: null,
   }),
+}));
+vi.mock("../hooks/useSettings", () => ({
+  useSettings: vi.fn(),
 }));
 
 vi.mock("sonner", () => ({
@@ -78,6 +82,15 @@ describe("VisaSponsorsPage", () => {
       query: "",
       total: 0,
     });
+    vi.mocked(useSettings).mockReturnValue({
+      settings: null,
+      error: null,
+      isLoading: false,
+      showSponsorInfo: true,
+      renderMarkdownInJobDescriptions: true,
+      autoTailorOnManualImport: true,
+      refreshSettings: vi.fn(),
+    });
     vi.mocked(api.getVisaSponsorOrganization).mockResolvedValue([]);
   });
 
@@ -103,5 +116,21 @@ describe("VisaSponsorsPage", () => {
       );
     });
     expect(screen.getByText("Visa Sponsors")).toBeInTheDocument();
+  });
+
+  it("renders no sponsor content or requests when sponsorship is disabled", () => {
+    vi.mocked(useSettings).mockReturnValue({
+      settings: null,
+      error: null,
+      isLoading: false,
+      showSponsorInfo: false,
+      renderMarkdownInJobDescriptions: true,
+      autoTailorOnManualImport: true,
+      refreshSettings: vi.fn(),
+    });
+    renderPage();
+
+    expect(screen.queryByText("Visa Sponsors")).not.toBeInTheDocument();
+    expect(api.getVisaSponsorStatus).not.toHaveBeenCalled();
   });
 });

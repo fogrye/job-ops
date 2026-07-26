@@ -14,6 +14,7 @@ export interface OrchestratorFiltersProps {
   onTabChange: (value: FilterTab) => void;
   counts: Record<FilterTab, number>;
   onOpenCommandBar: () => void;
+  showSponsorInfo?: boolean;
   sourceFilter: JobSource | "all";
   onSourceFilterChange: (value: JobSource | "all") => void;
   sponsorFilter: SponsorFilter;

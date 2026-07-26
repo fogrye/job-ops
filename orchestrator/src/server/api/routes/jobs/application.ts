@@ -5,11 +5,13 @@ import { trackServerProductEvent } from "@infra/product-analytics";
 import { isDemoMode } from "@server/config/demo";
 import { resolveRequestOrigin } from "@server/infra/request-origin";
 import * as jobsRepo from "@server/repositories/jobs";
+import * as settingsRepo from "@server/repositories/settings";
 import { trackCanonicalActivationEvent } from "@server/services/activation-funnel";
 import { transitionStage } from "@server/services/applicationTracking";
 import { simulateApplyJob } from "@server/services/demo-simulator";
 import { notifyJobCompleteWebhook } from "@server/services/jobs/webhooks";
 import * as visaSponsors from "@server/services/visa-sponsors/index";
+import { settingsRegistry } from "@shared/settings-registry";
 import { type Request, type Response, Router } from "express";
 import { hydrateJobPdfFreshness, requireJob, toJobsRouteError } from "./shared";
 
@@ -20,6 +22,19 @@ jobsApplicationRouter.post(
   async (req: Request, res: Response) => {
     try {
       const job = await requireJob(req.params.id);
+
+      const showSponsorInfo =
+        settingsRegistry.showSponsorInfo.parse(
+          (await settingsRepo.getSetting("showSponsorInfo")) ?? undefined,
+        ) ?? settingsRegistry.showSponsorInfo.default();
+      if (!showSponsorInfo) {
+        return ok(res, {
+          ...(await hydrateJobPdfFreshness(job)),
+          sponsorMatchScore: null,
+          sponsorMatchNames: null,
+          matchResults: [],
+        });
+      }
 
       if (!job.employer) {
         return fail(res, badRequest("Job has no employer name"));

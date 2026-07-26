@@ -81,10 +81,15 @@ vi.mock("@client/hooks/useSettings", () => ({
 vi.mock("@client/components/tailoring/TailoringWorkspace", () => ({
   TailoringWorkspace: ({
     onDirtyChange,
+    startGenerationToken = 0,
   }: {
     onDirtyChange?: (isDirty: boolean) => void;
+    startGenerationToken?: number;
   }) => (
-    <div data-testid="tailoring-workspace">
+    <div
+      data-start-generation-token={startGenerationToken}
+      data-testid="tailoring-workspace"
+    >
       <button type="button" onClick={() => onDirtyChange?.(true)}>
         Mark tailoring dirty
       </button>
@@ -134,6 +139,7 @@ vi.mock("@/lib/utils", async (importOriginal) => {
 
 vi.mock("@client/api", () => ({
   updateJob: vi.fn(),
+  updateJobOutcome: vi.fn(),
   processJob: vi.fn(),
   generateJobPdf: vi.fn(),
   markAsApplied: vi.fn(),
@@ -271,6 +277,25 @@ describe("JobDetailPanel", () => {
         "Base description extracted from the job listing, editable if something looks off. Used by the Ghostwriter and for fit assessment.",
       ),
     ).toBeInTheDocument();
+  });
+
+  it("starts tailoring from the detail action", async () => {
+    const job = createJob({ id: "job-99", status: "discovered" });
+
+    await renderJobDetailPanel({
+      activeTab: "discovered",
+      activeJobs: [job],
+      selectedJob: job,
+      onSelectJobId: vi.fn(),
+      onJobUpdated: vi.fn().mockResolvedValue(undefined),
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /start tailoring/i }));
+
+    expect(screen.getByTestId("tailoring-workspace")).toHaveAttribute(
+      "data-start-generation-token",
+      "1",
+    );
   });
 
   it("shows stale PDF copy and old-PDF actions in the application kit", async () => {
@@ -509,7 +534,7 @@ describe("JobDetailPanel", () => {
 
   it("saves an edited description", async () => {
     const onJobUpdated = vi.fn().mockResolvedValue(undefined);
-    vi.mocked(api.updateJob).mockResolvedValue(undefined as any);
+    vi.mocked(api.updateJob).mockResolvedValue(createJob());
 
     await renderJobDetailPanel({
       activeTab: "all",
@@ -559,15 +584,19 @@ describe("JobDetailPanel", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("marks a job as applied from the action button", async () => {
+  it("marks a job as applied and follows it into Applied", async () => {
     const onJobUpdated = vi.fn().mockResolvedValue(undefined);
-    vi.mocked(api.markAsApplied).mockResolvedValue(undefined as any);
+    const onNavigateToStatus = vi.fn();
+    vi.mocked(api.markAsApplied).mockResolvedValue(
+      createJob({ status: "applied" }),
+    );
 
     await renderJobDetailPanel({
-      activeTab: "all",
+      activeTab: "ready",
       activeJobs: [],
       selectedJob: createJob({ status: "ready" }),
       onSelectJobId: vi.fn(),
+      onNavigateToStatus,
       onJobUpdated,
     });
 
@@ -579,11 +608,14 @@ describe("JobDetailPanel", () => {
       expect(api.markAsApplied).toHaveBeenCalledWith("job-1"),
     );
     expect(onJobUpdated).toHaveBeenCalled();
+    expect(onNavigateToStatus).toHaveBeenCalledWith("applied", "job-1");
   });
 
   it("moves an applied job to in progress from the action button", async () => {
     const onJobUpdated = vi.fn().mockResolvedValue(undefined);
-    vi.mocked(api.updateJob).mockResolvedValue(undefined as any);
+    vi.mocked(api.updateJob).mockResolvedValue(
+      createJob({ status: "in_progress" }),
+    );
 
     await renderJobDetailPanel({
       activeTab: "all",
@@ -607,7 +639,7 @@ describe("JobDetailPanel", () => {
 
   it("skips a job from the menu", async () => {
     const onJobUpdated = vi.fn().mockResolvedValue(undefined);
-    vi.mocked(api.skipJob).mockResolvedValue(undefined as any);
+    vi.mocked(api.skipJob).mockResolvedValue(createJob({ status: "skipped" }));
 
     await renderJobDetailPanel({
       activeTab: "all",
@@ -624,6 +656,34 @@ describe("JobDetailPanel", () => {
     fireEvent.click(skipItem);
 
     await waitFor(() => expect(api.skipJob).toHaveBeenCalledWith("job-1"));
+    expect(onJobUpdated).toHaveBeenCalled();
+  });
+
+  it("declines a job through the closed outcome path", async () => {
+    const onJobUpdated = vi.fn().mockResolvedValue(undefined);
+    vi.mocked(api.updateJobOutcome).mockResolvedValue(
+      createJob({
+        status: "applied",
+        outcome: "rejected",
+        closedAt: 1,
+      }),
+    );
+
+    await renderJobDetailPanel({
+      activeTab: "applied",
+      activeJobs: [createJob({ status: "applied" })],
+      selectedJob: createJob({ status: "applied" }),
+      onSelectJobId: vi.fn(),
+      onJobUpdated,
+    });
+
+    fireEvent.click(screen.getByRole("menuitem", { name: /decline job/i }));
+
+    await waitFor(() =>
+      expect(api.updateJobOutcome).toHaveBeenCalledWith("job-1", {
+        outcome: "rejected",
+      }),
+    );
     expect(onJobUpdated).toHaveBeenCalled();
   });
 

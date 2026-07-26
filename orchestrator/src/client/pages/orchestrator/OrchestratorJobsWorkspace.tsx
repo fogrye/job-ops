@@ -37,6 +37,7 @@ interface OrchestratorJobsWorkspaceProps {
   isLoading: boolean;
   isCommandBarOpen: boolean;
   commandBarEnabled: boolean;
+  showSponsorInfo: boolean;
   sourceFilter: JobSource | "all";
   sponsorFilter: SponsorFilter;
   salaryFilter: SalaryFilter;
@@ -69,6 +70,7 @@ interface OrchestratorJobsWorkspaceProps {
   onToggleSelectJob: (jobId: string) => void;
   onToggleSelectAll: (checked: boolean) => void;
   onSelectJobId: (jobId: string | null) => void;
+  onNavigateToStatus: (status: JobStatus, jobId: string) => void;
   onJobUpdated: () => Promise<void>;
   onPauseRefreshChange: (paused: boolean) => void;
   onRetrySelectedJob: () => void;
@@ -92,6 +94,7 @@ export const OrchestratorJobsWorkspace: React.FC<
   isLoading,
   isCommandBarOpen,
   commandBarEnabled,
+  showSponsorInfo,
   sourceFilter,
   sponsorFilter,
   salaryFilter,
@@ -124,6 +127,7 @@ export const OrchestratorJobsWorkspace: React.FC<
   onToggleSelectJob,
   onToggleSelectAll,
   onSelectJobId,
+  onNavigateToStatus,
   onJobUpdated,
   onPauseRefreshChange,
   onRetrySelectedJob,
@@ -146,6 +150,7 @@ export const OrchestratorJobsWorkspace: React.FC<
         onOpenCommandBar={() => onCommandBarOpenChange(true)}
         isFiltersOpen={isFiltersOpen}
         onFiltersOpenChange={onFiltersOpenChange}
+        showSponsorInfo={showSponsorInfo}
         sourceFilter={sourceFilter}
         onSourceFilterChange={onSourceFilterChange}
         sponsorFilter={sponsorFilter}
@@ -192,6 +197,7 @@ export const OrchestratorJobsWorkspace: React.FC<
             selectedJobListItem={selectedJobListItem}
             selectedJobLoadState={selectedJobLoadState}
             onSelectJobId={onSelectJobId}
+            onNavigateToStatus={onNavigateToStatus}
             onJobUpdated={onJobUpdated}
             onPauseRefreshChange={onPauseRefreshChange}
             onRetrySelectedJob={onRetrySelectedJob}

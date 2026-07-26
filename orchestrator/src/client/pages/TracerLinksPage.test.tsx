@@ -10,6 +10,7 @@ const render = (ui: Parameters<typeof renderWithQueryClient>[0]) =>
 
 vi.mock("../api", () => ({
   getTracerAnalytics: vi.fn(),
+  getSettings: vi.fn().mockResolvedValue(null),
   getJobTracerLinks: vi.fn(),
 }));
 

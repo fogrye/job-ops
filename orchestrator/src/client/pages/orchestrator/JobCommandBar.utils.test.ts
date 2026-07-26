@@ -1,7 +1,9 @@
 import { createJob } from "@shared/testing/factories.js";
 import { describe, expect, it } from "vitest";
+import { jobMatchesTab } from "./constants";
 import {
   computeJobMatchScore,
+  getFilterTab,
   groupJobsForCommandBar,
 } from "./JobCommandBar.utils";
 
@@ -61,5 +63,23 @@ describe("JobCommandBar score helpers", () => {
     );
 
     expect(grouped.ready).toEqual([]);
+  });
+});
+
+describe("closed job tab routing", () => {
+  const closedAppliedJob = createJob({
+    status: "applied",
+    outcome: "rejected",
+    closedAt: 1,
+  });
+
+  it("removes a closed selection from active tabs while retaining it in Archive", () => {
+    expect(jobMatchesTab(closedAppliedJob, "applied")).toBe(false);
+    expect(jobMatchesTab(closedAppliedJob, "all")).toBe(false);
+    expect(jobMatchesTab(closedAppliedJob, "archive")).toBe(true);
+  });
+
+  it("routes a closed applied job to Archive rather than Applied", () => {
+    expect(getFilterTab(closedAppliedJob)).toBe("archive");
   });
 });

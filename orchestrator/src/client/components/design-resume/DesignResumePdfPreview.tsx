@@ -95,8 +95,9 @@ export function DesignResumePdfPreview({
   const latestPdfDocumentRef = useRef<PDFDocumentProxy | null>(null);
 
   const revisionKey = useMemo(
-    () => `${draft.id}:${draft.revision}:${pdfRenderer}:${typstTheme}`,
-    [draft.id, draft.revision, pdfRenderer, typstTheme],
+    () =>
+      `${draft.id}:${draft.revision}:${draft.updatedAt}:${pdfRenderer}:${typstTheme}`,
+    [draft.id, draft.revision, draft.updatedAt, pdfRenderer, typstTheme],
   );
   const renderWidth = Math.max(0, Math.floor(fitWidth * zoomLevel));
   const zoomPercentLabel = `${Math.round(zoomLevel * 100)}%`;

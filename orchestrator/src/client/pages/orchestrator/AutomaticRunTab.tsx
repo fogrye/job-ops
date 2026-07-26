@@ -799,6 +799,7 @@ export const AutomaticRunTab: React.FC<AutomaticRunTabProps> = ({
               planSummary={planSummary}
               planWarnings={planWarnings}
               planSource={planSource}
+              showSponsorInfo={settings?.showSponsorInfo.value ?? true}
               onSearchPromptChange={setSearchPrompt}
               onGenerateSearchPlan={() => void handleGenerateSearchPlan()}
               onConfigureManually={() => setAutomaticTab("details")}

@@ -56,6 +56,7 @@ const getBoardCardRoot = (cardTitle: HTMLElement): HTMLElement => {
 
 vi.mock("../api", () => ({
   getJobs: vi.fn(),
+  getSettings: vi.fn().mockResolvedValue(null),
   getJobStageEvents: vi.fn(),
   transitionJobStage: vi.fn(),
   updateJobStageEvent: vi.fn(),

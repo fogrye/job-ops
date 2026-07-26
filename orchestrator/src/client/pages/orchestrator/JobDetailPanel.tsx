@@ -89,6 +89,7 @@ interface JobDetailPanelProps {
   selectedJobListItem: JobListItem | null;
   selectedJobLoadState: SelectedJobLoadState;
   onSelectJobId: (jobId: string | null) => void;
+  onNavigateToStatus?: (status: Job["status"], jobId: string) => void;
   onJobUpdated: () => Promise<void>;
   onPauseRefreshChange?: (paused: boolean) => void;
   onRetrySelectedJob: () => void;
@@ -211,6 +212,7 @@ const statusTone: Record<
 };
 
 const getPrimaryAction = (job: Job): string => {
+  if (job.closedAt != null) return "Archived";
   if (job.status === "processing") return "Processing";
   if (job.status === "ready") return "Mark Applied";
   if (job.status === "discovered") return "Start Tailoring";
@@ -288,6 +290,7 @@ export const JobDetailPanel: React.FC<JobDetailPanelProps> = ({
   selectedJobListItem,
   selectedJobLoadState,
   onSelectJobId,
+  onNavigateToStatus,
   onJobUpdated,
   onPauseRefreshChange,
   onRetrySelectedJob,
@@ -296,6 +299,9 @@ export const JobDetailPanel: React.FC<JobDetailPanelProps> = ({
   const [isProcessing, setIsProcessing] = useState(false);
   const [isApplying, setIsApplying] = useState(false);
   const [isMoving, setIsMoving] = useState(false);
+  const [isTailoring, setIsTailoring] = useState(false);
+  const [tailoringStartToken, setTailoringStartToken] = useState(0);
+  const [isDeclining, setIsDeclining] = useState(false);
   const [isEditDetailsOpen, setIsEditDetailsOpen] = useState(false);
   const [catalog, setCatalog] = useState<ResumeProjectCatalogItem[]>([]);
   const [isUploadingPdf, setIsUploadingPdf] = useState(false);
@@ -309,7 +315,7 @@ export const JobDetailPanel: React.FC<JobDetailPanelProps> = ({
   const { isRescoring, rescoreJob } = useRescoreJob(onJobUpdated);
   const { isRefreshing, refreshJobDescription } =
     useRefreshJobDescription(onJobUpdated);
-  const { settings } = useSettings();
+  const { settings, showSponsorInfo } = useSettings();
   const { personName, profile } = useProfile();
   const filenameLanguage = resolveFilenameLanguage({ settings, profile });
 
@@ -406,38 +412,29 @@ export const JobDetailPanel: React.FC<JobDetailPanelProps> = ({
     }
   }, [selectedJob]);
 
-  const handleProcess = useCallback(async () => {
-    if (!selectedJob) return;
+  const handleGeneratePdf = useCallback(async () => {
+    if (!selectedJob || selectedJob.status !== "ready") return;
     try {
       setIsProcessing(true);
-      if (selectedJob.status === "ready") {
-        await api.generateJobPdf(selectedJob.id);
-        toast.success("PDF regenerated");
-        trackProductEvent("jobs_job_action_completed", {
-          action: "generate_pdf",
-          result: "success",
-          from_status: selectedJob.status,
-        });
-      } else {
-        await api.processJob(selectedJob.id);
-        toast.success("Job moved to Ready", {
-          description: "Your tailored PDF has been generated.",
-        });
-        trackProductEvent("jobs_job_action_completed", {
-          action: "process_job",
-          result: "success",
-          from_status: selectedJob.status,
-          to_status: "ready",
-        });
-        handleJobMoved(selectedJob.id);
-      }
+      await api.generateJobPdf(selectedJob.id);
+      toast.success("PDF regenerated");
+      trackProductEvent("jobs_job_action_completed", {
+        action: "generate_pdf",
+        result: "success",
+        from_status: selectedJob.status,
+      });
       await onJobUpdated();
     } catch (error) {
-      showErrorToast(error, "Failed to process job");
+      showErrorToast(error, "Failed to generate PDF");
     } finally {
       setIsProcessing(false);
     }
-  }, [handleJobMoved, onJobUpdated, selectedJob]);
+  }, [onJobUpdated, selectedJob]);
+
+  const handleStartTailoring = useCallback(() => {
+    setInspectorTab("tailoring");
+    setTailoringStartToken((token) => token + 1);
+  }, []);
 
   const handleMarkApplied = useCallback(async () => {
     if (!selectedJob || selectedJob.status !== "ready") return;
@@ -453,19 +450,19 @@ export const JobDetailPanel: React.FC<JobDetailPanelProps> = ({
       toast.success("Marked as applied", {
         description: `${selectedJob.title} at ${selectedJob.employer}`,
       });
-      handleJobMoved(selectedJob.id);
       await onJobUpdated();
+      onNavigateToStatus?.("applied", selectedJob.id);
     } catch (error) {
       showErrorToast(error, "Failed to mark as applied");
     } finally {
       setIsApplying(false);
     }
-  }, [handleJobMoved, markAsAppliedMutation, onJobUpdated, selectedJob]);
+  }, [markAsAppliedMutation, onJobUpdated, onNavigateToStatus, selectedJob]);
 
   const handlePrimaryAction = useCallback(async () => {
     if (!selectedJob) return;
     if (selectedJob.status === "discovered") {
-      setInspectorTab("tailoring");
+      handleStartTailoring();
       return;
     }
     if (selectedJob.status === "ready") {
@@ -492,7 +489,7 @@ export const JobDetailPanel: React.FC<JobDetailPanelProps> = ({
       return;
     }
     setInspectorTab("brief");
-  }, [handleMarkApplied, onJobUpdated, selectedJob]);
+  }, [handleMarkApplied, handleStartTailoring, onJobUpdated, selectedJob]);
 
   const handleJobListingOpened = useCallback(() => {
     if (!selectedJob) return;
@@ -520,6 +517,34 @@ export const JobDetailPanel: React.FC<JobDetailPanelProps> = ({
       showErrorToast(error, "Failed to skip");
     }
   }, [handleJobMoved, onJobUpdated, selectedJob, skipJobMutation]);
+
+  const handleDecline = useCallback(async () => {
+    if (!selectedJob) return;
+    try {
+      setIsDeclining(true);
+      await api.updateJobOutcome(selectedJob.id, { outcome: "rejected" });
+      trackProductEvent("jobs_job_action_completed", {
+        action: "decline",
+        result: "success",
+        from_status: selectedJob.status,
+        to_status: "closed",
+      });
+      toast.message("Job declined and archived");
+      handleJobMoved(selectedJob.id);
+      await onJobUpdated();
+    } catch (error) {
+      showErrorToast(error, "Failed to decline job");
+    } finally {
+      setIsDeclining(false);
+    }
+  }, [handleJobMoved, onJobUpdated, selectedJob]);
+
+  const handleTailoringCompleted = useCallback(
+    (job: Job) => {
+      if (job.status === "ready") onNavigateToStatus?.("ready", job.id);
+    },
+    [onNavigateToStatus],
+  );
 
   const handleOpenPdf = useCallback(() => {
     if (!selectedJob || !selectedJob.pdfPath || isPdfRegenerating(selectedJob))
@@ -674,13 +699,22 @@ export const JobDetailPanel: React.FC<JobDetailPanelProps> = ({
     );
   }
 
+  const isClosed = selectedJob.closedAt != null;
   const primaryBusy =
     isProcessing ||
+    isTailoring ||
     isApplying ||
     isMoving ||
     selectedJob.status === "processing";
-  const canGenerate = ["discovered", "ready"].includes(selectedJob.status);
-  const canSkip = ["discovered", "ready"].includes(selectedJob.status);
+  const canGenerate =
+    !isClosed && ["discovered", "ready"].includes(selectedJob.status);
+  const canSkip =
+    !isClosed && ["discovered", "ready"].includes(selectedJob.status);
+  const canDecline =
+    !isClosed &&
+    ["discovered", "ready", "applied", "in_progress"].includes(
+      selectedJob.status,
+    );
   const isRegeneratingPdf = isPdfRegenerating(selectedJob);
   const isStalePdf = isPdfStale(selectedJob);
   const pdfLabels = getPdfActionLabels(selectedJob);
@@ -719,23 +753,43 @@ export const JobDetailPanel: React.FC<JobDetailPanelProps> = ({
             <Button
               size="sm"
               onClick={() => void handlePrimaryAction()}
-              disabled={primaryBusy || selectedJob.status === "processing"}
+              disabled={
+                primaryBusy || selectedJob.status === "processing" || isClosed
+              }
+              aria-label={
+                isTailoring && selectedJob.status === "discovered"
+                  ? "Tailoring in progress"
+                  : undefined
+              }
               className={cn(
-                "col-start-1 row-start-2 w-full min-w-0 justify-start sm:w-auto sm:justify-center",
+                "relative col-start-1 row-start-2 w-full min-w-0 justify-start sm:w-auto sm:justify-center",
                 tone.button,
               )}
             >
-              {primaryBusy ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              ) : selectedJob.status === "discovered" ? (
-                <Sparkles className="h-3.5 w-3.5" />
+              {isTailoring && selectedJob.status === "discovered" ? (
+                <>
+                  <span className="invisible flex items-center gap-2">
+                    <Sparkles className="h-3.5 w-3.5" />
+                    Start Tailoring
+                  </span>
+                  <Loader2 className="absolute h-3.5 w-3.5 animate-spin" />
+                  <span className="sr-only">Tailoring in progress</span>
+                </>
               ) : (
-                <CheckCircle2 className="h-3.5 w-3.5" />
+                <>
+                  {primaryBusy ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : selectedJob.status === "discovered" ? (
+                    <Sparkles className="h-3.5 w-3.5" />
+                  ) : (
+                    <CheckCircle2 className="h-3.5 w-3.5" />
+                  )}
+                  {getPrimaryAction(selectedJob)}
+                  {selectedJob.status === "ready" ? (
+                    <KbdHint shortcut="a" className="ml-1" />
+                  ) : null}
+                </>
               )}
-              {getPrimaryAction(selectedJob)}
-              {selectedJob.status === "ready" ? (
-                <KbdHint shortcut="a" className="ml-1" />
-              ) : null}
             </Button>
 
             <DropdownMenu>
@@ -782,40 +836,51 @@ export const JobDetailPanel: React.FC<JobDetailPanelProps> = ({
                     ? "Recalculating..."
                     : "Recalculate match"}
                 </DropdownMenuItem>
-                {supportsDescriptionRefresh(selectedJob.source) && (
-                  <DropdownMenuItem
-                    onSelect={() => refreshJobDescription(selectedJob.id)}
-                    disabled={
-                      isRescoring(selectedJob.id) ||
-                      isRefreshing(selectedJob.id)
-                    }
-                  >
-                    <Globe
-                      className={cn(
-                        "mr-2 h-4 w-4",
-                        isRefreshing(selectedJob.id) && "animate-spin",
-                      )}
-                    />
-                    {isRefreshing(selectedJob.id)
-                      ? "Refreshing..."
-                      : "Refresh description & recalculate"}
-                  </DropdownMenuItem>
-                )}
+                {selectedJob.status !== "processing" &&
+                  supportsDescriptionRefresh(selectedJob.source) && (
+                    <DropdownMenuItem
+                      onSelect={() => refreshJobDescription(selectedJob.id)}
+                      disabled={
+                        isRescoring(selectedJob.id) ||
+                        isRefreshing(selectedJob.id)
+                      }
+                    >
+                      <Globe
+                        className={cn(
+                          "mr-2 h-4 w-4",
+                          isRefreshing(selectedJob.id) && "animate-spin",
+                        )}
+                      />
+                      {isRefreshing(selectedJob.id)
+                        ? "Refreshing..."
+                        : "Refresh description & recalculate"}
+                    </DropdownMenuItem>
+                  )}
                 <DropdownMenuSeparator />
                 {canGenerate && (
                   <DropdownMenuItem
-                    onSelect={() => void handleProcess()}
-                    disabled={isProcessing}
+                    onSelect={() =>
+                      selectedJob.status === "ready"
+                        ? void handleGeneratePdf()
+                        : handleStartTailoring()
+                    }
+                    disabled={
+                      selectedJob.status === "ready"
+                        ? isProcessing
+                        : isTailoring
+                    }
                   >
                     <RefreshCcw
                       className={cn(
                         "mr-2 h-4 w-4",
-                        isProcessing && "animate-spin",
+                        selectedJob.status === "ready" &&
+                          isProcessing &&
+                          "animate-spin",
                       )}
                     />
                     {selectedJob.status === "ready"
                       ? "Regenerate PDF"
-                      : "Generate PDF"}
+                      : "Start tailoring"}
                   </DropdownMenuItem>
                 )}
                 <DropdownMenuItem
@@ -847,16 +912,28 @@ export const JobDetailPanel: React.FC<JobDetailPanelProps> = ({
                     </DropdownMenuItem>
                   </>
                 )}
-                {canSkip && (
+                {(canSkip || canDecline) && (
                   <>
                     <DropdownMenuSeparator />
-                    <DropdownMenuItem
-                      onSelect={() => void handleSkip()}
-                      className="text-destructive focus:text-destructive"
-                    >
-                      <XCircle className="mr-2 h-4 w-4" />
-                      Skip job
-                    </DropdownMenuItem>
+                    {canSkip && (
+                      <DropdownMenuItem
+                        onSelect={() => void handleSkip()}
+                        className="text-destructive focus:text-destructive"
+                      >
+                        <XCircle className="mr-2 h-4 w-4" />
+                        Skip job
+                      </DropdownMenuItem>
+                    )}
+                    {canDecline && (
+                      <DropdownMenuItem
+                        onSelect={() => void handleDecline()}
+                        disabled={isDeclining}
+                        className="text-destructive focus:text-destructive"
+                      >
+                        <XCircle className="mr-2 h-4 w-4" />
+                        {isDeclining ? "Declining..." : "Decline job"}
+                      </DropdownMenuItem>
+                    )}
                   </>
                 )}
               </DropdownMenuContent>
@@ -878,7 +955,7 @@ export const JobDetailPanel: React.FC<JobDetailPanelProps> = ({
             </div>
           )}
 
-          <JobBriefPane job={selectedJob} />
+          {showSponsorInfo ? <JobBriefPane job={selectedJob} /> : null}
           <JobDescriptionPanel
             description={selectedJob.jobDescription}
             jobUrl={selectedJob.jobUrl}
@@ -891,6 +968,9 @@ export const JobDetailPanel: React.FC<JobDetailPanelProps> = ({
             mode="editor"
             job={selectedJob}
             onUpdate={onJobUpdated}
+            startGenerationToken={tailoringStartToken}
+            onGenerationChange={setIsTailoring}
+            onTailoringCompleted={handleTailoringCompleted}
             onDirtyChange={onPauseRefreshChange}
           />
         </TabsContent>

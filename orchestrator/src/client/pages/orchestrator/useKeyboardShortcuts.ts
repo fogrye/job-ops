@@ -9,7 +9,7 @@ import { useSettings } from "@client/hooks/useSettings";
 import { resolveFilenameLanguage } from "@client/lib/pdf-filename";
 import { downloadJobPdf, openJobPdf } from "@client/lib/private-pdf";
 import { SHORTCUTS } from "@client/lib/shortcut-map";
-import type { JobAction, JobListItem } from "@shared/types.js";
+import type { JobAction, JobListItem, JobStatus } from "@shared/types.js";
 import { useCallback, useRef } from "react";
 import { toast } from "sonner";
 import { showErrorToast } from "@/client/lib/error-toast";
@@ -31,6 +31,7 @@ type UseKeyboardShortcutsArgs = {
   handleSelectJobId: (id: string | null) => void;
   requestScrollToJob: (id: string, opts?: { ensureSelected?: boolean }) => void;
   setActiveTab: (tab: FilterTab) => void;
+  navigateToStatus: (status: JobStatus, id: string) => void;
   setIsCommandBarOpen: (open: boolean) => void;
   setIsHelpDialogOpen: (updater: (prev: boolean) => boolean) => void;
   clearSelection: () => void;
@@ -54,6 +55,7 @@ export function useKeyboardShortcuts(args: UseKeyboardShortcutsArgs): void {
     handleSelectJobId,
     requestScrollToJob,
     setActiveTab,
+    navigateToStatus,
     setIsCommandBarOpen,
     setIsHelpDialogOpen,
     clearSelection,
@@ -182,8 +184,8 @@ export function useKeyboardShortcuts(args: UseKeyboardShortcutsArgs): void {
             toast.success("Marked as applied", {
               description: `${selectedJob.title} at ${selectedJob.employer}`,
             });
-            selectNextAfterAction(jobId);
             await loadJobs();
+            navigateToStatus("applied", jobId);
           })
           .catch((err: unknown) => {
             const msg =
@@ -216,8 +218,8 @@ export function useKeyboardShortcuts(args: UseKeyboardShortcutsArgs): void {
             toast.success("Job moved to Ready", {
               description: "Your tailored PDF has been generated.",
             });
-            selectNextAfterAction(jobId);
             await loadJobs();
+            navigateToStatus("ready", jobId);
           })
           .catch((err: unknown) => {
             const msg =

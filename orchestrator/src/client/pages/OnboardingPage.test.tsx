@@ -19,6 +19,7 @@ vi.mock("@/client/api", () => ({
   getAuthBootstrapStatus: vi.fn(),
   hasAuthenticatedSession: vi.fn(() => true),
   getProfile: vi.fn(),
+  getSettings: vi.fn().mockResolvedValue(null),
   saveOnboardingProfile: vi.fn(),
   setupFirstAdmin: vi.fn(),
 }));

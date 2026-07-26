@@ -1,4 +1,4 @@
-import type { Job, JobListItem } from "@shared/types.js";
+import type { Job, JobListItem, JobStatus } from "@shared/types.js";
 import type React from "react";
 import { Button } from "@/components/ui/button";
 import { Drawer, DrawerClose, DrawerContent } from "@/components/ui/drawer";
@@ -15,6 +15,7 @@ interface OrchestratorMobileJobDrawerProps {
   selectedJobLoadState: SelectedJobLoadState;
   onOpenChange: (open: boolean) => void;
   onSelectJobId: (jobId: string | null) => void;
+  onNavigateToStatus: (status: JobStatus, jobId: string) => void;
   onJobUpdated: () => Promise<void>;
   onPauseRefreshChange: (paused: boolean) => void;
   onRetrySelectedJob: () => void;
@@ -31,6 +32,7 @@ export const OrchestratorMobileJobDrawer: React.FC<
   selectedJobLoadState,
   onOpenChange,
   onSelectJobId,
+  onNavigateToStatus,
   onJobUpdated,
   onPauseRefreshChange,
   onRetrySelectedJob,
@@ -55,6 +57,7 @@ export const OrchestratorMobileJobDrawer: React.FC<
           selectedJobListItem={selectedJobListItem}
           selectedJobLoadState={selectedJobLoadState}
           onSelectJobId={onSelectJobId}
+          onNavigateToStatus={onNavigateToStatus}
           onJobUpdated={onJobUpdated}
           onPauseRefreshChange={onPauseRefreshChange}
           onRetrySelectedJob={onRetrySelectedJob}

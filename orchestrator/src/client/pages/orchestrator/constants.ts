@@ -3,7 +3,7 @@ import {
   EXTRACTOR_SOURCE_METADATA,
   PIPELINE_EXTRACTOR_SOURCE_IDS,
 } from "@shared/extractors";
-import type { JobSource, JobStatus } from "@shared/types";
+import type { JobListItem, JobSource, JobStatus } from "@shared/types";
 
 export const DEFAULT_PIPELINE_SOURCES: JobSource[] = [
   "gradcracker",
@@ -80,7 +80,7 @@ export const appliedDuplicateIndicator = {
   dot: "bg-yellow-400",
 };
 
-export type FilterTab = "ready" | "discovered" | "applied" | "all";
+export type FilterTab = "ready" | "discovered" | "applied" | "all" | "archive";
 export type DateFilterPreset = "7" | "14" | "30" | "90" | "custom";
 export type DateFilterDimension = "ready" | "applied" | "closed" | "discovered";
 
@@ -163,6 +163,7 @@ export interface JobFilters {
   dateFilter: JobDateFilter;
   sourceFilter: JobSource | "all";
   sponsorFilter: SponsorFilter;
+  showSponsorInfo?: boolean;
   salaryFilter: SalaryFilter;
   postedWithinDays: number | null;
   employmentTypes: EmploymentType[];
@@ -209,13 +210,29 @@ export const tabs: Array<{
   },
   { id: "applied", label: "Applied", statuses: ["applied"] },
   { id: "all", label: "All Jobs", statuses: [] },
+  { id: "archive", label: "Archive", statuses: [] },
 ];
+
+export const jobMatchesTab = (
+  job: Pick<JobListItem, "status" | "closedAt">,
+  tab: FilterTab,
+) => {
+  if (tab === "archive") return job.closedAt != null;
+  if (job.closedAt != null) return false;
+  const tabDefinition = tabs.find((item) => item.id === tab);
+  return Boolean(
+    tabDefinition &&
+      (tabDefinition.statuses.length === 0 ||
+        tabDefinition.statuses.includes(job.status)),
+  );
+};
 
 export const emptyStateCopy: Record<FilterTab, string> = {
   ready: "Run a search to discover and process new jobs.",
   discovered: "All discovered jobs have been processed.",
   applied: "You have not applied to any jobs yet.",
   all: "No jobs in the system yet. Run a search to get started.",
+  archive: "No archived jobs yet.",
 };
 
 export const dateFilterDimensionLabels: Record<DateFilterDimension, string> = {

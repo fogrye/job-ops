@@ -9,6 +9,7 @@ import {
 } from "@server/services/demo-simulator";
 import { getProfile } from "@server/services/profile";
 import { scoreJobSuitability } from "@server/services/scorer";
+import { fetchJobDescriptionFromUrl } from "@server/services/source-job-description";
 import type { ExtractorSourceId } from "@shared/extractors";
 import type {
   Job,
@@ -287,12 +288,12 @@ async function scoreAndPersistJob(
 }
 
 /**
- * Re-fetches a job's description directly from its source page (via the
- * owning extractor manifest's optional `refreshJobDescription` capability),
- * then scores and persists the description together with the resulting
- * score/reason/brief in one write. Explicit, single-job action only — never
- * runs implicitly from a bulk rescore, and never falls back to leaving
- * stale data if the fetch fails.
+ * Re-fetches a job's description from its source page, preferring the owning
+ * extractor's provider-specific refresh when available and otherwise using the
+ * generic stored-job-URL extraction path. It then scores and persists the
+ * description with the resulting score/reason/brief in one write. Explicit,
+ * single-job action only — never runs implicitly from a bulk rescore, and
+ * never falls back to leaving stale data if the fetch fails.
  */
 export async function refreshJobDescriptionFromSourceAndRescore(
   jobId: string,
@@ -316,23 +317,16 @@ export async function refreshJobDescriptionFromSourceAndRescore(
       });
     }
 
-    const registry = await getExtractorRegistry();
-    const manifest = registry.manifestBySource.get(
+    const manifest = (await getExtractorRegistry()).manifestBySource.get(
       job.source as ExtractorSourceId,
     );
-    if (!manifest?.refreshJobDescription) {
-      throw badRequest(
-        `Source "${job.source}" doesn't support refreshing the description from source.`,
-        { jobId, source: job.source },
-      );
-    }
-
-    const refreshed = await manifest
-      .refreshJobDescription({
-        jobUrl: job.jobUrl,
-        sourceJobId: job.sourceJobId,
-      })
-      .catch(() => undefined);
+    const refreshed = await (manifest?.refreshJobDescription
+      ? manifest.refreshJobDescription({
+          jobUrl: job.jobUrl,
+          sourceJobId: job.sourceJobId,
+        })
+      : fetchJobDescriptionFromUrl(job.jobUrl)
+    ).catch(() => undefined);
 
     if (!refreshed) {
       throw new AppError({

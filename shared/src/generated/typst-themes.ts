@@ -13,7 +13,7 @@ export const TYPST_THEME_LABELS: Record<GeneratedTypstTheme, string> = {
   classic: "Classic",
   "clean-print-cv": "Clean Print CV",
   compact: "Compact",
-  "jobops-cv": "JobOps CV",
+  "jobops-cv": "Professional Resume",
 };
 
 export const TYPST_THEME_DESCRIPTIONS: Record<GeneratedTypstTheme, string> = {

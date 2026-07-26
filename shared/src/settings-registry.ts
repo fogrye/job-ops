@@ -577,6 +577,13 @@ export const settingsRegistry = {
     parse: parseJsonArrayOrNull,
     serialize: serializeNullableJsonArray,
   },
+  blockedPositionKeywords: {
+    kind: "typed" as const,
+    schema: z.array(z.string().trim().min(1).max(200)).max(200),
+    default: (): string[] => [],
+    parse: parseJsonArrayOrNull,
+    serialize: serializeNullableJsonArray,
+  },
   scoringInstructions: {
     kind: "typed" as const,
     schema: z.string().trim().max(4000),

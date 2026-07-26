@@ -18,6 +18,7 @@ import {
   toRxResumeValidationPayload,
   validateAndMaybePersistRxResumeMode,
 } from "@client/lib/rxresume-config";
+import { AccountSettingsSection } from "@client/pages/settings/components/AccountSettingsSection";
 import { BackupSettingsSection } from "@client/pages/settings/components/BackupSettingsSection";
 import { ChatSettingsSection } from "@client/pages/settings/components/ChatSettingsSection";
 import { DangerZoneSection } from "@client/pages/settings/components/DangerZoneSection";
@@ -117,6 +118,7 @@ const DEFAULT_FORM_VALUES: UpdateSettingsInput = {
   missingSalaryPenalty: null,
   autoSkipScoreThreshold: null,
   blockedCompanyKeywords: [],
+  blockedPositionKeywords: [],
   ghostwriterSystemPromptTemplate: "",
   tailoringPromptTemplate: "",
   scoringPromptTemplate: "",
@@ -137,6 +139,7 @@ const EMPTY_RXRESUME_VALIDATION_BADGE_STATE: RxResumeValidationBadgeState = {
 };
 
 type SettingsSectionId =
+  | "account"
   | "model"
   | "chat"
   | "prompt-templates"
@@ -151,6 +154,7 @@ type SettingsSectionId =
   | "danger-zone";
 
 type SettingsGroupId =
+  | "account"
   | "ai"
   | "scoring"
   | "integrations"
@@ -174,6 +178,18 @@ type SettingsNavGroup = {
 };
 
 const SETTINGS_NAV_GROUPS: SettingsNavGroup[] = [
+  {
+    id: "account",
+    label: "Account",
+    items: [
+      {
+        id: "account",
+        label: "Account",
+        description: "Your password and sign-out options.",
+        searchTerms: ["password", "sign out", "profile"],
+      },
+    ],
+  },
   {
     id: "ai",
     label: "AI",
@@ -249,13 +265,14 @@ const SETTINGS_NAV_GROUPS: SettingsNavGroup[] = [
   },
   {
     id: "workspaces",
-    label: "Workspaces & Security",
+    label: "Workspace Administration",
     items: [
       {
         id: "environment",
-        label: "Workspace Access",
-        description: "Service credentials and authentication protection.",
-        searchTerms: ["security", "auth", "adzuna", "ukvisajobs"],
+        label: "Workspace Users & Service Accounts",
+        description:
+          "Service credentials and administrator-managed workspace users.",
+        searchTerms: ["workspace", "users", "adzuna", "ukvisajobs"],
       },
     ],
   },
@@ -313,6 +330,7 @@ const SECTION_FIELD_MAP: Record<
   SettingsSectionId,
   Array<keyof UpdateSettingsInput>
 > = {
+  account: [],
   model: [
     "llmProvider",
     "llmBaseUrl",
@@ -345,6 +363,7 @@ const SECTION_FIELD_MAP: Record<
     "missingSalaryPenalty",
     "autoSkipScoreThreshold",
     "blockedCompanyKeywords",
+    "blockedPositionKeywords",
   ],
   "reactive-resume": [
     "pdfRenderer",
@@ -482,6 +501,7 @@ const NULL_SETTINGS_PAYLOAD: UpdateSettingsInput = {
   missingSalaryPenalty: null,
   autoSkipScoreThreshold: null,
   blockedCompanyKeywords: null,
+  blockedPositionKeywords: null,
   ghostwriterSystemPromptTemplate: null,
   tailoringPromptTemplate: null,
   scoringPromptTemplate: null,
@@ -559,6 +579,7 @@ const mapSettingsToForm = (data: AppSettings): UpdateSettingsInput => ({
   missingSalaryPenalty: data.missingSalaryPenalty.override,
   autoSkipScoreThreshold: data.autoSkipScoreThreshold.override,
   blockedCompanyKeywords: data.blockedCompanyKeywords.override ?? [],
+  blockedPositionKeywords: data.blockedPositionKeywords?.override ?? [],
   ghostwriterSystemPromptTemplate:
     data.ghostwriterSystemPromptTemplate.value ?? "",
   tailoringPromptTemplate: data.tailoringPromptTemplate.value ?? "",
@@ -569,6 +590,12 @@ const normalizeString = (value: string | null | undefined) => {
   const trimmed = value?.trim();
   return trimmed ? trimmed : null;
 };
+
+const isNotFoundError = (error: unknown): boolean =>
+  typeof error === "object" &&
+  error !== null &&
+  "status" in error &&
+  error.status === 404;
 
 const normalizePrivateInput = (value: string | null | undefined) => {
   const trimmed = value?.trim();
@@ -834,6 +861,10 @@ const getDerivedSettings = (settings: AppSettings | null) => {
         effective: settings?.blockedCompanyKeywords?.value ?? [],
         default: settings?.blockedCompanyKeywords?.default ?? [],
       },
+      blockedPositionKeywords: {
+        effective: settings?.blockedPositionKeywords?.value ?? [],
+        default: settings?.blockedPositionKeywords?.default ?? [],
+      },
     },
     promptTemplates: {
       ghostwriterSystemPromptTemplate: {
@@ -876,6 +907,8 @@ export const SettingsPage: React.FC = () => {
   const [rxResumeProjectsOverride, setRxResumeProjectsOverride] = useState<
     ResumeProjectCatalogItem[] | null
   >(null);
+  const [rxResumeBaseResumeMissing, setRxResumeBaseResumeMissing] =
+    useState(false);
   const [isFetchingRxResumeProjects, setIsFetchingRxResumeProjects] =
     useState(false);
 
@@ -960,6 +993,7 @@ export const SettingsPage: React.FC = () => {
     setRxResumeBaseResumeIdDraft(storedId);
     setValue("rxresumeBaseResumeId", storedId, { shouldDirty: false });
     setRxResumeProjectsOverride(null);
+    setRxResumeBaseResumeMissing(false);
   }, [settings, setValue]);
 
   useEffect(() => {
@@ -993,9 +1027,18 @@ export const SettingsPage: React.FC = () => {
         if (normalized) {
           setValue("resumeProjects", normalized, { shouldDirty: false });
         }
+        setRxResumeBaseResumeMissing(false);
       })
       .catch((error) => {
         if (!isMounted || error.name === "AbortError") return;
+        if (isNotFoundError(error)) {
+          setRxResumeBaseResumeMissing(true);
+          setBaseResumeId(null);
+          setRxResumeBaseResumeIdDraft(null);
+          setValue("rxresumeBaseResumeId", null, { shouldDirty: true });
+          setRxResumeProjectsOverride(null);
+          return;
+        }
         showErrorToast(error, "Failed to load RxResume projects");
         setRxResumeProjectsOverride(null);
       })
@@ -1008,7 +1051,13 @@ export const SettingsPage: React.FC = () => {
       isMounted = false;
       controller.abort();
     };
-  }, [rxResumeBaseResumeIdDraft, hasRxResumeAccess, getValues, setValue]);
+  }, [
+    rxResumeBaseResumeIdDraft,
+    hasRxResumeAccess,
+    getValues,
+    setValue,
+    setBaseResumeId,
+  ]);
 
   const derived = getDerivedSettings(settings);
   const {
@@ -1382,6 +1431,15 @@ export const SettingsPage: React.FC = () => {
             ? null
             : normalized;
         })(),
+        blockedPositionKeywords: (() => {
+          const normalized = normalizeStringArray(data.blockedPositionKeywords);
+          const normalizedDefault = normalizeStringArray(
+            scoring.blockedPositionKeywords.default,
+          );
+          return stringArraysEqual(normalized, normalizedDefault)
+            ? null
+            : normalized;
+        })(),
         ghostwriterSystemPromptTemplate: nullIfSame(
           normalizeString(data.ghostwriterSystemPromptTemplate),
           promptTemplates.ghostwriterSystemPromptTemplate.default,
@@ -1605,7 +1663,11 @@ export const SettingsPage: React.FC = () => {
   useEffect(() => {
     if (visibleSectionIds.length === 0) return;
     if (!visibleSectionIds.includes(activeSection)) {
-      setActiveSection(visibleSectionIds[0]);
+      setActiveSection(
+        activeSection === "model" && visibleSectionIds.includes("chat")
+          ? "chat"
+          : visibleSectionIds[0],
+      );
     }
   }, [activeSection, visibleSectionIds]);
 
@@ -1658,7 +1720,8 @@ export const SettingsPage: React.FC = () => {
           : { label: "Using defaults", variant: "secondary" as const };
       case "scoring":
         return scoring.autoSkipScoreThreshold.effective != null ||
-          scoring.blockedCompanyKeywords.effective.length > 0
+          scoring.blockedCompanyKeywords.effective.length > 0 ||
+          scoring.blockedPositionKeywords.effective.length > 0
           ? { label: "Customized", variant: "outline" as const }
           : { label: "Default rules", variant: "secondary" as const };
       case "reactive-resume":
@@ -1704,6 +1767,9 @@ export const SettingsPage: React.FC = () => {
 
   let activeSectionContent: React.ReactNode;
   switch (activeSection) {
+    case "account":
+      activeSectionContent = <AccountSettingsSection layoutMode="panel" />;
+      break;
     case "model":
       activeSectionContent = (
         <ModelSettingsSection
@@ -1751,8 +1817,10 @@ export const SettingsPage: React.FC = () => {
           setRxResumeBaseResumeIdDraft={(value) => {
             setBaseResumeId(value);
             setRxResumeBaseResumeIdDraft(value);
+            setRxResumeBaseResumeMissing(false);
             setValue("rxresumeBaseResumeId", value, { shouldDirty: true });
           }}
+          baseResumeIdMissing={rxResumeBaseResumeMissing}
           hasRxResumeAccess={hasRxResumeAccess}
           onCredentialFieldEdit={clearRxResumeValidationFeedback}
           validationStatus={rxresumeValidationStatus}

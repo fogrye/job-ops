@@ -2,7 +2,7 @@ import { createJob } from "@shared/testing/factories";
 import type { Job } from "@shared/types";
 import { renderHook } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import type { JobDateFilter, JobFilters } from "./constants";
+import type { FilterTab, JobDateFilter, JobFilters } from "./constants";
 import { useFilteredJobs } from "./useFilteredJobs";
 
 const baseJob = createJob({
@@ -124,47 +124,34 @@ describe("useFilteredJobs", () => {
     expect(result.current.map((job) => job.id)).toEqual(["applied"]);
   });
 
-  it("matches multiple date dimensions with OR logic", () => {
+  it("keeps closed jobs out of active tabs and lists them in Archive", () => {
     const jobs: Job[] = [
       {
         ...baseJob,
-        id: "ready-match",
+        id: "active",
         status: "ready",
         readyAt: "2026-04-04T14:00:00.000Z",
       },
       {
         ...baseJob,
-        id: "closed-match",
-        status: "ready",
+        id: "closed",
+        status: "applied",
+        outcome: "rejected",
         closedAt: 1775347200,
-      },
-      {
-        ...baseJob,
-        id: "no-match",
-        status: "ready",
-        readyAt: "2026-03-01T14:00:00.000Z",
       },
     ];
 
-    const { result } = renderHook(() =>
-      useFilteredJobs(
-        jobs,
-        makeFilters({
-          activeTab: "all",
-          dateFilter: {
-            dimensions: ["ready", "closed"],
-            startDate: "2026-04-03",
-            endDate: "2026-04-06",
-            preset: "custom",
-          },
-        }),
-      ),
+    const { result, rerender } = renderHook(
+      ({ activeTab }: { activeTab: FilterTab }) =>
+        useFilteredJobs(jobs, makeFilters({ activeTab })),
+      { initialProps: { activeTab: "all" } },
     );
 
-    expect(result.current.map((job) => job.id)).toEqual([
-      "closed-match",
-      "ready-match",
-    ]);
+    expect(result.current.map((job) => job.id)).toEqual(["active"]);
+
+    rerender({ activeTab: "archive" });
+
+    expect(result.current.map((job) => job.id)).toEqual(["closed"]);
   });
 
   it("composes date filtering with source, sponsor, and salary filters", () => {

@@ -4,8 +4,7 @@ import type { Job, JobListItem, JobStatus } from "@shared/types.js";
 import type React from "react";
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import type { VirtualListHandle } from "@/client/lib/virtual-list";
-import type { FilterTab } from "./constants";
-import { tabs } from "./constants";
+import { type FilterTab, jobMatchesTab } from "./constants";
 import { FloatingJobActionsBar } from "./FloatingJobActionsBar";
 import { OrchestratorJobsWorkspace } from "./OrchestratorJobsWorkspace";
 import { OrchestratorMobileJobDrawer } from "./OrchestratorMobileJobDrawer";
@@ -31,6 +30,7 @@ interface OrchestratorJobWorkspaceContainerProps {
   isPipelineRunning: boolean;
   loadJobs: () => Promise<void>;
   setIsRefreshPaused: (paused: boolean) => void;
+  showSponsorInfo: boolean;
   filters: ReturnType<typeof useOrchestratorFilters>;
   navigation: ReturnType<typeof useOrchestratorNavigation>;
   ui: ReturnType<typeof useOrchestratorUiState>;
@@ -51,6 +51,7 @@ export const OrchestratorJobWorkspaceContainer: React.FC<
   loadJobs,
   setIsRefreshPaused,
   filters,
+  showSponsorInfo,
   navigation,
   ui,
   openRunMode,
@@ -61,6 +62,7 @@ export const OrchestratorJobWorkspaceContainer: React.FC<
     dateFilter: filters.dateFilter,
     sourceFilter: filters.sourceFilter,
     sponsorFilter: filters.sponsorFilter,
+    showSponsorInfo,
     salaryFilter: filters.salaryFilter,
     postedWithinDays: filters.postedWithinDays,
     employmentTypes: filters.employmentTypes,
@@ -76,15 +78,13 @@ export const OrchestratorJobWorkspaceContainer: React.FC<
 
   const visibleSelectedJob = useMemo(() => {
     if (!selectedJob) return null;
-    const tabDef = tabs.find((tab) => tab.id === navigation.activeTab);
-    if (!tabDef || tabDef.statuses.length === 0) return selectedJob;
-    return tabDef.statuses.includes(selectedJob.status) ? selectedJob : null;
+    return jobMatchesTab(selectedJob, navigation.activeTab)
+      ? selectedJob
+      : null;
   }, [navigation.activeTab, selectedJob]);
   const visibleSelectedJobListItem = useMemo(() => {
     if (!selectedJobListItem) return null;
-    const tabDef = tabs.find((tab) => tab.id === navigation.activeTab);
-    if (!tabDef || tabDef.statuses.length === 0) return selectedJobListItem;
-    return tabDef.statuses.includes(selectedJobListItem.status)
+    return jobMatchesTab(selectedJobListItem, navigation.activeTab)
       ? selectedJobListItem
       : null;
   }, [navigation.activeTab, selectedJobListItem]);
@@ -144,6 +144,7 @@ export const OrchestratorJobWorkspaceContainer: React.FC<
     handleSelectJobId: navigation.handleSelectJobId,
     requestScrollToJob,
     setActiveTab: handleTabChange,
+    navigateToStatus: navigation.navigateToStatus,
     setIsCommandBarOpen: ui.setIsCommandBarOpen,
     setIsHelpDialogOpen: ui.setIsHelpDialogOpen,
     clearSelection,
@@ -257,6 +258,7 @@ export const OrchestratorJobWorkspaceContainer: React.FC<
           onTabChange={handleTabChange}
           onFiltersOpenChange={ui.setIsFiltersOpen}
           onSourceFilterChange={filters.setSourceFilter}
+          showSponsorInfo={showSponsorInfo}
           onSponsorFilterChange={filters.setSponsorFilter}
           onSalaryFilterChange={filters.setSalaryFilter}
           onPostedWithinChange={filters.setPostedWithinDays}
@@ -269,6 +271,7 @@ export const OrchestratorJobWorkspaceContainer: React.FC<
           onToggleSelectJob={toggleSelectJob}
           onToggleSelectAll={toggleSelectAll}
           onSelectJobId={navigation.handleSelectJobId}
+          onNavigateToStatus={navigation.navigateToStatus}
           onJobUpdated={loadJobs}
           onPauseRefreshChange={setIsRefreshPaused}
           onRetrySelectedJob={retrySelectedJob}
@@ -303,6 +306,7 @@ export const OrchestratorJobWorkspaceContainer: React.FC<
           }
           onOpenChange={ui.onDetailDrawerOpenChange}
           onSelectJobId={navigation.handleSelectJobId}
+          onNavigateToStatus={navigation.navigateToStatus}
           onJobUpdated={loadJobs}
           onPauseRefreshChange={setIsRefreshPaused}
           onRetrySelectedJob={retrySelectedJob}

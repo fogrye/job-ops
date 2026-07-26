@@ -1,9 +1,15 @@
-import type { JobListItem } from "@shared/types.js";
+import type { JobListItem, JobStatus } from "@shared/types.js";
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
-import { type FilterTab, tabs } from "./constants";
+import { type FilterTab, jobMatchesTab, tabs } from "./constants";
 
-const validTabs: FilterTab[] = ["ready", "discovered", "applied", "all"];
+const validTabs: FilterTab[] = [
+  "ready",
+  "discovered",
+  "applied",
+  "all",
+  "archive",
+];
 
 const commandSelectionFilterKeys = [
   "source",
@@ -70,18 +76,24 @@ export function useOrchestratorNavigation({
 
   const setActiveTab = useCallback(
     (newTab: FilterTab, jobs: JobListItem[]) => {
-      const tabDef = tabs.find((item) => item.id === newTab);
       const selectedItem = selectedJobId
         ? jobs.find((job) => job.id === selectedJobId)
         : null;
-      const jobFitsTab =
-        selectedItem &&
-        (tabDef?.statuses.length === 0 ||
-          tabDef?.statuses.includes(selectedItem.status));
+      const jobFitsTab = selectedItem
+        ? jobMatchesTab(selectedItem, newTab)
+        : false;
 
       navigateWithContext(newTab, jobFitsTab ? selectedJobId : null);
     },
     [navigateWithContext, selectedJobId],
+  );
+
+  const navigateToStatus = useCallback(
+    (status: JobStatus, id: string) => {
+      const targetTab = tabs.find((item) => item.statuses.includes(status))?.id;
+      if (targetTab) navigateWithContext(targetTab, id);
+    },
+    [navigateWithContext],
   );
 
   const navigateToCommandJob = useCallback(
@@ -102,6 +114,7 @@ export function useOrchestratorNavigation({
     navigateWithContext,
     handleSelectJobId,
     setActiveTab,
+    navigateToStatus,
     navigateToCommandJob,
   };
 }

@@ -1,10 +1,11 @@
 import type { JobListItem } from "@shared/types";
 import { useMemo } from "react";
-import type {
-  DateFilterDimension,
-  JobDateFilter,
-  JobFilters,
-  SponsorFilter,
+import {
+  type DateFilterDimension,
+  type JobDateFilter,
+  type JobFilters,
+  jobMatchesTab,
+  type SponsorFilter,
 } from "./constants";
 import {
   compareJobs,
@@ -28,6 +29,7 @@ export const useFilteredJobs = (jobs: JobListItem[], filters: JobFilters) => {
     dateFilter,
     sourceFilter,
     sponsorFilter,
+    showSponsorInfo = true,
     salaryFilter,
     postedWithinDays,
     employmentTypes,
@@ -38,22 +40,7 @@ export const useFilteredJobs = (jobs: JobListItem[], filters: JobFilters) => {
   return useMemo(() => {
     let filtered = [...jobs];
 
-    if (activeTab === "ready") {
-      filtered = filtered.filter(
-        (job) => job.status === "ready" || job.status === "processing",
-      );
-    } else if (activeTab === "discovered") {
-      filtered = filtered.filter(
-        (job) => job.status === "discovered" || job.status === "processing",
-      );
-    } else if (activeTab === "applied") {
-      filtered = filtered.filter((job) => job.status === "applied");
-    } else if (activeTab === "all") {
-      const includeClosedJobs = dateFilter.dimensions.includes("closed");
-      if (!includeClosedJobs) {
-        filtered = filtered.filter((job) => job.closedAt == null);
-      }
-    }
+    filtered = filtered.filter((job) => jobMatchesTab(job, activeTab));
 
     if (dateFilter.dimensions.length > 0) {
       filtered = filtered.filter((job) =>
@@ -84,7 +71,7 @@ export const useFilteredJobs = (jobs: JobListItem[], filters: JobFilters) => {
       filtered = filtered.filter((job) => matchesLocation(job, location));
     }
 
-    if (sponsorFilter !== "all") {
+    if (showSponsorInfo && sponsorFilter !== "all") {
       filtered = filtered.filter(
         (job) => getSponsorCategory(job.sponsorMatchScore) === sponsorFilter,
       );
@@ -135,6 +122,7 @@ export const useFilteredJobs = (jobs: JobListItem[], filters: JobFilters) => {
     dateFilter,
     sourceFilter,
     sponsorFilter,
+    showSponsorInfo,
     salaryFilter,
     postedWithinDays,
     employmentTypes,
