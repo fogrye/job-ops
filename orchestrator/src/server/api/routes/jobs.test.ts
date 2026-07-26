@@ -1798,8 +1798,8 @@ describe.sequential("Jobs API routes", () => {
     );
     expect((await getJobById(job.id))?.status).toBe("discovered");
   });
-  it("archives a declined job and restores it without changing its last active status", async () => {
-    const { createJob, getJobById, updateJob } = await import(
+  it("closes a declined job and reopens it without changing its last active status", async () => {
+    const { createJob, getJobById, getJobStats, updateJob } = await import(
       "@server/repositories/jobs"
     );
     const job = await createJob({
@@ -1809,30 +1809,54 @@ describe.sequential("Jobs API routes", () => {
       jobUrl: "https://example.com/job/archive-restore",
     });
     await updateJob(job.id, { status: "applied" });
+    const appliedStats = (await getJobStats()).applied;
 
-    const archiveRes = await fetch(`${baseUrl}/api/jobs/${job.id}/outcome`, {
+    const closeRes = await fetch(`${baseUrl}/api/jobs/${job.id}/outcome`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ outcome: "rejected" }),
     });
-    expect(archiveRes.status).toBe(200);
+    expect(closeRes.status).toBe(200);
     expect(await getJobById(job.id)).toMatchObject({
       status: "applied",
       outcome: "rejected",
       closedAt: expect.any(Number),
     });
+    expect((await getJobStats()).applied).toBe(appliedStats);
+    const eventsRes = await fetch(`${baseUrl}/api/jobs/${job.id}/events`);
+    expect(eventsRes.status).toBe(200);
+    const eventsBody = await eventsRes.json();
+    expect(eventsBody.ok).toBe(true);
+    const closureEvents = eventsBody.data.filter(
+      (event: { toStage: string; outcome: string | null }) =>
+        event.toStage === "closed" && event.outcome != null,
+    );
+    expect(closureEvents).toHaveLength(1);
+    expect(closureEvents[0]).toMatchObject({ outcome: "rejected" });
 
-    const restoreRes = await fetch(`${baseUrl}/api/jobs/${job.id}`, {
+    const reopenRes = await fetch(`${baseUrl}/api/jobs/${job.id}/outcome`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ outcome: null, closedAt: null }),
+      body: JSON.stringify({ outcome: null }),
     });
-    expect(restoreRes.status).toBe(200);
+    expect(reopenRes.status).toBe(200);
     expect(await getJobById(job.id)).toMatchObject({
       status: "applied",
       outcome: null,
       closedAt: null,
     });
+    const reopenedEventsRes = await fetch(
+      `${baseUrl}/api/jobs/${job.id}/events`,
+    );
+    expect(reopenedEventsRes.status).toBe(200);
+    const reopenedEventsBody = await reopenedEventsRes.json();
+    expect(reopenedEventsBody.ok).toBe(true);
+    expect(
+      reopenedEventsBody.data.filter(
+        (event: { toStage: string; outcome: string | null }) =>
+          event.toStage === "closed" && event.outcome != null,
+      ),
+    ).toHaveLength(0);
   });
 
   it("rescoring a job updates the suitability fields", async () => {
