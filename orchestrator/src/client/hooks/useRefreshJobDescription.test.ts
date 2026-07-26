@@ -2,7 +2,6 @@ import type { Job } from "@shared/types";
 import { act } from "@testing-library/react";
 import { toast } from "sonner";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { ApiClientError } from "@/client/api/core";
 import * as api from "../api";
 import { renderHookWithQueryClient } from "../test/renderWithQueryClient";
 import { useRefreshJobDescription } from "./useRefreshJobDescription";
@@ -46,7 +45,10 @@ describe("useRefreshJobDescription", () => {
   it("refreshes the job and shows a toast once confirmed", async () => {
     vi.spyOn(window, "confirm").mockReturnValue(true);
     const onJobUpdated = vi.fn().mockResolvedValue(undefined);
-    vi.mocked(api.refreshJobDescriptionFromSource).mockResolvedValue({} as Job);
+    vi.mocked(api.refreshJobDescriptionFromSource).mockResolvedValue({
+      job: {} as Job,
+      sourceRefreshed: true,
+    });
 
     const { result } = renderHookWithQueryClient(() =>
       useRefreshJobDescription(onJobUpdated),
@@ -67,10 +69,10 @@ describe("useRefreshJobDescription", () => {
   it("recalculates from the current description when the source blocks refresh", async () => {
     vi.spyOn(window, "confirm").mockReturnValue(true);
     const onJobUpdated = vi.fn().mockResolvedValue(undefined);
-    vi.mocked(api.refreshJobDescriptionFromSource).mockRejectedValue(
-      new ApiClientError("Source blocked", { code: "UPSTREAM_ERROR" }),
-    );
-    vi.mocked(api.rescoreJob).mockResolvedValue({} as Job);
+    vi.mocked(api.refreshJobDescriptionFromSource).mockResolvedValue({
+      job: {} as Job,
+      sourceRefreshed: false,
+    });
 
     const { result } = renderHookWithQueryClient(() =>
       useRefreshJobDescription(onJobUpdated),
@@ -80,7 +82,7 @@ describe("useRefreshJobDescription", () => {
       await result.current.refreshJobDescription("job-1");
     });
 
-    expect(api.rescoreJob).toHaveBeenCalledWith("job-1");
+    expect(api.rescoreJob).not.toHaveBeenCalled();
     expect(toast.success).toHaveBeenCalledWith(
       "Source unavailable; match recalculated from current description",
       { id: "toast-1" },
@@ -92,7 +94,9 @@ describe("useRefreshJobDescription", () => {
     vi.spyOn(window, "confirm").mockReturnValue(true);
     const onJobUpdated = vi.fn().mockResolvedValue(undefined);
     // Promise.withResolvers() is unavailable: tsconfig target/lib is ES2022.
-    let resolveRefresh: (value: Job) => void = () => {};
+    let resolveRefresh: (
+      value: Awaited<ReturnType<typeof api.refreshJobDescriptionFromSource>>,
+    ) => void = () => {};
     vi.mocked(api.refreshJobDescriptionFromSource).mockImplementation(
       () =>
         new Promise((resolve) => {
@@ -116,7 +120,7 @@ describe("useRefreshJobDescription", () => {
     });
     expect(api.refreshJobDescriptionFromSource).toHaveBeenCalledTimes(1);
 
-    resolveRefresh({} as Job);
+    resolveRefresh({ job: {} as Job, sourceRefreshed: true });
     await act(async () => {
       await firstCallPromise;
     });
@@ -126,12 +130,14 @@ describe("useRefreshJobDescription", () => {
   it("tracks in-flight state per job so refreshing one job never blocks another", async () => {
     vi.spyOn(window, "confirm").mockReturnValue(true);
     const onJobUpdated = vi.fn().mockResolvedValue(undefined);
-    let resolveJob1: (value: Job) => void = () => {};
+    let resolveJob1: (
+      value: Awaited<ReturnType<typeof api.refreshJobDescriptionFromSource>>,
+    ) => void = () => {};
     vi.mocked(api.refreshJobDescriptionFromSource).mockImplementation(
       (jobId) =>
         new Promise((resolve) => {
           if (jobId === "job-1") resolveJob1 = resolve;
-          else resolve({} as Job);
+          else resolve({ job: {} as Job, sourceRefreshed: true });
         }),
     );
 
@@ -153,7 +159,7 @@ describe("useRefreshJobDescription", () => {
     expect(api.refreshJobDescriptionFromSource).toHaveBeenCalledWith("job-2");
     expect(result.current.isRefreshing("job-2")).toBe(false);
 
-    resolveJob1({} as Job);
+    resolveJob1({ job: {} as Job, sourceRefreshed: true });
     await act(async () => {
       await job1Promise;
     });

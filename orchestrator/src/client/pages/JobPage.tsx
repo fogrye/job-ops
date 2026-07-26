@@ -416,8 +416,12 @@ export const JobPage: React.FC = () => {
 
     await runAction("refresh_description", async () => {
       if (!job) return;
-      await refreshJobDescriptionMutation.mutateAsync(job.id);
-      toast.success("Description refreshed and match recalculated");
+      const result = await refreshJobDescriptionMutation.mutateAsync(job.id);
+      toast.success(
+        result.sourceRefreshed
+          ? "Description refreshed and match recalculated"
+          : "Source unavailable; match recalculated from current description",
+      );
     });
   };
 

@@ -91,6 +91,7 @@ vi.mock("../api", () => ({
   markAsApplied: vi.fn(),
   skipJob: vi.fn(),
   rescoreJob: vi.fn(),
+  refreshJobDescriptionFromSource: vi.fn(),
   generateJobPdf: vi.fn(),
   checkSponsor: vi.fn(),
 }));
@@ -142,7 +143,21 @@ vi.mock("../components/LogEventModal", () => ({
 }));
 
 vi.mock("./job-page/JobPageRightSidebar", () => ({
-  JobPageRightSidebar: () => <div data-testid="job-right-sidebar" />,
+  JobPageRightSidebar: ({
+    onRefreshDescription,
+  }: {
+    onRefreshDescription: () => void;
+  }) => (
+    <div data-testid="job-right-sidebar">
+      <button
+        type="button"
+        data-testid="refresh-description"
+        onClick={onRefreshDescription}
+      >
+        Refresh description
+      </button>
+    </div>
+  ),
 }));
 
 vi.mock("../components/ConfirmDelete", () => ({
@@ -312,6 +327,24 @@ describe("JobPage overview", () => {
     expect(await screen.findByText("Build backend services.")).toBeVisible();
     expect(screen.getByText("Highlights")).toBeVisible();
     expect(screen.getByText("They want")).toBeVisible();
+  });
+
+  it("uses the shared source fallback from its refresh control", async () => {
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    vi.mocked(api.refreshJobDescriptionFromSource).mockResolvedValue({
+      job: createJob() as Job,
+      sourceRefreshed: false,
+    });
+
+    renderJobPage("/job/job-1");
+    fireEvent.click(await screen.findByTestId("refresh-description"));
+
+    await waitFor(() =>
+      expect(api.refreshJobDescriptionFromSource).toHaveBeenCalledWith("job-1"),
+    );
+    expect(toast.success).toHaveBeenCalledWith(
+      "Source unavailable; match recalculated from current description",
+    );
   });
 });
 
