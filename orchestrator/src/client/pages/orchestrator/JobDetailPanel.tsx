@@ -218,7 +218,7 @@ const statusTone: Record<
   },
 };
 
-const getPrimaryAction = (job: Job): string => {
+const getPrimaryAction = (job: Job, canCompleteTailoring: boolean): string => {
   if (job.closedAt != null) return "Archived";
   if (job.status === "processing") return "Processing";
   if (job.status === "ready") return "Mark Applied";
@@ -325,7 +325,6 @@ export const JobDetailPanel: React.FC<JobDetailPanelProps> = ({
   );
   const uploadPdfInputRef = useRef<HTMLInputElement | null>(null);
   const previousSelectionKeyRef = useRef<string | null>(null);
-  const tailoringStartTokenRef = useRef(0);
   const markAsAppliedMutation = useMarkAsAppliedMutation();
   const skipJobMutation = useSkipJobMutation();
   const { isRescoring, rescoreJob } = useRescoreJob(onJobUpdated);
@@ -988,13 +987,8 @@ export const JobDetailPanel: React.FC<JobDetailPanelProps> = ({
                     <Loader2 className="h-3.5 w-3.5 animate-spin" />
                   ) : selectedJob.status === "discovered" ? (
                     <Sparkles className="h-3.5 w-3.5" />
-                  ) : (
-                    <CheckCircle2 className="h-3.5 w-3.5" />
-                  )}
-                  {getPrimaryAction(selectedJob)}
-                  {selectedJob.status === "ready" ? (
-                    <KbdHint shortcut="a" className="ml-1" />
                   ) : null}
+                  {getPrimaryAction(selectedJob, canCompleteTailoring)}
                 </>
               )}
             </Button>

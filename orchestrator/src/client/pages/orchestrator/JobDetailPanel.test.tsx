@@ -383,7 +383,7 @@ describe("JobDetailPanel", () => {
       onJobUpdated: vi.fn().mockResolvedValue(undefined),
     });
 
-    fireEvent.click(screen.getByRole("button", { name: /start tailoring/i }));
+    fireEvent.click(screen.getByRole("button", { name: /finish tailoring/i }));
     fireEvent.click(
       screen.getByRole("button", { name: /complete tailoring/i }),
     );
