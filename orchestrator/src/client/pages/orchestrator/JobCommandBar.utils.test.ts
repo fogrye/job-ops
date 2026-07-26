@@ -76,7 +76,7 @@ describe("closed job tab routing", () => {
   it("hides a closed selection from active tabs and default All Jobs", () => {
     expect(jobMatchesTab(closedAppliedJob, "applied")).toBe(false);
     expect(jobMatchesTab(closedAppliedJob, "all")).toBe(false);
-    expect(jobMatchesTab(closedAppliedJob, "all", "archived")).toBe(true);
+    expect(jobMatchesTab(closedAppliedJob, "all", "closed")).toBe(true);
   });
 
   it("routes a closed applied job through All Jobs", () => {

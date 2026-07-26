@@ -30,14 +30,16 @@ import {
 } from "@client/lib/pdf-freshness";
 import { downloadJobPdf, openJobPdf } from "@client/lib/private-pdf";
 import { supportsDescriptionRefresh } from "@shared/extractors";
-import type {
-  Job,
-  JobListItem,
-  ResumeProjectCatalogItem,
+import {
+  APPLICATION_OUTCOMES,
+  type Job,
+  type JobListItem,
+  type JobOutcome,
+  OUTCOME_LABELS,
+  type ResumeProjectCatalogItem,
 } from "@shared/types.js";
 import {
   AlertTriangle,
-  Archive,
   ArchiveRestore,
   ArrowRight,
   CheckCircle2,
@@ -70,6 +72,9 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -219,7 +224,7 @@ const statusTone: Record<
 };
 
 const getPrimaryAction = (job: Job, canCompleteTailoring: boolean): string => {
-  if (job.closedAt != null) return "Archived";
+  if (job.closedAt != null) return "Closed";
   if (job.status === "processing") return "Processing";
   if (job.status === "ready") return "Mark Applied";
   if (job.status === "discovered") {
@@ -317,6 +322,7 @@ export const JobDetailPanel: React.FC<JobDetailPanelProps> = ({
   const [isMoving, setIsMoving] = useState(false);
   const [isTailoring, setIsTailoring] = useState(false);
   const [isDeclining, setIsDeclining] = useState(false);
+  const [isClosing, setIsClosing] = useState(false);
   const [isEditDetailsOpen, setIsEditDetailsOpen] = useState(false);
   const [catalog, setCatalog] = useState<ResumeProjectCatalogItem[]>([]);
   const [isUploadingPdf, setIsUploadingPdf] = useState(false);
@@ -664,7 +670,7 @@ export const JobDetailPanel: React.FC<JobDetailPanelProps> = ({
         from_status: selectedJob.status,
         to_status: "closed",
       });
-      toast.message("Job declined and archived");
+      toast.message("Job declined and closed");
       handleJobMoved(selectedJob.id);
       refreshAfterStatusChange();
     } catch (error) {
@@ -680,36 +686,37 @@ export const JobDetailPanel: React.FC<JobDetailPanelProps> = ({
     statusActionInFlightRef,
   ]);
 
-  const handleArchive = useCallback(async () => {
-    if (
-      !selectedJob ||
-      selectedJob.closedAt != null ||
-      !["applied", "in_progress"].includes(selectedJob.status) ||
-      statusActionInFlightRef.current
-    ) {
-      return;
-    }
-    try {
-      statusActionInFlightRef.current = true;
-      const updatedJob = await api.updateJob(selectedJob.id, {
-        closedAt: Math.floor(Date.now() / 1000),
-      });
-      onJobMutation(updatedJob);
-      toast.message("Job archived");
-      handleJobMoved(selectedJob.id);
-      refreshAfterStatusChange();
-    } catch (error) {
-      showErrorToast(error, "Failed to archive job");
-    } finally {
-      statusActionInFlightRef.current = false;
-    }
-  }, [
-    handleJobMoved,
-    onJobMutation,
-    refreshAfterStatusChange,
-    selectedJob,
-    statusActionInFlightRef,
-  ]);
+  const handleClose = useCallback(
+    async (outcome: JobOutcome) => {
+      if (
+        !selectedJob ||
+        selectedJob.closedAt != null ||
+        !["applied", "in_progress"].includes(selectedJob.status) ||
+        statusActionInFlightRef.current
+      ) {
+        return;
+      }
+      try {
+        statusActionInFlightRef.current = true;
+        setIsClosing(true);
+        await api.updateJobOutcome(selectedJob.id, { outcome });
+        toast.message("Application closed");
+        handleJobMoved(selectedJob.id);
+        refreshAfterStatusChange();
+      } catch (error) {
+        showErrorToast(error, "Failed to close application");
+      } finally {
+        statusActionInFlightRef.current = false;
+        setIsClosing(false);
+      }
+    },
+    [
+      handleJobMoved,
+      refreshAfterStatusChange,
+      selectedJob,
+      statusActionInFlightRef,
+    ],
+  );
 
   const handleRestore = useCallback(async () => {
     if (
@@ -721,12 +728,11 @@ export const JobDetailPanel: React.FC<JobDetailPanelProps> = ({
     }
     try {
       statusActionInFlightRef.current = true;
-      const updatedJob = await api.updateJob(selectedJob.id, {
+      const updatedJob = await api.updateJobOutcome(selectedJob.id, {
         outcome: null,
-        closedAt: null,
       });
       onJobMutation(updatedJob);
-      toast.success("Job restored");
+      toast.success("Job reopened");
       refreshAfterStatusChange();
       if (
         updatedJob.status === "ready" ||
@@ -737,7 +743,7 @@ export const JobDetailPanel: React.FC<JobDetailPanelProps> = ({
         onNavigateToStatus?.(updatedJob.status, updatedJob.id);
       }
     } catch (error) {
-      showErrorToast(error, "Failed to restore job");
+      showErrorToast(error, "Failed to reopen job");
     } finally {
       statusActionInFlightRef.current = false;
     }
@@ -909,6 +915,7 @@ export const JobDetailPanel: React.FC<JobDetailPanelProps> = ({
     isApplying ||
     isMoving ||
     isDeclining ||
+    isClosing ||
     selectedJob.status === "processing";
   const canGenerate =
     !isClosed && ["discovered", "ready"].includes(selectedJob.status);
@@ -919,7 +926,7 @@ export const JobDetailPanel: React.FC<JobDetailPanelProps> = ({
     ["discovered", "ready", "applied", "in_progress"].includes(
       selectedJob.status,
     );
-  const canArchive =
+  const canClose =
     !isClosed && ["applied", "in_progress"].includes(selectedJob.status);
   const isRegeneratingPdf = isPdfRegenerating(selectedJob);
   const isStalePdf = isPdfStale(selectedJob);
@@ -1021,23 +1028,33 @@ export const JobDetailPanel: React.FC<JobDetailPanelProps> = ({
                   <Edit2 className="mr-2 h-4 w-4" />
                   View job description
                 </DropdownMenuItem>
-                {isClosed && selectedJob.outcome == null ? (
+                {isClosed ? (
                   <DropdownMenuItem
                     onSelect={() => void handleRestore()}
                     disabled={primaryBusy}
                   >
                     <ArchiveRestore className="mr-2 h-4 w-4" />
-                    Restore job
+                    Reopen
                   </DropdownMenuItem>
                 ) : null}
-                {canArchive ? (
-                  <DropdownMenuItem
-                    onSelect={() => void handleArchive()}
-                    disabled={primaryBusy}
-                  >
-                    <Archive className="mr-2 h-4 w-4" />
-                    Archive job
-                  </DropdownMenuItem>
+                {canClose ? (
+                  <DropdownMenuSub>
+                    <DropdownMenuSubTrigger disabled={primaryBusy}>
+                      <XCircle className="mr-2 h-4 w-4" />
+                      Close application
+                    </DropdownMenuSubTrigger>
+                    <DropdownMenuSubContent>
+                      {APPLICATION_OUTCOMES.map((outcome) => (
+                        <DropdownMenuItem
+                          key={outcome}
+                          onSelect={() => void handleClose(outcome)}
+                          disabled={primaryBusy}
+                        >
+                          {OUTCOME_LABELS[outcome]}
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuSubContent>
+                  </DropdownMenuSub>
                 ) : null}
                 <DropdownMenuItem onSelect={() => void handleCopyInfo()}>
                   <Copy className="mr-2 h-4 w-4" />

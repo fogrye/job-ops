@@ -2,7 +2,7 @@ import type { VirtualListHandle } from "@client/lib/virtual-list";
 import type { Job, JobListItem, JobSource, JobStatus } from "@shared/types.js";
 import type React from "react";
 import type {
-  ArchiveFilter,
+  ClosureFilter,
   EmploymentType,
   FilterTab,
   JobDateFilter,
@@ -40,7 +40,7 @@ interface OrchestratorJobsWorkspaceProps {
   commandBarEnabled: boolean;
   showSponsorInfo: boolean;
   sourceFilter: JobSource | "all";
-  archiveFilter: ArchiveFilter;
+  closureFilter: ClosureFilter;
   sponsorFilter: SponsorFilter;
   salaryFilter: SalaryFilter;
   postedWithinDays: number | null;
@@ -58,13 +58,13 @@ interface OrchestratorJobsWorkspaceProps {
   onCommandSelectJob: (
     targetTab: FilterTab,
     id: string,
-    archiveFilter?: ArchiveFilter,
+    closureFilter?: ClosureFilter,
   ) => void;
   onCommandBarOpenChange: (open: boolean) => void;
   onTabChange: (tab: FilterTab) => void;
   onFiltersOpenChange: (open: boolean) => void;
   onSourceFilterChange: (value: JobSource | "all") => void;
-  onArchiveFilterChange: (value: ArchiveFilter) => void;
+  onClosureFilterChange: (value: ClosureFilter) => void;
   onSponsorFilterChange: (value: SponsorFilter) => void;
   onSalaryFilterChange: (value: SalaryFilter) => void;
   onPostedWithinChange: (value: number | null) => void;
@@ -109,7 +109,7 @@ export const OrchestratorJobsWorkspace: React.FC<
   showSponsorInfo,
   sourceFilter,
   sponsorFilter,
-  archiveFilter,
+  closureFilter,
   salaryFilter,
   postedWithinDays,
   employmentTypes,
@@ -130,7 +130,7 @@ export const OrchestratorJobsWorkspace: React.FC<
   onSourceFilterChange,
   onSponsorFilterChange,
   onSalaryFilterChange,
-  onArchiveFilterChange,
+  onClosureFilterChange,
   onPostedWithinChange,
   onEmploymentTypesChange,
   onLocationFilterChange,
@@ -172,11 +172,11 @@ export const OrchestratorJobsWorkspace: React.FC<
         showSponsorInfo={showSponsorInfo}
         sourceFilter={sourceFilter}
         onSourceFilterChange={onSourceFilterChange}
-        archiveFilter={archiveFilter}
+        closureFilter={closureFilter}
         sponsorFilter={sponsorFilter}
         onSponsorFilterChange={onSponsorFilterChange}
         salaryFilter={salaryFilter}
-        onArchiveFilterChange={onArchiveFilterChange}
+        onClosureFilterChange={onClosureFilterChange}
         onSalaryFilterChange={onSalaryFilterChange}
         postedWithinDays={postedWithinDays}
         onPostedWithinChange={onPostedWithinChange}

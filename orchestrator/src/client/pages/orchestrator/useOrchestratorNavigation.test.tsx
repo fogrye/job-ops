@@ -7,22 +7,22 @@ const NavigationHarness = () => {
   const location = useLocation();
   const navigation = useOrchestratorNavigation({
     searchParams: new URLSearchParams(location.search),
-    archiveFilter: "active",
+    closureFilter: "active",
   });
 
   return (
     <>
       <output>{`${location.pathname}${location.search}`}</output>
-      <button type="button" onClick={navigation.openArchivedJobs}>
-        View archived jobs
+      <button type="button" onClick={navigation.openClosedJobs}>
+        View closed jobs
       </button>
       <button
         type="button"
         onClick={() =>
-          navigation.navigateToCommandJob("all", "closed-job", "archived")
+          navigation.navigateToCommandJob("all", "closed-job", "closed")
         }
       >
-        Select archived command result
+        Select closed command result
       </button>
     </>
   );
@@ -38,25 +38,25 @@ const renderNavigation = (entry: string) =>
   );
 
 describe("useOrchestratorNavigation", () => {
-  it("opens archived jobs through All Jobs while preserving existing filters", () => {
+  it("opens closed jobs through All Jobs while preserving existing filters", () => {
     renderNavigation("/jobs/applied?source=manual");
 
-    fireEvent.click(screen.getByRole("button", { name: "View archived jobs" }));
+    fireEvent.click(screen.getByRole("button", { name: "View closed jobs" }));
 
     expect(screen.getByRole("status")).toHaveTextContent(
-      "/jobs/all?source=manual&archive=archived",
+      "/jobs/all?source=manual&closure=closed",
     );
   });
 
-  it("selects closed command results through the archived All Jobs filter", () => {
-    renderNavigation("/jobs/ready?source=manual&archive=all");
+  it("selects closed command results through the closed All Jobs filter", () => {
+    renderNavigation("/jobs/ready?source=manual&closure=all");
 
     fireEvent.click(
-      screen.getByRole("button", { name: "Select archived command result" }),
+      screen.getByRole("button", { name: "Select closed command result" }),
     );
 
     expect(screen.getByRole("status")).toHaveTextContent(
-      "/jobs/all/closed-job?archive=archived",
+      "/jobs/all/closed-job?closure=closed",
     );
   });
 

@@ -1,7 +1,7 @@
 import type React from "react";
 import { Tabs } from "@/components/ui/tabs";
 import type { FilterTab } from "./constants";
-import { ArchiveFilterPill } from "./filters/ArchiveFilterPill";
+import { ClosureFilterPill } from "./filters/ClosureFilterPill";
 import { DateFilterPill } from "./filters/DateFilterPill";
 import { EmploymentTypeFilterPill } from "./filters/EmploymentTypeFilterPill";
 import { LocationFilterInput } from "./filters/LocationFilterInput";
@@ -23,8 +23,8 @@ export const OrchestratorFilters: React.FC<OrchestratorFiltersProps> = ({
   counts,
   onOpenCommandBar,
   showSponsorInfo = true,
-  archiveFilter,
-  onArchiveFilterChange,
+  closureFilter,
+  onClosureFilterChange,
   sourceFilter,
   onSourceFilterChange,
   sponsorFilter,
@@ -60,7 +60,7 @@ export const OrchestratorFilters: React.FC<OrchestratorFiltersProps> = ({
     sourceFilter,
     activeTab,
     sponsorFilter: showSponsorInfo ? sponsorFilter : "all",
-    archiveFilter,
+    closureFilter,
     dateFilter,
     postedWithinDays,
     employmentTypes,
@@ -89,9 +89,9 @@ export const OrchestratorFilters: React.FC<OrchestratorFiltersProps> = ({
         {isFiltersOpen ? (
           <OrchestratorFilterBar>
             {activeTab === "all" ? (
-              <ArchiveFilterPill
-                archiveFilter={archiveFilter}
-                onArchiveFilterChange={onArchiveFilterChange}
+              <ClosureFilterPill
+                closureFilter={closureFilter}
+                onClosureFilterChange={onClosureFilterChange}
               />
             ) : null}
 

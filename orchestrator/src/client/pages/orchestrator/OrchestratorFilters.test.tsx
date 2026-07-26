@@ -55,8 +55,8 @@ const renderFilters = (
       all: 6,
     },
     onOpenCommandBar: vi.fn(),
-    archiveFilter: "active" as const,
-    onArchiveFilterChange: vi.fn(),
+    closureFilter: "active" as const,
+    onClosureFilterChange: vi.fn(),
     sourceFilter: "all" as const,
     onSourceFilterChange: vi.fn(),
     sponsorFilter: "all" as SponsorFilter,
@@ -314,12 +314,12 @@ describe("OrchestratorFilters", () => {
     fireEvent.click(screen.getByRole("button", { name: "Reset" }));
     expect(props.onResetFilters).toHaveBeenCalled();
   });
-  it("shows the archive filter only in All Jobs", () => {
+  it("shows the status filter only in All Jobs", () => {
     const { props } = renderFilters({ activeTab: "all" });
 
-    fireEvent.click(screen.getByRole("button", { name: /archive/i }));
-    fireEvent.click(screen.getByRole("button", { name: "Archived jobs" }));
+    fireEvent.click(screen.getByRole("button", { name: /status/i }));
+    fireEvent.click(screen.getByRole("button", { name: "Closed jobs" }));
 
-    expect(props.onArchiveFilterChange).toHaveBeenCalledWith("archived");
+    expect(props.onClosureFilterChange).toHaveBeenCalledWith("closed");
   });
 });

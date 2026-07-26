@@ -1,8 +1,8 @@
-import type { JobSource } from "@shared/types.js";
+import { APPLICATION_OUTCOMES, type JobSource } from "@shared/types.js";
 import { useCallback, useEffect, useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
 import type {
-  ArchiveFilter,
+  ClosureFilter,
   DateFilterDimension,
   DateFilterPreset,
   EmploymentType,
@@ -47,7 +47,12 @@ const allowedDateFilterPresets: DateFilterPreset[] = [
   "90",
   "custom",
 ];
-const allowedArchiveFilters: ArchiveFilter[] = ["active", "archived", "all"];
+const allowedClosureFilters: ClosureFilter[] = [
+  "active",
+  "closed",
+  "all",
+  ...APPLICATION_OUTCOMES,
+];
 
 const isValidDateInput = (value: string | null): value is string =>
   value != null && /^\d{4}-\d{2}-\d{2}$/.test(value);
@@ -143,19 +148,19 @@ export const useOrchestratorFilters = (showSponsorInfo = true) => {
     [setSearchParams, showSponsorInfo],
   );
 
-  const archiveFilter = useMemo((): ArchiveFilter => {
-    const raw = searchParams.get("archive") ?? "active";
-    return allowedArchiveFilters.includes(raw as ArchiveFilter)
-      ? (raw as ArchiveFilter)
+  const closureFilter = useMemo((): ClosureFilter => {
+    const raw = searchParams.get("closure") ?? "active";
+    return allowedClosureFilters.includes(raw as ClosureFilter)
+      ? (raw as ClosureFilter)
       : "active";
   }, [searchParams]);
 
-  const setArchiveFilter = useCallback(
-    (value: ArchiveFilter) => {
+  const setClosureFilter = useCallback(
+    (value: ClosureFilter) => {
       setSearchParams(
         (prev) => {
-          if (value === "active") prev.delete("archive");
-          else prev.set("archive", value);
+          if (value === "active") prev.delete("closure");
+          else prev.set("closure", value);
           return prev;
         },
         { replace: true },
@@ -352,7 +357,7 @@ export const useOrchestratorFilters = (showSponsorInfo = true) => {
   const resetFilters = useCallback(() => {
     setSearchParams(
       (prev) => {
-        prev.delete("archive");
+        prev.delete("closure");
         prev.delete("source");
         prev.delete("sponsor");
         prev.delete("salaryMode");
@@ -375,11 +380,11 @@ export const useOrchestratorFilters = (showSponsorInfo = true) => {
 
   return {
     searchParams,
+    closureFilter,
+    setClosureFilter,
     sourceFilter,
     setSourceFilter,
     sponsorFilter,
-    archiveFilter,
-    setArchiveFilter,
     setSponsorFilter,
     salaryFilter,
     setSalaryFilter,
