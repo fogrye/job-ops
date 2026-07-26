@@ -1,6 +1,12 @@
 import { supportsDescriptionRefresh } from "@shared/extractors";
-import type { ApplicationTask, Job } from "@shared/types.js";
 import {
+  OUTCOME_LABELS,
+  type ApplicationTask,
+  type Job,
+  type JobOutcome,
+} from "@shared/types.js";
+import {
+  ArchiveRestore,
   CalendarClock,
   CheckCircle2,
   Copy,
@@ -25,6 +31,9 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { formatTimestamp } from "@/lib/utils";
@@ -37,6 +46,8 @@ type JobPageRightSidebarProps = {
   isReady: boolean;
   isApplied: boolean;
   isInProgress: boolean;
+  closeOutcomes: JobOutcome[];
+  isClosed: boolean;
   canLogEvents: boolean;
   isBusy: boolean;
   isUploadingPdf: boolean;
@@ -60,6 +71,8 @@ type JobPageRightSidebarProps = {
   onRescore: () => void;
   onRefreshDescription: () => void;
   onCheckSponsor?: () => void;
+  onClose: (outcome: JobOutcome) => void;
+  onReopen: () => void;
 };
 
 export const JobPageRightSidebar: React.FC<JobPageRightSidebarProps> = ({
@@ -70,6 +83,8 @@ export const JobPageRightSidebar: React.FC<JobPageRightSidebarProps> = ({
   isReady,
   isApplied,
   isInProgress,
+  closeOutcomes,
+  isClosed,
   canLogEvents,
   isBusy,
   isUploadingPdf,
@@ -93,6 +108,8 @@ export const JobPageRightSidebar: React.FC<JobPageRightSidebarProps> = ({
   onRescore,
   onRefreshDescription,
   onCheckSponsor,
+  onClose,
+  onReopen,
 }) => (
   <aside className="space-y-4 xl:sticky xl:top-5">
     <section className="rounded-xl border border-border/50 bg-card/85 p-3">
@@ -296,39 +313,38 @@ export const JobPageRightSidebar: React.FC<JobPageRightSidebarProps> = ({
                   Refresh description & recalculate
                 </DropdownMenuItem>
               )}
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onSelect={onUploadPdf} disabled={isUploadingPdf}>
-              <Upload className="mr-2 h-4 w-4" />
-              {isUploadingPdf
-                ? "Uploading PDF..."
-                : job.pdfPath
-                  ? "Replace PDF"
-                  : "Upload PDF"}
-            </DropdownMenuItem>
-            {job.pdfPath && (
-              <>
-                <DropdownMenuItem
-                  onSelect={onViewPdf}
-                  disabled={pdfActionsDisabled}
-                >
-                  <ExternalLink className="mr-2 h-4 w-4" />
-                  {pdfViewLabel}
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onSelect={onDownloadPdf}
-                  disabled={pdfActionsDisabled}
-                >
-                  <Download className="mr-2 h-4 w-4" />
-                  {pdfDownloadLabel}
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-              </>
-            )}
             {onCheckSponsor ? (
               <DropdownMenuItem onSelect={onCheckSponsor}>
                 Check sponsorship status
               </DropdownMenuItem>
             ) : null}
+            {(closeOutcomes.length > 0 || isClosed) && (
+              <DropdownMenuSeparator />
+            )}
+            {closeOutcomes.length > 0 && (
+              <DropdownMenuSub>
+                <DropdownMenuSubTrigger className="text-destructive focus:text-destructive">
+                  <XCircle className="mr-2 h-4 w-4" />
+                  Close application
+                </DropdownMenuSubTrigger>
+                <DropdownMenuSubContent>
+                  {closeOutcomes.map((outcome) => (
+                    <DropdownMenuItem
+                      key={outcome}
+                      onSelect={() => onClose(outcome)}
+                    >
+                      {OUTCOME_LABELS[outcome]}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuSubContent>
+              </DropdownMenuSub>
+            )}
+            {isClosed && (
+              <DropdownMenuItem onSelect={onReopen}>
+                <ArchiveRestore className="mr-2 h-4 w-4" />
+                Reopen
+              </DropdownMenuItem>
+            )}
           </DropdownMenuContent>
         </DropdownMenu>
       </div>

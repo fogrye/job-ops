@@ -26,6 +26,13 @@ vi.mock("@/components/ui/dropdown-menu", () => ({
     </button>
   ),
   DropdownMenuSeparator: () => <hr />,
+  DropdownMenuSub: ({ children }: { children: ReactNode }) => <>{children}</>,
+  DropdownMenuSubTrigger: ({ children }: { children: ReactNode }) => (
+    <button type="button">{children}</button>
+  ),
+  DropdownMenuSubContent: ({ children }: { children: ReactNode }) => (
+    <div>{children}</div>
+  ),
 }));
 
 const noop = vi.fn();
@@ -50,6 +57,8 @@ function renderRightSidebar(
       isReady={job.status === "ready"}
       isApplied={job.status === "applied"}
       isInProgress={job.status === "in_progress"}
+      closeOutcomes={[]}
+      isClosed={false}
       canLogEvents={false}
       isBusy={options.isBusy ?? false}
       isUploadingPdf={false}
@@ -73,6 +82,8 @@ function renderRightSidebar(
       onRescore={noop}
       onRefreshDescription={noop}
       onCheckSponsor={options.showSponsorInfo === false ? undefined : noop}
+      onClose={noop}
+      onReopen={noop}
     />,
   );
 }
@@ -193,6 +204,8 @@ describe("JobPageRightSidebar actions", () => {
         isReady
         isApplied={false}
         isInProgress={false}
+        closeOutcomes={[]}
+        isClosed={false}
         canLogEvents={false}
         isBusy={false}
         isUploadingPdf={false}
@@ -216,13 +229,15 @@ describe("JobPageRightSidebar actions", () => {
         onRescore={noop}
         onRefreshDescription={noop}
         onCheckSponsor={noop}
+        onClose={noop}
+        onReopen={noop}
       />,
     );
 
     const downloadButtons = screen.getAllByRole("button", {
       name: /download pdf/i,
     });
-    expect(downloadButtons.length).toBeGreaterThan(1);
+    expect(downloadButtons).toHaveLength(1);
     downloadButtons[0].click();
     expect(onDownloadPdf).toHaveBeenCalledTimes(1);
   });

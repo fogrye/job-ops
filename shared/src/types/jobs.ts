@@ -45,7 +45,6 @@ export const APPLICATION_OUTCOMES = [
   "offer_declined",
   "rejected",
   "withdrawn",
-  "no_response",
   "ghosted",
 ] as const;
 export const OUTCOME_LABELS: Record<JobOutcome, string> = {
@@ -53,11 +52,23 @@ export const OUTCOME_LABELS: Record<JobOutcome, string> = {
   offer_declined: "Offer declined",
   rejected: "Rejected",
   withdrawn: "Withdrawn",
-  no_response: "No response",
   ghosted: "Ghosted",
 };
 
 export type JobOutcome = (typeof APPLICATION_OUTCOMES)[number];
+
+export function outcomesForStage(stage: ApplicationStage): JobOutcome[] {
+  if (stage === "offer") return ["offer_accepted", "offer_declined", "withdrawn"];
+  if (stage === "applied") return ["rejected", "ghosted"];
+  return ["rejected", "withdrawn", "ghosted"];
+}
+
+export function outcomesForStatus(status: JobStatus): JobOutcome[] {
+  if (status === "applied") return ["rejected", "ghosted"];
+  if (status === "in_progress") return ["rejected", "withdrawn", "ghosted"];
+  return [];
+}
+
 
 export const APPLICATION_TASK_TYPES = [
   "prep",

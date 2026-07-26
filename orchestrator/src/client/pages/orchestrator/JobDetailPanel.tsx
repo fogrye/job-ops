@@ -31,7 +31,7 @@ import {
 import { downloadJobPdf, openJobPdf } from "@client/lib/private-pdf";
 import { supportsDescriptionRefresh } from "@shared/extractors";
 import {
-  APPLICATION_OUTCOMES,
+  outcomesForStatus,
   type Job,
   type JobListItem,
   type JobOutcome,
@@ -321,7 +321,6 @@ export const JobDetailPanel: React.FC<JobDetailPanelProps> = ({
   const [isApplying, setIsApplying] = useState(false);
   const [isMoving, setIsMoving] = useState(false);
   const [isTailoring, setIsTailoring] = useState(false);
-  const [isDeclining, setIsDeclining] = useState(false);
   const [isClosing, setIsClosing] = useState(false);
   const [isEditDetailsOpen, setIsEditDetailsOpen] = useState(false);
   const [isJobDescriptionOpen, setIsJobDescriptionOpen] = useState(false);
@@ -653,39 +652,6 @@ export const JobDetailPanel: React.FC<JobDetailPanelProps> = ({
     statusActionInFlightRef,
   ]);
 
-  const handleDecline = useCallback(async () => {
-    if (
-      !selectedJob ||
-      selectedJob.closedAt != null ||
-      statusActionInFlightRef.current
-    ) {
-      return;
-    }
-    try {
-      statusActionInFlightRef.current = true;
-      setIsDeclining(true);
-      await api.updateJobOutcome(selectedJob.id, { outcome: "rejected" });
-      trackProductEvent("jobs_job_action_completed", {
-        action: "decline",
-        result: "success",
-        from_status: selectedJob.status,
-        to_status: "closed",
-      });
-      toast.message("Job declined and closed");
-      handleJobMoved(selectedJob.id);
-      refreshAfterStatusChange();
-    } catch (error) {
-      showErrorToast(error, "Failed to decline job");
-    } finally {
-      statusActionInFlightRef.current = false;
-      setIsDeclining(false);
-    }
-  }, [
-    handleJobMoved,
-    refreshAfterStatusChange,
-    selectedJob,
-    statusActionInFlightRef,
-  ]);
 
   const handleClose = useCallback(
     async (outcome: JobOutcome) => {
@@ -915,18 +881,12 @@ export const JobDetailPanel: React.FC<JobDetailPanelProps> = ({
     isTailoring ||
     isApplying ||
     isMoving ||
-    isDeclining ||
     isClosing ||
     selectedJob.status === "processing";
   const canGenerate =
     !isClosed && ["discovered", "ready"].includes(selectedJob.status);
   const canSkip =
     !isClosed && ["discovered", "ready"].includes(selectedJob.status);
-  const canDecline =
-    !isClosed &&
-    ["discovered", "ready", "applied", "in_progress"].includes(
-      selectedJob.status,
-    );
   const canClose =
     !isClosed && ["applied", "in_progress"].includes(selectedJob.status);
   const isRegeneratingPdf = isPdfRegenerating(selectedJob);
@@ -1040,25 +1000,6 @@ export const JobDetailPanel: React.FC<JobDetailPanelProps> = ({
                     Reopen
                   </DropdownMenuItem>
                 ) : null}
-                {canClose ? (
-                  <DropdownMenuSub>
-                    <DropdownMenuSubTrigger disabled={primaryBusy}>
-                      <XCircle className="mr-2 h-4 w-4" />
-                      Close application
-                    </DropdownMenuSubTrigger>
-                    <DropdownMenuSubContent>
-                      {APPLICATION_OUTCOMES.map((outcome) => (
-                        <DropdownMenuItem
-                          key={outcome}
-                          onSelect={() => void handleClose(outcome)}
-                          disabled={primaryBusy}
-                        >
-                          {OUTCOME_LABELS[outcome]}
-                        </DropdownMenuItem>
-                      ))}
-                    </DropdownMenuSubContent>
-                  </DropdownMenuSub>
-                ) : null}
                 <DropdownMenuItem onSelect={() => void handleCopyInfo()}>
                   <Copy className="mr-2 h-4 w-4" />
                   Copy job info
@@ -1161,7 +1102,7 @@ export const JobDetailPanel: React.FC<JobDetailPanelProps> = ({
                     </DropdownMenuItem>
                   </>
                 )}
-                {(canSkip || canDecline) && (
+                {(canSkip || canClose) && (
                   <>
                     <DropdownMenuSeparator />
                     {canSkip && (
@@ -1174,15 +1115,29 @@ export const JobDetailPanel: React.FC<JobDetailPanelProps> = ({
                         Skip job
                       </DropdownMenuItem>
                     )}
-                    {canDecline && (
-                      <DropdownMenuItem
-                        onSelect={() => void handleDecline()}
-                        disabled={primaryBusy}
-                        className="text-destructive focus:text-destructive"
-                      >
-                        <XCircle className="mr-2 h-4 w-4" />
-                        {isDeclining ? "Declining..." : "Decline job"}
-                      </DropdownMenuItem>
+                    {canClose && (
+                      <DropdownMenuSub>
+                        <DropdownMenuSubTrigger
+                          disabled={primaryBusy}
+                          className="text-destructive focus:text-destructive"
+                        >
+                          <XCircle className="mr-2 h-4 w-4" />
+                          Close application
+                        </DropdownMenuSubTrigger>
+                        <DropdownMenuSubContent>
+                          {outcomesForStatus(selectedJob.status).map(
+                            (outcome) => (
+                              <DropdownMenuItem
+                                key={outcome}
+                                onSelect={() => void handleClose(outcome)}
+                                disabled={primaryBusy}
+                              >
+                                {OUTCOME_LABELS[outcome]}
+                              </DropdownMenuItem>
+                            ),
+                          )}
+                        </DropdownMenuSubContent>
+                      </DropdownMenuSub>
                     )}
                   </>
                 )}

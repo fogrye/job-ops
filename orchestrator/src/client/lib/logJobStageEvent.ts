@@ -48,6 +48,9 @@ export async function logJobStageEvent({
   } else if (values.stage === "withdrawn") {
     toStage = "closed";
     outcome = "withdrawn";
+  } else if (values.stage === "ghosted") {
+    toStage = "closed";
+    outcome = "ghosted";
   }
 
   const effectiveStage = toStage === "no_change" ? currentStage : toStage;

@@ -102,6 +102,7 @@ const baseCardProps = {
   latestEventAt: LATEST_EVENT_AT,
   jobPageLinkState: JOB_PAGE_LINK_STATE,
   isMoving: false,
+  onClose: () => {},
 };
 
 export const RecruiterScreen: Story = () => (
