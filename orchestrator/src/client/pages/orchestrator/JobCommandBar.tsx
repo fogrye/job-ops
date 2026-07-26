@@ -353,11 +353,12 @@ export const JobCommandBar: React.FC<JobCommandBarProps> = ({
         ),
       });
       closeDialog();
-      onSelectJob(
-        getFilterTab(row.job),
-        row.job.id,
-        row.job.closedAt != null ? "closed" : undefined,
-      );
+      const tab = getFilterTab(row.job);
+      if (row.job.closedAt != null) {
+        onSelectJob(tab, row.job.id, "closed");
+      } else {
+        onSelectJob(tab, row.job.id);
+      }
     },
     [activeLock, applyLock, closeDialog, onSelectJob, query],
   );
