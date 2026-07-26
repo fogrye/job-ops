@@ -69,10 +69,11 @@ async function startServer() {
   }
 
   const app = createApp();
-  const PORT = process.env.PORT || 3001;
+  const PORT = Number(process.env.PORT) || 3001;
+  const listenHost = process.env.JOBOPS_LISTEN_HOST?.trim() || "0.0.0.0";
 
   // Start server
-  const server = app.listen(PORT, async () => {
+  const server = app.listen(PORT, listenHost, async () => {
     console.log(`
 ╔═══════════════════════════════════════════════════════════╗
 ║                                                           ║

@@ -158,9 +158,12 @@ function buildUmamiProxyHeaders(req: express.Request): Headers {
 }
 
 export function createAuthGuard() {
-  const testAuthBypassEnabled =
-    process.env.NODE_ENV === "test" &&
-    process.env.JOBOPS_TEST_AUTH_BYPASS === "1";
+  const authBypassEnabled =
+    (process.env.NODE_ENV === "test" &&
+      process.env.JOBOPS_TEST_AUTH_BYPASS === "1") ||
+    (process.env.NODE_ENV === "development" &&
+      process.env.JOBOPS_LOCAL_DEV_BYPASS === "true" &&
+      process.env.JOBOPS_LISTEN_HOST === "127.0.0.1");
 
   async function getAuthorizationContext(req: express.Request): Promise<{
     userId: string;
@@ -290,7 +293,7 @@ export function createAuthGuard() {
         return;
       }
 
-      if (testAuthBypassEnabled) {
+      if (authBypassEnabled) {
         runWithRequestContext(
           {
             userId: "test-user",

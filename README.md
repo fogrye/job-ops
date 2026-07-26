@@ -53,6 +53,21 @@ docker compose up -d
 
 Open `http://localhost:3005` and follow the onboarding wizard. You'll be searching in under 10 minutes.
 
+## Local visual development
+
+Use a disposable copy of a database backup; never point a second server at another worktree's live `jobs.db`.
+
+```bash
+npm run db:restore -- ../jobs_2026_07_26.db
+npm run dev:visual
+```
+
+`db:restore` copies the backup to ignored `orchestrator/data/jobs.db`. `dev:visual` binds the copied database and its unauthenticated API to loopback only, serves it at `http://localhost:5173`, and bypasses local sign-in and onboarding only in a Vite development build. AI actions remain real and will report their normal configuration errors.
+
+For a second checkout, choose its own ports: `JOBOPS_API_PORT=3102 JOBOPS_WEB_PORT=5174 npm run dev:visual`. The default API port is `3101`; the client proxies to that port automatically.
+
+For frontend work: restore when you need a clean baseline, start `npm run dev:visual`, inspect the changed route in a browser, then run the focused Vitest test. Restore again before a regression check that must begin from the same data.
+
 ---
 
 ## How It Works

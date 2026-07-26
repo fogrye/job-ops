@@ -3,7 +3,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, waitFor } from "@testing-library/react";
 import type React from "react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { OnboardingGate } from "./OnboardingGate";
 
 vi.mock("@client/api", () => ({
@@ -33,6 +33,27 @@ const createWrapper = () => {
 describe("OnboardingGate", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it("bypasses onboarding during explicit local visual development", () => {
+    vi.stubEnv("VITE_BYPASS_ONBOARDING", "true");
+
+    render(
+      <MemoryRouter initialEntries={["/overview"]}>
+        <OnboardingGate />
+        <Routes>
+          <Route path="/overview" element={<div>overview</div>} />
+          <Route path="/onboarding" element={<div>onboarding</div>} />
+        </Routes>
+      </MemoryRouter>,
+      { wrapper: createWrapper() },
+    );
+
+    expect(screen.getByText("overview")).toBeInTheDocument();
+    expect(useOnboardingStatus).not.toHaveBeenCalled();
   });
 
   it("redirects incomplete users to the onboarding page", async () => {
