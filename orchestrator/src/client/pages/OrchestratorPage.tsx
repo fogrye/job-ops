@@ -23,6 +23,7 @@ export const OrchestratorPage: React.FC = () => {
   const { settings, showSponsorInfo } = useSettings();
   const filters = useOrchestratorFilters(showSponsorInfo);
   const navigation = useOrchestratorNavigation({
+    archiveFilter: filters.archiveFilter,
     searchParams: filters.searchParams,
   });
   const {
@@ -118,6 +119,7 @@ export const OrchestratorPage: React.FC = () => {
         onOpenAutomaticRun={handleToggleAutomaticRun}
         onCancelPipeline={handleCancelPipeline}
         onOpenManualImport={() => setIsManualImportOpen(true)}
+        onOpenArchivedJobs={navigation.openArchivedJobs}
       />
 
       <main

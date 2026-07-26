@@ -2,6 +2,7 @@ import type { JobSource } from "@shared/types.js";
 import { useCallback, useEffect, useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
 import type {
+  ArchiveFilter,
   DateFilterDimension,
   DateFilterPreset,
   EmploymentType,
@@ -46,6 +47,7 @@ const allowedDateFilterPresets: DateFilterPreset[] = [
   "90",
   "custom",
 ];
+const allowedArchiveFilters: ArchiveFilter[] = ["active", "archived", "all"];
 
 const isValidDateInput = (value: string | null): value is string =>
   value != null && /^\d{4}-\d{2}-\d{2}$/.test(value);
@@ -141,6 +143,26 @@ export const useOrchestratorFilters = (showSponsorInfo = true) => {
     [setSearchParams, showSponsorInfo],
   );
 
+  const archiveFilter = useMemo((): ArchiveFilter => {
+    const raw = searchParams.get("archive") ?? "active";
+    return allowedArchiveFilters.includes(raw as ArchiveFilter)
+      ? (raw as ArchiveFilter)
+      : "active";
+  }, [searchParams]);
+
+  const setArchiveFilter = useCallback(
+    (value: ArchiveFilter) => {
+      setSearchParams(
+        (prev) => {
+          if (value === "active") prev.delete("archive");
+          else prev.set("archive", value);
+          return prev;
+        },
+        { replace: true },
+      );
+    },
+    [setSearchParams],
+  );
   const salaryFilter = useMemo((): SalaryFilter => {
     const modeRaw = searchParams.get("salaryMode") ?? "at_least";
     const mode = allowedSalaryModes.includes(modeRaw as SalaryFilterMode)
@@ -330,6 +352,7 @@ export const useOrchestratorFilters = (showSponsorInfo = true) => {
   const resetFilters = useCallback(() => {
     setSearchParams(
       (prev) => {
+        prev.delete("archive");
         prev.delete("source");
         prev.delete("sponsor");
         prev.delete("salaryMode");
@@ -355,6 +378,8 @@ export const useOrchestratorFilters = (showSponsorInfo = true) => {
     sourceFilter,
     setSourceFilter,
     sponsorFilter,
+    archiveFilter,
+    setArchiveFilter,
     setSponsorFilter,
     salaryFilter,
     setSalaryFilter,

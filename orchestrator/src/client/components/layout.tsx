@@ -2,7 +2,14 @@
  * Shared layout components for consistent page structure.
  */
 
-import { ExternalLink, type LucideIcon, Menu, UserRound } from "lucide-react";
+import {
+  ExternalLink,
+  type LucideIcon,
+  Menu,
+  PanelLeftClose,
+  PanelLeftOpen,
+  UserRound,
+} from "lucide-react";
 import type React from "react";
 import { useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
@@ -33,6 +40,149 @@ import { Tip } from "./Tip";
 // Page Header
 // ============================================================================
 
+interface NavigationPanelProps {
+  collapsed: boolean;
+  onCollapse?: () => void;
+}
+
+export const NavigationPanel: React.FC<NavigationPanelProps> = ({
+  collapsed,
+  onCollapse,
+}) => {
+  const [accountOpen, setAccountOpen] = useState(false);
+  const location = useLocation();
+  const navigate = useNavigate();
+  const { showSponsorInfo } = useSettings();
+  const { version, updateAvailable } = useVersionCheck();
+
+  const handleNavClick = (to: string, activePaths?: string[]) => {
+    if (!isNavActive(location.pathname, to, activePaths)) {
+      setTimeout(() => navigate(to), 150);
+    }
+  };
+
+  return (
+    <>
+      <nav className="flex h-full flex-col gap-2 p-3">
+        <div
+          className={cn(
+            "flex items-center",
+            collapsed ? "justify-center" : "justify-between",
+          )}
+        >
+          {!collapsed && (
+            <span className="px-2 text-sm font-semibold">JobOps</span>
+          )}
+          {onCollapse && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              aria-label={
+                collapsed ? "Expand navigation" : "Collapse navigation"
+              }
+              onClick={onCollapse}
+            >
+              {collapsed ? (
+                <PanelLeftOpen className="h-4 w-4" />
+              ) : (
+                <PanelLeftClose className="h-4 w-4" />
+              )}
+            </Button>
+          )}
+        </div>
+        {NAV_LINKS.filter(
+          ({ to }) => showSponsorInfo || to !== "/visa-sponsors",
+        ).map(({ to, label, icon: NavIcon, activePaths }) => (
+          <button
+            key={to}
+            type="button"
+            data-navigation-close
+            onClick={() => handleNavClick(to, activePaths)}
+            aria-label={label}
+            className={cn(
+              "flex items-center gap-3 rounded-md px-3 py-2 text-left text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground",
+              collapsed && "justify-center px-2",
+              isNavActive(location.pathname, to, activePaths)
+                ? "bg-accent text-accent-foreground"
+                : "text-muted-foreground",
+            )}
+          >
+            <NavIcon className="h-4 w-4 shrink-0" />
+            <span className={cn(collapsed && "sr-only")}>{label}</span>
+          </button>
+        ))}
+        <div className="mt-auto space-y-4 pt-6">
+          <div className="space-y-2 border-t border-border/60 pt-4">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              aria-label="Account"
+              onClick={() => setAccountOpen(true)}
+              className={cn(
+                "h-8 gap-2 px-2 text-xs",
+                collapsed ? "w-8 justify-center" : "w-full justify-start",
+              )}
+            >
+              <UserRound className="h-3.5 w-3.5 shrink-0" />
+              <span className={cn(collapsed && "sr-only")}>Account</span>
+            </Button>
+          </div>
+          <div
+            className={cn(
+              "flex gap-2",
+              collapsed ? "flex-col items-center" : "flex-col items-start",
+            )}
+          >
+            <a
+              href="https://github.com/DaKheera47/job-ops/releases"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label={`Version ${version}`}
+              className="flex min-w-0 items-center gap-2 text-xs text-muted-foreground transition-colors hover:text-foreground"
+            >
+              <span className={cn("truncate", collapsed && "sr-only")}>
+                Version {version}
+              </span>
+              {updateAvailable && (
+                <Tip asChild content={<p>Update available</p>}>
+                  <span className="h-2 w-2 shrink-0 cursor-pointer rounded-full bg-emerald-500" />
+                </Tip>
+              )}
+            </a>
+            <Button
+              type="button"
+              data-navigation-close
+              variant="outline"
+              size="sm"
+              aria-label="Documentation"
+              onClick={() =>
+                window.open("/docs", "_blank", "noopener,noreferrer")
+              }
+              className={cn(
+                "h-7 gap-1.5 px-2 text-xs",
+                collapsed && "w-8 justify-center px-0",
+              )}
+            >
+              <span className={cn(collapsed && "sr-only")}>Documentation</span>
+              <ExternalLink className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+        </div>
+      </nav>
+      <Dialog open={accountOpen} onOpenChange={setAccountOpen}>
+        <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-xl">
+          <DialogHeader>
+            <DialogTitle>Account</DialogTitle>
+          </DialogHeader>
+          <AccountSettingsSection layoutMode="panel" />
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+};
+
 interface PageHeaderProps {
   icon: LucideIcon | React.FC<{ className?: string }>;
   title: string;
@@ -52,27 +202,12 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
   badge,
   statusIndicator,
   actions,
-  showVersionFooter = true,
   navOpen: controlledNavOpen,
   onNavOpenChange,
 }) => {
-  const [accountOpen, setAccountOpen] = useState(false);
-  const location = useLocation();
-  const navigate = useNavigate();
   const [internalNavOpen, setInternalNavOpen] = useState(false);
   const navOpen = controlledNavOpen ?? internalNavOpen;
   const setNavOpen = onNavOpenChange ?? setInternalNavOpen;
-  const { showSponsorInfo } = useSettings();
-  const { version, updateAvailable } = useVersionCheck();
-
-  const handleNavClick = (to: string, activePaths?: string[]) => {
-    if (isNavActive(location.pathname, to, activePaths)) {
-      setNavOpen(false);
-      return;
-    }
-    setNavOpen(false);
-    setTimeout(() => navigate(to), 150);
-  };
 
   return (
     <header className="sticky top-0 z-40 border-b bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -80,82 +215,26 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
         <div className="flex min-w-0 items-center gap-3">
           <Sheet open={navOpen} onOpenChange={setNavOpen}>
             <SheetTrigger asChild>
-              <Button variant="ghost" size="icon">
+              <Button variant="ghost" size="icon" className="lg:hidden">
                 <Menu className="h-5 w-5" />
                 <span className="sr-only">Open navigation menu</span>
               </Button>
             </SheetTrigger>
-            <SheetContent side="left" className="w-64 flex flex-col">
-              <SheetHeader>
+            <SheetContent
+              side="left"
+              className="flex w-64 flex-col p-0"
+              onClickCapture={(event) => {
+                if (
+                  (event.target as Element).closest("[data-navigation-close]")
+                ) {
+                  setNavOpen(false);
+                }
+              }}
+            >
+              <SheetHeader className="sr-only">
                 <SheetTitle>JobOps</SheetTitle>
               </SheetHeader>
-              <nav className="mt-6 flex flex-col gap-2">
-                {NAV_LINKS.filter(
-                  ({ to }) => showSponsorInfo || to !== "/visa-sponsors",
-                ).map(({ to, label, icon: NavIcon, activePaths }) => (
-                  <button
-                    key={to}
-                    type="button"
-                    onClick={() => handleNavClick(to, activePaths)}
-                    className={cn(
-                      "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground text-left",
-                      isNavActive(location.pathname, to, activePaths)
-                        ? "bg-accent text-accent-foreground"
-                        : "text-muted-foreground",
-                    )}
-                  >
-                    <NavIcon className="h-4 w-4" />
-                    {label}
-                  </button>
-                ))}
-              </nav>
-              <div className="mt-auto space-y-4 pt-6 pb-2">
-                <div className="space-y-2 border-t border-border/60 pt-4">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      setNavOpen(false);
-                      setAccountOpen(true);
-                    }}
-                    className="h-8 w-full justify-start gap-2 px-2 text-xs"
-                  >
-                    <UserRound className="h-3.5 w-3.5" />
-                    <span>Account</span>
-                  </Button>
-                </div>
-                {showVersionFooter && (
-                  <div className="flex flex-col items-start gap-2">
-                    <a
-                      href="https://github.com/DaKheera47/job-ops/releases"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex min-w-0 items-center gap-2 text-xs text-muted-foreground transition-colors hover:text-foreground"
-                    >
-                      <span className="truncate">Version {version}</span>
-                      {updateAvailable && (
-                        <Tip asChild content={<p>Update available</p>}>
-                          <span className="h-2 w-2 shrink-0 cursor-pointer rounded-full bg-emerald-500" />
-                        </Tip>
-                      )}
-                    </a>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        setNavOpen(false);
-                        window.open("/docs", "_blank", "noopener,noreferrer");
-                      }}
-                      className="h-7 gap-1.5 px-2 text-xs"
-                    >
-                      <span>Documentation</span>
-                      <ExternalLink className="h-3.5 w-3.5" />
-                    </Button>
-                  </div>
-                )}
-              </div>
+              <NavigationPanel collapsed={false} />
             </SheetContent>
           </Sheet>
 
@@ -178,14 +257,6 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
           {actions}
         </div>
       </div>
-      <Dialog open={accountOpen} onOpenChange={setAccountOpen}>
-        <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-xl">
-          <DialogHeader>
-            <DialogTitle>Account</DialogTitle>
-          </DialogHeader>
-          <AccountSettingsSection layoutMode="panel" />
-        </DialogContent>
-      </Dialog>
     </header>
   );
 };

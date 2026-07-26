@@ -1,21 +1,9 @@
 import { KbdHint } from "@client/components/KbdHint";
 import { Tip } from "@client/components/Tip";
 import { getDisplayKey, SHORTCUTS } from "@client/lib/shortcut-map";
-import {
-  Archive,
-  Filter,
-  MoreHorizontal,
-  RotateCcw,
-  Search,
-} from "lucide-react";
+import { Filter, RotateCcw, Search } from "lucide-react";
 import type React from "react";
 import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import { tabs } from "../constants";
@@ -23,9 +11,7 @@ import { tabDescriptions } from "./filterOptions";
 import type { OrchestratorTabRowProps } from "./types";
 
 export const OrchestratorTabRow: React.FC<OrchestratorTabRowProps> = ({
-  activeTab,
   counts,
-  onTabChange,
   onOpenCommandBar,
   isFiltersOpen,
   onFiltersOpenChange,
@@ -71,36 +57,6 @@ export const OrchestratorTabRow: React.FC<OrchestratorTabRowProps> = ({
       </TabsList>
 
       <div className="flex items-center gap-2 self-start lg:self-auto">
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className={cn(
-                "h-8 gap-1.5 text-xs",
-                activeTab === "archive" && "bg-accent text-accent-foreground",
-              )}
-              aria-label="Open archived jobs"
-            >
-              <Archive className="h-3.5 w-3.5" />
-              Archive
-              {counts.archive > 0 ? (
-                <span className="text-[10px] tabular-nums opacity-60">
-                  {counts.archive}
-                </span>
-              ) : null}
-              <MoreHorizontal className="h-3.5 w-3.5" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start">
-            <DropdownMenuItem onSelect={() => onTabChange("archive")}>
-              <Archive className="mr-2 h-4 w-4" />
-              View archived jobs
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-
         {isFiltersOpen && activeFilterCount > 0 ? (
           <Button
             type="button"

@@ -4,7 +4,7 @@ import type { Job, JobListItem, JobStatus } from "@shared/types.js";
 import type React from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { VirtualListHandle } from "@/client/lib/virtual-list";
-import { type FilterTab, jobMatchesTab } from "./constants";
+import { type ArchiveFilter, type FilterTab, jobMatchesTab } from "./constants";
 import { FloatingJobActionsBar } from "./FloatingJobActionsBar";
 import { OrchestratorJobsWorkspace } from "./OrchestratorJobsWorkspace";
 import { OrchestratorMobileJobDrawer } from "./OrchestratorMobileJobDrawer";
@@ -67,6 +67,7 @@ export const OrchestratorJobWorkspaceContainer: React.FC<
   );
   const activeJobs = useFilteredJobs(jobs, {
     activeTab: navigation.activeTab,
+    archiveFilter: filters.archiveFilter,
     dateFilter: filters.dateFilter,
     sourceFilter: filters.sourceFilter,
     sponsorFilter: filters.sponsorFilter,
@@ -86,16 +87,24 @@ export const OrchestratorJobWorkspaceContainer: React.FC<
 
   const visibleSelectedJob = useMemo(() => {
     if (!selectedJob) return null;
-    return jobMatchesTab(selectedJob, navigation.activeTab)
+    return jobMatchesTab(
+      selectedJob,
+      navigation.activeTab,
+      filters.archiveFilter,
+    )
       ? selectedJob
       : null;
-  }, [navigation.activeTab, selectedJob]);
+  }, [filters.archiveFilter, navigation.activeTab, selectedJob]);
   const visibleSelectedJobListItem = useMemo(() => {
     if (!selectedJobListItem) return null;
-    return jobMatchesTab(selectedJobListItem, navigation.activeTab)
+    return jobMatchesTab(
+      selectedJobListItem,
+      navigation.activeTab,
+      filters.archiveFilter,
+    )
       ? selectedJobListItem
       : null;
-  }, [navigation.activeTab, selectedJobListItem]);
+  }, [filters.archiveFilter, navigation.activeTab, selectedJobListItem]);
 
   const {
     selectedJobIds,
@@ -163,11 +172,10 @@ export const OrchestratorJobWorkspaceContainer: React.FC<
     runJobAction,
     loadJobs,
   });
-
   const handleCommandSelectJob = useCallback(
-    (targetTab: FilterTab, id: string) => {
+    (targetTab: FilterTab, id: string, archiveFilter?: ArchiveFilter) => {
       requestScrollToJob(id, { ensureSelected: true });
-      navigation.navigateToCommandJob(targetTab, id);
+      navigation.navigateToCommandJob(targetTab, id, archiveFilter);
       ui.openDetailDrawerForMobile();
     },
     [navigation, requestScrollToJob, ui],
@@ -250,6 +258,7 @@ export const OrchestratorJobWorkspaceContainer: React.FC<
           isCommandBarOpen={ui.isCommandBarOpen}
           commandBarEnabled={!ui.isAnyModalOpenExcludingCommandBar}
           sourceFilter={filters.sourceFilter}
+          archiveFilter={filters.archiveFilter}
           sponsorFilter={filters.sponsorFilter}
           salaryFilter={filters.salaryFilter}
           postedWithinDays={filters.postedWithinDays}
@@ -270,6 +279,7 @@ export const OrchestratorJobWorkspaceContainer: React.FC<
           onFiltersOpenChange={ui.setIsFiltersOpen}
           onSourceFilterChange={filters.setSourceFilter}
           showSponsorInfo={showSponsorInfo}
+          onArchiveFilterChange={filters.setArchiveFilter}
           onSponsorFilterChange={filters.setSponsorFilter}
           onSalaryFilterChange={filters.setSalaryFilter}
           onPostedWithinChange={filters.setPostedWithinDays}

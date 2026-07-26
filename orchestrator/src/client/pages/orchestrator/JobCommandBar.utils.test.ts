@@ -73,13 +73,13 @@ describe("closed job tab routing", () => {
     closedAt: 1,
   });
 
-  it("removes a closed selection from active tabs while retaining it in Archive", () => {
+  it("hides a closed selection from active tabs and default All Jobs", () => {
     expect(jobMatchesTab(closedAppliedJob, "applied")).toBe(false);
     expect(jobMatchesTab(closedAppliedJob, "all")).toBe(false);
-    expect(jobMatchesTab(closedAppliedJob, "archive")).toBe(true);
+    expect(jobMatchesTab(closedAppliedJob, "all", "archived")).toBe(true);
   });
 
-  it("routes a closed applied job to Archive rather than Applied", () => {
-    expect(getFilterTab(closedAppliedJob)).toBe("archive");
+  it("routes a closed applied job through All Jobs", () => {
+    expect(getFilterTab(closedAppliedJob)).toBe("all");
   });
 });

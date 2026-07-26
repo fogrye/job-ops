@@ -1,6 +1,7 @@
 import { PageHeader, StatusIndicator } from "@client/components/layout";
 import type { JobSource } from "@shared/types.js";
 import {
+  Archive,
   FileText,
   Loader2,
   MoreHorizontal,
@@ -28,6 +29,7 @@ interface OrchestratorHeaderProps {
   onOpenAutomaticRun: () => void;
   onCancelPipeline: () => void;
   onOpenManualImport: () => void;
+  onOpenArchivedJobs: () => void;
 }
 
 export const OrchestratorHeader: React.FC<OrchestratorHeaderProps> = ({
@@ -41,6 +43,7 @@ export const OrchestratorHeader: React.FC<OrchestratorHeaderProps> = ({
   onOpenAutomaticRun,
   onCancelPipeline,
   onOpenManualImport,
+  onOpenArchivedJobs,
 }) => {
   const primaryAction = hideRunAction ? null : isPipelineRunning ? (
     <Button
@@ -99,6 +102,13 @@ export const OrchestratorHeader: React.FC<OrchestratorHeaderProps> = ({
           >
             <FileText className="h-4 w-4" />
             Import job manually
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            onSelect={onOpenArchivedJobs}
+            className="cursor-pointer gap-2"
+          >
+            <Archive className="h-4 w-4" />
+            View archived jobs
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>

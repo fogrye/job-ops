@@ -96,6 +96,26 @@ describe("useOrchestratorFilters", () => {
     expect(getLocation()).toBe("/all");
   });
 
+  it("round-trips archive visibility and resets it with other filters", () => {
+    const { Wrapper, getLocation } = createWrapper("/jobs/all?source=manual");
+    const { result } = renderHook(() => useOrchestratorFilters(), {
+      wrapper: Wrapper,
+    });
+
+    expect(result.current.archiveFilter).toBe("active");
+    act(() => result.current.setArchiveFilter("archived"));
+    expect(getLocation()).toBe("/jobs/all?source=manual&archive=archived");
+
+    act(() => result.current.setArchiveFilter("active"));
+    expect(getLocation()).toBe("/jobs/all?source=manual");
+
+    act(() => result.current.setArchiveFilter("all"));
+    expect(getLocation()).toBe("/jobs/all?source=manual&archive=all");
+
+    act(() => result.current.resetFilters());
+    expect(getLocation()).toBe("/jobs/all");
+  });
+
   it("strips sponsor URL state when sponsorship is disabled", async () => {
     const { Wrapper, getLocation } = createWrapper("/all?sponsor=confirmed");
     const { result } = renderHook(() => useOrchestratorFilters(false), {

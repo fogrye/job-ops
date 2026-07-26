@@ -65,6 +65,7 @@ const renderHeader = (
     onOpenAutomaticRun: vi.fn(),
     onCancelPipeline: vi.fn(),
     onOpenManualImport: vi.fn(),
+    onOpenArchivedJobs: vi.fn(),
     ...overrides,
   };
 
@@ -107,6 +108,16 @@ describe("OrchestratorHeader", () => {
     );
 
     expect(props.onOpenManualImport).toHaveBeenCalled();
+  });
+
+  it("opens archived jobs from the overflow menu", () => {
+    const { props } = renderHeader();
+
+    fireEvent.click(
+      screen.getByRole("menuitem", { name: /view archived jobs/i }),
+    );
+
+    expect(props.onOpenArchivedJobs).toHaveBeenCalled();
   });
 
   it("hides the run action while keeping manual import reachable", () => {
