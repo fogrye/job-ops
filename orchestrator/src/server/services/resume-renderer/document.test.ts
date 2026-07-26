@@ -261,7 +261,7 @@ describe("normalizeResumeJsonToLatexDocument", () => {
     expect(document.sectionTitles?.summary).toBe("About");
   });
 
-  it("links every employer title with its website", () => {
+  it("links employer titles only when explicitly enabled", () => {
     const document = normalizeResumeJsonToLatexDocument({
       sections: {
         experience: {
@@ -288,8 +288,8 @@ describe("normalizeResumeJsonToLatexDocument", () => {
 
     expect(document.experience.map((entry) => entry.url)).toEqual([
       "https://enabled.example.com",
-      "https://disabled.example.com",
-      "https://unconfigured.example.com",
+      undefined,
+      undefined,
     ]);
   });
 

@@ -364,7 +364,9 @@ function buildExperienceEntries(resumeJson: RecordLike): LatexResumeEntry[] {
       date: toText(item.period) || null,
       description: extractDescription(item.description),
       bullets: extractBullets(item.description),
-      url: toText(getByPath(item, "website.url")) || undefined,
+      url: toBoolean(getByPath(item, "options.showLinkInTitle"))
+        ? toText(getByPath(item, "website.url")) || undefined
+        : undefined,
     }),
   );
 }
