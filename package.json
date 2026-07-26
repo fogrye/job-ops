@@ -26,6 +26,9 @@
     "release:set-version": "node ./scripts/set-orchestrator-version.mjs",
     "db:restore": "node ./scripts/restore-local-db.mjs",
     "dev:visual": "npm --workspace orchestrator run dev:visual",
+    "secrets:scan": "gitleaks dir . --redact --no-banner",
+    "secrets:staged": "gitleaks git --pre-commit --staged --redact --no-banner",
+    "prepare": "node ./scripts/install-git-hooks.mjs",
     "knip": "knip"
   },
   "devDependencies": {

@@ -1,0 +1,34 @@
+[extend]
+useDefault = true
+
+[[rules]]
+id = "generic-api-key"
+[[rules.allowlists]]
+description = "example credential placeholder"
+regexTarget = "line"
+regexes = [ '''^UKVISAJOBS_PASSWORD=replace-me$''' ]
+[[rules.allowlists]]
+description = "test JWT fixture"
+regexTarget = "line"
+regexes = [ '''JWT_SECRET: "an-explicit-jwt-secret-with-at-least-32-chars"''' ]
+
+[[rules]]
+id = "jwt"
+[[rules.allowlists]]
+description = "public GolangJobs Supabase anon key"
+regexTarget = "secret"
+regexes = [ '''^eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9\.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im12anlqemVzdG1jeHhtbW1ha2VjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDM2NDMyNzksImV4cCI6MjA1OTIxOTI3OX0\.AEucvhTZofaPFnPmnCMM2ptuE3Iy06_uao4n-6AmEgM$''' ]
+
+[[rules]]
+id = "linkedin-client-id"
+[[rules.allowlists]]
+description = "extractor source fixture"
+regexTarget = "line"
+regexes = [ '''\["linkedin", [a-z]+Manifest as any\]''' ]
+
+[[rules]]
+id = "linkedin-client-secret"
+[[rules.allowlists]]
+description = "extractor source fixture"
+regexTarget = "line"
+regexes = [ '''\["linkedin", [a-z]+Manifest as any\]''' ]

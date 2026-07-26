@@ -30,6 +30,8 @@ describe("server product analytics", () => {
   const originalNodeEnv = process.env.NODE_ENV;
   const originalBaseUrl = process.env.JOBOPS_PUBLIC_BASE_URL;
   const originalAppVersion = process.env.JOBOPS_APP_VERSION;
+  const originalOpenPanelClientSecret =
+    process.env.JOBOPS_OPENPANEL_CLIENT_SECRET;
   const fetchMock = vi.fn<typeof fetch>();
   const getMockUmami = () =>
     (typeof umamiModule === "object" &&
@@ -49,6 +51,7 @@ describe("server product analytics", () => {
       "https://openpanel.dakheera47.com/api";
     process.env.JOBOPS_OPENPANEL_CLIENT_ID =
       "6a953241-309b-4e5a-be1b-412c5d7b6544";
+    process.env.JOBOPS_OPENPANEL_CLIENT_SECRET = "test-openpanel-secret";
     vi.clearAllMocks();
     fetchMock.mockReset();
     fetchMock.mockResolvedValue(new Response(null, { status: 200 }));
@@ -69,6 +72,12 @@ describe("server product analytics", () => {
       delete process.env.JOBOPS_APP_VERSION;
     } else {
       process.env.JOBOPS_APP_VERSION = originalAppVersion;
+    }
+    if (originalOpenPanelClientSecret === undefined) {
+      delete process.env.JOBOPS_OPENPANEL_CLIENT_SECRET;
+    } else {
+      process.env.JOBOPS_OPENPANEL_CLIENT_SECRET =
+        originalOpenPanelClientSecret;
     }
   });
 

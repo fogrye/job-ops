@@ -222,9 +222,7 @@ export const JobDescriptionPanel: React.FC<JobDescriptionPanelProps> = ({
     <Accordion
       type="single"
       collapsible
-      value={
-        open === undefined ? undefined : open ? "job-description" : ""
-      }
+      value={open === undefined ? undefined : open ? "job-description" : ""}
       defaultValue={
         open === undefined && defaultOpen ? "job-description" : undefined
       }
