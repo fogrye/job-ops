@@ -84,6 +84,7 @@ let mockAutomaticRunValues: AutomaticRunValues = {
   matchStrictness: "exact_only",
 };
 const mockJobListScrollToIndex = vi.fn();
+const mockStartTailoring = vi.fn();
 let mockIsLoading = false;
 let mockLoadJobs = vi.fn();
 const mockSeedJob = vi.fn();
@@ -342,19 +343,37 @@ vi.mock("./orchestrator/JobDetailPanel", () => ({
   JobDetailPanel: ({
     selectedJob,
     onNavigateToStatus,
+    onStartTailoring,
+    startTailoringToken,
   }: {
     selectedJob: Job | null;
     onNavigateToStatus: (status: Job["status"], jobId: string) => void;
+    onStartTailoring?: () => void;
+    startTailoringToken?: number;
   }) => (
-    <div data-testid="detail-panel">
+    <div
+      data-testid="detail-panel"
+      data-start-tailoring-token={startTailoringToken ?? 0}
+    >
       {selectedJob?.appliedDuplicateMatch ? "Previously Applied" : "No match"}
       {selectedJob ? (
-        <button
-          type="button"
-          onClick={() => onNavigateToStatus("in_progress", selectedJob.id)}
-        >
-          Open In Progress
-        </button>
+        <>
+          <button
+            type="button"
+            onClick={() => onNavigateToStatus("in_progress", selectedJob.id)}
+          >
+            Open In Progress
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              onStartTailoring?.();
+              mockStartTailoring();
+            }}
+          >
+            Start Tailoring
+          </button>
+        </>
       ) : null}
     </div>
   ),
@@ -1649,6 +1668,35 @@ describe("OrchestratorPage", () => {
     );
   });
 
+  it("opens the In Progress board directly", async () => {
+    window.matchMedia = createMatchMedia(
+      true,
+    ) as unknown as typeof window.matchMedia;
+
+    render(
+      <MemoryRouter initialEntries={["/jobs/ready/job-1"]}>
+        <LocationWatcher />
+        <Routes>
+          <Route path="/jobs/:tab/:jobId" element={<OrchestratorPage />} />
+          <Route
+            path="/applications/in-progress"
+            element={<div>In Progress Board</div>}
+          />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Open In Progress" }),
+    );
+
+    await waitFor(() =>
+      expect(screen.getByTestId("location")).toHaveTextContent(
+        "/applications/in-progress",
+      ),
+    );
+  });
+
   it("opens the listing from summary data while full job details load", () => {
     window.matchMedia = createMatchMedia(
       true,
@@ -1730,18 +1778,40 @@ describe("OrchestratorPage", () => {
     fireEvent.click(screen.getByTestId("select-job-2"));
 
     pressKey("r");
-    await waitFor(() => {
-      expect(toast.message).toHaveBeenCalledWith("Moving job to Ready...");
-      expect(api.processJob).toHaveBeenCalledWith("job-2");
-    });
-    expect(mockSeedJob).toHaveBeenCalledWith(readyJob);
+    await Promise.resolve();
+    expect(api.processJob).not.toHaveBeenCalled();
+  });
+
+  it("increments the tailoring token from the move-to-ready shortcut", async () => {
+    mockJobs = [job2];
+    mockSelectedJob = job2;
+    window.matchMedia = createMatchMedia(
+      true,
+    ) as unknown as typeof window.matchMedia;
+
+    render(
+      <MemoryRouter initialEntries={["/jobs/discovered"]}>
+        <Routes>
+          <Route path="/jobs/:tab" element={<OrchestratorPage />} />
+          <Route path="/jobs/:tab/:jobId" element={<OrchestratorPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    pressKey("r");
+
+    await waitFor(() =>
+      expect(screen.getByTestId("detail-panel")).toHaveAttribute(
+        "data-start-tailoring-token",
+        "1",
+      ),
+    );
   });
 
   it("toggles the help dialog with shortcut", async () => {
     window.matchMedia = createMatchMedia(
       true,
     ) as unknown as typeof window.matchMedia;
-
     render(
       <MemoryRouter initialEntries={["/jobs/ready"]}>
         <Routes>

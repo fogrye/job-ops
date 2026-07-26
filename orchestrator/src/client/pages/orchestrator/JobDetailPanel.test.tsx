@@ -318,43 +318,20 @@ describe("JobDetailPanel", () => {
 
   it("starts tailoring from the detail action", async () => {
     const job = createJob({ id: "job-99", status: "discovered" });
+    const onStartTailoring = vi.fn();
 
     await renderJobDetailPanel({
       activeTab: "discovered",
       activeJobs: [job],
       selectedJob: job,
       onSelectJobId: vi.fn(),
+      onStartTailoring,
       onJobUpdated: vi.fn().mockResolvedValue(undefined),
     });
 
     fireEvent.click(screen.getByRole("button", { name: /start tailoring/i }));
 
-    expect(screen.getByTestId("tailoring-workspace")).toHaveAttribute(
-      "data-start-generation-token",
-      "1",
-    );
-  });
-
-  it("consumes a tailoring start request before the workspace can remount", async () => {
-    const job = createJob({ id: "job-99", status: "discovered" });
-
-    await renderJobDetailPanel({
-      activeTab: "discovered",
-      activeJobs: [job],
-      selectedJob: job,
-      onSelectJobId: vi.fn(),
-      onJobUpdated: vi.fn().mockResolvedValue(undefined),
-    });
-
-    fireEvent.click(screen.getByRole("button", { name: /start tailoring/i }));
-    fireEvent.click(
-      screen.getByRole("button", { name: /consume tailoring start/i }),
-    );
-
-    expect(screen.getByTestId("tailoring-workspace")).toHaveAttribute(
-      "data-start-generation-token",
-      "0",
-    );
+    expect(onStartTailoring).toHaveBeenCalledTimes(1);
   });
 
   it("completes tailoring and navigates to Ready from one start", async () => {
@@ -387,7 +364,7 @@ describe("JobDetailPanel", () => {
     expect(onNavigateToStatus).toHaveBeenCalledWith("ready", "job-99");
   });
 
-  it("offers completion retry from persisted tailoring after remount", async () => {
+  it("offers completion from persisted tailoring after remount", async () => {
     const job = createJob({
       id: "job-99",
       status: "discovered",
@@ -407,12 +384,14 @@ describe("JobDetailPanel", () => {
     });
 
     fireEvent.click(screen.getByRole("button", { name: /finish tailoring/i }));
+    fireEvent.click(
+      screen.getByRole("button", { name: /complete tailoring/i }),
+    );
 
     await waitFor(() =>
       expect(api.generateJobPdf).toHaveBeenCalledWith("job-99"),
     );
   });
-
   it("shows stale PDF copy and old-PDF actions in the application kit", async () => {
     const job = createJob({
       status: "ready",

@@ -47,6 +47,7 @@ interface TailoringWorkspaceEditorProps extends TailoringWorkspaceBaseProps {
   startGenerationToken?: number;
   onStartGenerationConsumed?: () => void;
   onGenerationChange?: (isGenerating: boolean) => void;
+  onGenerationError?: () => void;
   onTailoringCompleted?: (job: Job) => void | Promise<void>;
 }
 
@@ -465,6 +466,7 @@ export const TailoringWorkspace: React.FC<TailoringWorkspaceProps> = (
           if (isMountedRef.current) setExperienceView(null);
         });
     } catch (error) {
+      props.onGenerationError?.();
       showErrorToast(error, "AI generation failed");
     } finally {
       if (isMountedRef.current) setGenerateTarget(null);
@@ -475,6 +477,7 @@ export const TailoringWorkspace: React.FC<TailoringWorkspaceProps> = (
     props.job.id,
     props.onTailoringCompleted,
     props.onUpdate,
+    props.onGenerationError,
   ]);
 
   useEffect(() => {

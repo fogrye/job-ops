@@ -2,7 +2,7 @@ import { KeyboardShortcutBar } from "@client/components/KeyboardShortcutBar";
 import { KeyboardShortcutDialog } from "@client/components/KeyboardShortcutDialog";
 import type { Job, JobListItem, JobStatus } from "@shared/types.js";
 import type React from "react";
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { VirtualListHandle } from "@/client/lib/virtual-list";
 import { type FilterTab, jobMatchesTab } from "./constants";
 import { FloatingJobActionsBar } from "./FloatingJobActionsBar";
@@ -60,6 +60,11 @@ export const OrchestratorJobWorkspaceContainer: React.FC<
 }) => {
   const jobListHandleRef = useRef<VirtualListHandle | null>(null);
   const statusActionInFlightRef = useRef(false);
+  const [startTailoringToken, setStartTailoringToken] = useState(0);
+  const requestStartTailoring = useCallback(
+    () => setStartTailoringToken((token) => token + 1),
+    [],
+  );
   const activeJobs = useFilteredJobs(jobs, {
     activeTab: navigation.activeTab,
     dateFilter: filters.dateFilter,
@@ -144,6 +149,7 @@ export const OrchestratorJobWorkspaceContainer: React.FC<
     selectedJobSummary: visibleSelectedJobListItem,
     selectedJobIds,
     isDesktop: ui.isDesktop,
+    startTailoring: requestStartTailoring,
     handleSelectJobId: navigation.handleSelectJobId,
     requestScrollToJob,
     setActiveTab: handleTabChange,
@@ -279,6 +285,9 @@ export const OrchestratorJobWorkspaceContainer: React.FC<
           onNavigateToStatus={navigation.navigateToStatus}
           onJobUpdated={loadJobs}
           onJobMutation={seedJob}
+          onStartTailoring={requestStartTailoring}
+          startTailoringToken={startTailoringToken}
+          onStartTailoringConsumed={() => setStartTailoringToken(0)}
           onPauseRefreshChange={setIsRefreshPaused}
           onRetrySelectedJob={retrySelectedJob}
           statusActionInFlightRef={statusActionInFlightRef}

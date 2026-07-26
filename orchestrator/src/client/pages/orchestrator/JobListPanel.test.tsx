@@ -80,6 +80,9 @@ describe("JobListPanel", () => {
     expect(
       screen.getByRole("button", { name: /run search/i }),
     ).toBeInTheDocument();
+    expect(
+      screen.getByText("No jobs found").parentElement?.parentElement,
+    ).toHaveClass("lg:sticky");
   });
 
   it("fires empty state actions when provided", () => {

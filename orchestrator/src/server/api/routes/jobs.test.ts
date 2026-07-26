@@ -1798,6 +1798,42 @@ describe.sequential("Jobs API routes", () => {
     );
     expect((await getJobById(job.id))?.status).toBe("discovered");
   });
+  it("archives a declined job and restores it without changing its last active status", async () => {
+    const { createJob, getJobById, updateJob } = await import(
+      "@server/repositories/jobs"
+    );
+    const job = await createJob({
+      source: "manual",
+      title: "Archive Restore Role",
+      employer: "Acme",
+      jobUrl: "https://example.com/job/archive-restore",
+    });
+    await updateJob(job.id, { status: "applied" });
+
+    const archiveRes = await fetch(`${baseUrl}/api/jobs/${job.id}/outcome`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ outcome: "rejected" }),
+    });
+    expect(archiveRes.status).toBe(200);
+    expect(await getJobById(job.id)).toMatchObject({
+      status: "applied",
+      outcome: "rejected",
+      closedAt: expect.any(Number),
+    });
+
+    const restoreRes = await fetch(`${baseUrl}/api/jobs/${job.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ outcome: null, closedAt: null }),
+    });
+    expect(restoreRes.status).toBe(200);
+    expect(await getJobById(job.id)).toMatchObject({
+      status: "applied",
+      outcome: null,
+      closedAt: null,
+    });
+  });
 
   it("rescoring a job updates the suitability fields", async () => {
     const { createJob } = await import("@server/repositories/jobs");

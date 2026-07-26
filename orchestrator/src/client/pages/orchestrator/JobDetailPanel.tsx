@@ -37,6 +37,8 @@ import type {
 } from "@shared/types.js";
 import {
   AlertTriangle,
+  Archive,
+  ArchiveRestore,
   ArrowRight,
   CheckCircle2,
   CircleAlert,
@@ -94,6 +96,9 @@ interface JobDetailPanelProps {
   onJobMutation: (job: Job) => void;
   onPauseRefreshChange?: (paused: boolean) => void;
   onRetrySelectedJob: () => void;
+  onStartTailoring?: () => void;
+  startTailoringToken?: number;
+  onStartTailoringConsumed?: () => void;
   statusActionInFlightRef: React.MutableRefObject<boolean>;
 }
 
@@ -299,6 +304,9 @@ export const JobDetailPanel: React.FC<JobDetailPanelProps> = ({
   onJobMutation,
   onPauseRefreshChange,
   onRetrySelectedJob,
+  onStartTailoring,
+  startTailoringToken,
+  onStartTailoringConsumed,
   statusActionInFlightRef,
 }) => {
   const [inspectorTab, setInspectorTab] = useState<InspectorTab>(() =>
@@ -308,7 +316,6 @@ export const JobDetailPanel: React.FC<JobDetailPanelProps> = ({
   const [isApplying, setIsApplying] = useState(false);
   const [isMoving, setIsMoving] = useState(false);
   const [isTailoring, setIsTailoring] = useState(false);
-  const [tailoringStartToken, setTailoringStartToken] = useState(0);
   const [isDeclining, setIsDeclining] = useState(false);
   const [isEditDetailsOpen, setIsEditDetailsOpen] = useState(false);
   const [catalog, setCatalog] = useState<ResumeProjectCatalogItem[]>([]);
@@ -318,7 +325,6 @@ export const JobDetailPanel: React.FC<JobDetailPanelProps> = ({
   );
   const uploadPdfInputRef = useRef<HTMLInputElement | null>(null);
   const previousSelectionKeyRef = useRef<string | null>(null);
-  const tailoringStartTokenRef = useRef(0);
   const markAsAppliedMutation = useMarkAsAppliedMutation();
   const skipJobMutation = useSkipJobMutation();
   const { isRescoring, rescoreJob } = useRescoreJob(onJobUpdated);
@@ -462,20 +468,21 @@ export const JobDetailPanel: React.FC<JobDetailPanelProps> = ({
     ) {
       return;
     }
+    statusActionInFlightRef.current = true;
     setInspectorTab("tailoring");
-    setTailoringStartToken(++tailoringStartTokenRef.current);
-  }, [selectedJob, statusActionInFlightRef]);
+    onStartTailoring?.();
+  }, [onStartTailoring, selectedJob, statusActionInFlightRef]);
+
   const completeTailoring = useCallback(
     async (tailoredJob: Job) => {
       if (
         tailoredJob.closedAt != null ||
         tailoredJob.status !== "discovered" ||
-        statusActionInFlightRef.current
+        statusActionInFlightRef.current === false
       ) {
         return;
       }
       try {
-        statusActionInFlightRef.current = true;
         setIsProcessing(true);
         onJobMutation(tailoredJob);
         const readyJob = await api.generateJobPdf(tailoredJob.id);
@@ -505,17 +512,6 @@ export const JobDetailPanel: React.FC<JobDetailPanelProps> = ({
       statusActionInFlightRef,
     ],
   );
-
-  const handleMarkReady = useCallback(async () => {
-    if (
-      !selectedJob ||
-      !selectedJob.tailoredSummary ||
-      !selectedJob.tailoredSkills
-    ) {
-      return;
-    }
-    await completeTailoring(selectedJob);
-  }, [completeTailoring, selectedJob]);
 
   const handleMarkApplied = useCallback(async () => {
     if (
@@ -562,11 +558,7 @@ export const JobDetailPanel: React.FC<JobDetailPanelProps> = ({
   const handlePrimaryAction = useCallback(async () => {
     if (!selectedJob) return;
     if (selectedJob.status === "discovered") {
-      if (canCompleteTailoring) {
-        await handleMarkReady();
-      } else {
-        handleStartTailoring();
-      }
+      handleStartTailoring();
       return;
     }
     if (selectedJob.status === "ready") {
@@ -604,10 +596,8 @@ export const JobDetailPanel: React.FC<JobDetailPanelProps> = ({
     setInspectorTab("brief");
   }, [
     handleMarkApplied,
-    handleMarkReady,
     handleStartTailoring,
     onNavigateToStatus,
-    canCompleteTailoring,
     onJobMutation,
     refreshAfterStatusChange,
     statusActionInFlightRef,
@@ -685,6 +675,73 @@ export const JobDetailPanel: React.FC<JobDetailPanelProps> = ({
     }
   }, [
     handleJobMoved,
+    refreshAfterStatusChange,
+    selectedJob,
+    statusActionInFlightRef,
+  ]);
+
+  const handleArchive = useCallback(async () => {
+    if (
+      !selectedJob ||
+      selectedJob.closedAt != null ||
+      statusActionInFlightRef.current
+    ) {
+      return;
+    }
+    try {
+      statusActionInFlightRef.current = true;
+      const updatedJob = await api.updateJob(selectedJob.id, {
+        closedAt: Date.now(),
+      });
+      onJobMutation(updatedJob);
+      toast.message("Job archived");
+      handleJobMoved(selectedJob.id);
+      refreshAfterStatusChange();
+    } catch (error) {
+      showErrorToast(error, "Failed to archive job");
+    } finally {
+      statusActionInFlightRef.current = false;
+    }
+  }, [
+    handleJobMoved,
+    onJobMutation,
+    refreshAfterStatusChange,
+    selectedJob,
+    statusActionInFlightRef,
+  ]);
+
+  const handleRestore = useCallback(async () => {
+    if (
+      !selectedJob ||
+      selectedJob.closedAt == null ||
+      statusActionInFlightRef.current
+    ) {
+      return;
+    }
+    try {
+      statusActionInFlightRef.current = true;
+      const updatedJob = await api.updateJob(selectedJob.id, {
+        closedAt: null,
+      });
+      onJobMutation(updatedJob);
+      toast.success("Job restored");
+      refreshAfterStatusChange();
+      if (
+        updatedJob.status === "ready" ||
+        updatedJob.status === "discovered" ||
+        updatedJob.status === "applied" ||
+        updatedJob.status === "in_progress"
+      ) {
+        onNavigateToStatus?.(updatedJob.status, updatedJob.id);
+      }
+    } catch (error) {
+      showErrorToast(error, "Failed to restore job");
+    } finally {
+      statusActionInFlightRef.current = false;
+    }
+  }, [
+    onJobMutation,
+    onNavigateToStatus,
     refreshAfterStatusChange,
     selectedJob,
     statusActionInFlightRef,
@@ -928,16 +985,10 @@ export const JobDetailPanel: React.FC<JobDetailPanelProps> = ({
                 <>
                   {primaryBusy ? (
                     <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  ) : selectedJob.status === "discovered" &&
-                    !canCompleteTailoring ? (
+                  ) : selectedJob.status === "discovered" ? (
                     <Sparkles className="h-3.5 w-3.5" />
-                  ) : (
-                    <CheckCircle2 className="h-3.5 w-3.5" />
-                  )}
-                  {getPrimaryAction(selectedJob, canCompleteTailoring)}
-                  {selectedJob.status === "ready" ? (
-                    <KbdHint shortcut="a" className="ml-1" />
                   ) : null}
+                  {getPrimaryAction(selectedJob, canCompleteTailoring)}
                 </>
               )}
             </Button>
@@ -966,6 +1017,24 @@ export const JobDetailPanel: React.FC<JobDetailPanelProps> = ({
                   <Edit2 className="mr-2 h-4 w-4" />
                   View job description
                 </DropdownMenuItem>
+                {isClosed && selectedJob.outcome == null ? (
+                  <DropdownMenuItem
+                    onSelect={() => void handleRestore()}
+                    disabled={primaryBusy}
+                  >
+                    <ArchiveRestore className="mr-2 h-4 w-4" />
+                    Restore job
+                  </DropdownMenuItem>
+                ) : null}
+                {!isClosed ? (
+                  <DropdownMenuItem
+                    onSelect={() => void handleArchive()}
+                    disabled={primaryBusy}
+                  >
+                    <Archive className="mr-2 h-4 w-4" />
+                    Archive job
+                  </DropdownMenuItem>
+                ) : null}
                 <DropdownMenuItem onSelect={() => void handleCopyInfo()}>
                   <Copy className="mr-2 h-4 w-4" />
                   Copy job info
@@ -1123,8 +1192,12 @@ export const JobDetailPanel: React.FC<JobDetailPanelProps> = ({
             mode="editor"
             job={selectedJob}
             onUpdate={onJobUpdated}
-            startGenerationToken={tailoringStartToken}
-            onStartGenerationConsumed={() => setTailoringStartToken(0)}
+            startGenerationToken={startTailoringToken}
+            onStartGenerationConsumed={onStartTailoringConsumed}
+            onGenerationError={() => {
+              statusActionInFlightRef.current = false;
+              setIsTailoring(false);
+            }}
             onGenerationChange={setIsTailoring}
             onTailoringCompleted={completeTailoring}
             onDirtyChange={onPauseRefreshChange}
