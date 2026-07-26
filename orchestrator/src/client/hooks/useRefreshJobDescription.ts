@@ -1,6 +1,10 @@
 import { useCallback, useState } from "react";
 import { toast } from "sonner";
-import { useRefreshJobDescriptionMutation } from "@/client/hooks/queries/useJobMutations";
+import { ApiClientError } from "@/client/api/core";
+import {
+  useRefreshJobDescriptionMutation,
+  useRescoreJobMutation,
+} from "@/client/hooks/queries/useJobMutations";
 import { showErrorToast } from "@/client/lib/error-toast";
 import { trackProductEvent } from "@/lib/analytics";
 
@@ -11,7 +15,7 @@ export function useRefreshJobDescription(
     () => new Set(),
   );
   const refreshMutation = useRefreshJobDescriptionMutation();
-
+  const rescoreMutation = useRescoreJobMutation();
   const isRefreshing = useCallback(
     (jobId?: string | null) => Boolean(jobId && inFlightJobIds.has(jobId)),
     [inFlightJobIds],
@@ -29,14 +33,29 @@ export function useRefreshJobDescription(
       setInFlightJobIds((prev) => new Set(prev).add(jobId));
       const toastId = toast.loading("Refreshing job description...");
       try {
-        await refreshMutation.mutateAsync(jobId);
+        let sourceRefreshed = true;
+        try {
+          await refreshMutation.mutateAsync(jobId);
+        } catch (error) {
+          if (
+            !(error instanceof ApiClientError) ||
+            error.code !== "UPSTREAM_ERROR"
+          ) {
+            throw error;
+          }
+          await rescoreMutation.mutateAsync(jobId);
+          sourceRefreshed = false;
+        }
         trackProductEvent("jobs_job_action_completed", {
           action: "refresh_description",
           result: "success",
         });
-        toast.success("Description refreshed and match recalculated", {
-          id: toastId,
-        });
+        toast.success(
+          sourceRefreshed
+            ? "Description refreshed and match recalculated"
+            : "Source unavailable; match recalculated from current description",
+          { id: toastId },
+        );
         await onJobUpdated();
       } catch (error) {
         trackProductEvent("jobs_job_action_completed", {
@@ -56,7 +75,7 @@ export function useRefreshJobDescription(
         });
       }
     },
-    [inFlightJobIds, onJobUpdated, refreshMutation],
+    [inFlightJobIds, onJobUpdated, refreshMutation, rescoreMutation],
   );
 
   return { isRefreshing, refreshJobDescription };

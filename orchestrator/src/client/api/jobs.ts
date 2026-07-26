@@ -313,7 +313,8 @@ export async function rescoreJob(
  */
 type PollableActionStatus<TSuccess> =
   | { status: "pending" }
-  | ({ status: "succeeded" } & TSuccess);
+  | ({ status: "succeeded" } & TSuccess)
+  | { status: "failed"; error: { code: string; message: string } };
 
 const ACTION_POLL_INTERVAL_MS = 1500;
 const ACTION_POLL_TIMEOUT_MS = 3 * 60 * 1000;
@@ -331,6 +332,11 @@ async function pollActionUntilSucceeded<TSuccess>(
     const status =
       await fetchApi<PollableActionStatus<TSuccess>>(statusEndpoint);
     if (status.status === "succeeded") return status;
+    if (status.status === "failed") {
+      throw new ApiClientError(formatUserFacingError(status.error.message), {
+        code: status.error.code,
+      });
+    }
     await delay(ACTION_POLL_INTERVAL_MS);
   }
   throw new ApiClientError(`Timed out waiting for ${timeoutLabel} to finish`);

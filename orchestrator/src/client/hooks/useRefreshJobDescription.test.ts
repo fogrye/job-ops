@@ -2,12 +2,14 @@ import type { Job } from "@shared/types";
 import { act } from "@testing-library/react";
 import { toast } from "sonner";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { ApiClientError } from "@/client/api/core";
 import * as api from "../api";
 import { renderHookWithQueryClient } from "../test/renderWithQueryClient";
 import { useRefreshJobDescription } from "./useRefreshJobDescription";
 
 vi.mock("../api", () => ({
   refreshJobDescriptionFromSource: vi.fn(),
+  rescoreJob: vi.fn(),
 }));
 
 vi.mock("sonner", () => ({
@@ -60,6 +62,30 @@ describe("useRefreshJobDescription", () => {
       "Description refreshed and match recalculated",
       { id: "toast-1" },
     );
+  });
+
+  it("recalculates from the current description when the source blocks refresh", async () => {
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    const onJobUpdated = vi.fn().mockResolvedValue(undefined);
+    vi.mocked(api.refreshJobDescriptionFromSource).mockRejectedValue(
+      new ApiClientError("Source blocked", { code: "UPSTREAM_ERROR" }),
+    );
+    vi.mocked(api.rescoreJob).mockResolvedValue({} as Job);
+
+    const { result } = renderHookWithQueryClient(() =>
+      useRefreshJobDescription(onJobUpdated),
+    );
+
+    await act(async () => {
+      await result.current.refreshJobDescription("job-1");
+    });
+
+    expect(api.rescoreJob).toHaveBeenCalledWith("job-1");
+    expect(toast.success).toHaveBeenCalledWith(
+      "Source unavailable; match recalculated from current description",
+      { id: "toast-1" },
+    );
+    expect(onJobUpdated).toHaveBeenCalled();
   });
 
   it("ignores a second refresh call while one is already in flight", async () => {

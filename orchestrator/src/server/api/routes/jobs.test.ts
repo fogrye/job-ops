@@ -2243,7 +2243,8 @@ describe.sequential("Jobs API routes", () => {
     vi.mocked(scoreJobSuitability).mockResolvedValue({
       score: 77,
       reason: "Good fit",
-      jobBrief: null,
+      jobBrief:
+        '{"role_summary":"Build backend services.","they_want":["TypeScript"],"specifics":["TypeScript"],"company_offers":[],"practical_details":[],"missing_or_unclear":[],"repeated_signals":[]}',
     });
 
     const job = await createJob({
@@ -2301,6 +2302,70 @@ describe.sequential("Jobs API routes", () => {
     expect(statusBody.data?.status).toBe("succeeded");
     expect(statusBody.data?.job.jobDescription).toBe("New description.");
     expect(statusBody.data?.job.suitabilityScore).toBe(77);
+    expect(statusBody.data?.job.jobBrief).toContain(
+      '"specifics":["TypeScript"]',
+    );
+  });
+
+  it("reports a failed refresh as a terminal poll result", async () => {
+    const { createJob } = await import("@server/repositories/jobs");
+    const registryModule = await import("@server/extractors/registry");
+    const { fetchJobDescriptionFromUrl } = await import(
+      "@server/services/source-job-description"
+    );
+    const { createTestExtractorRegistry } = await import("./test-utils");
+    const job = await createJob({
+      source: "jobs-cz",
+      sourceJobId: "112",
+      title: "Blocked role",
+      employer: "Acme s.r.o.",
+      jobUrl: "https://www.jobs.cz/r/112",
+      jobDescription: "Current description",
+    });
+    const registry = createTestExtractorRegistry();
+    const manifest = registry.manifestBySource.get("jobs-cz");
+    registry.manifestBySource.set("jobs-cz", {
+      ...manifest,
+      id: manifest?.id ?? "test-jobs-cz",
+      displayName: manifest?.displayName ?? "Test jobs-cz",
+      providesSources: manifest?.providesSources ?? ["jobs-cz"],
+      run: manifest?.run ?? vi.fn(),
+      refreshJobDescription: vi.fn().mockRejectedValue(new Error("Blocked")),
+    });
+    vi.mocked(registryModule.getExtractorRegistry).mockResolvedValue(registry);
+    vi.mocked(fetchJobDescriptionFromUrl).mockRejectedValueOnce(
+      new Error("Blocked"),
+    );
+
+    expect(
+      (
+        await fetch(`${baseUrl}/api/jobs/${job.id}/refresh-description`, {
+          method: "POST",
+        })
+      ).status,
+    ).toBe(202);
+
+    let statusRes: Response | undefined;
+    let statusBody: {
+      ok: boolean;
+      data?: { status: string; error?: { code: string; message: string } };
+    } = { ok: false };
+    await vi.waitFor(async () => {
+      statusRes = await fetch(
+        `${baseUrl}/api/jobs/${job.id}/refresh-description/status`,
+      );
+      statusBody = await statusRes.json();
+      expect(statusBody.data?.status).toBe("failed");
+    });
+
+    expect(statusRes?.status).toBe(200);
+    expect(statusBody).toMatchObject({
+      ok: true,
+      data: {
+        status: "failed",
+        error: { code: "UPSTREAM_ERROR" },
+      },
+    });
   });
 
   it("rejects a duplicate refresh-description request while one is already pending", async () => {
