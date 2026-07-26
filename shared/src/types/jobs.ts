@@ -48,6 +48,14 @@ export const APPLICATION_OUTCOMES = [
   "no_response",
   "ghosted",
 ] as const;
+export const OUTCOME_LABELS: Record<JobOutcome, string> = {
+  offer_accepted: "Offer accepted",
+  offer_declined: "Offer declined",
+  rejected: "Rejected",
+  withdrawn: "Withdrawn",
+  no_response: "No response",
+  ghosted: "Ghosted",
+};
 
 export type JobOutcome = (typeof APPLICATION_OUTCOMES)[number];
 

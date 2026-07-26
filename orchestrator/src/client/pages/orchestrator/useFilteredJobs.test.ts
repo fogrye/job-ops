@@ -24,6 +24,7 @@ const defaultDateFilter: JobDateFilter = {
 
 const baseFilters: JobFilters = {
   activeTab: "ready",
+  closureFilter: "active",
   dateFilter: defaultDateFilter,
   sourceFilter: "all",
   sponsorFilter: "all",
@@ -124,14 +125,9 @@ describe("useFilteredJobs", () => {
     expect(result.current.map((job) => job.id)).toEqual(["applied"]);
   });
 
-  it("keeps closed jobs out of active tabs and lists them in Archive", () => {
+  it("filters closed jobs by closure facet only through All Jobs", () => {
     const jobs: Job[] = [
-      {
-        ...baseJob,
-        id: "active",
-        status: "ready",
-        readyAt: "2026-04-04T14:00:00.000Z",
-      },
+      { ...baseJob, id: "active", status: "ready" },
       {
         ...baseJob,
         id: "closed",
@@ -140,18 +136,35 @@ describe("useFilteredJobs", () => {
         closedAt: 1775347200,
       },
     ];
+    const initialProps: {
+      activeTab: FilterTab;
+      closureFilter: JobFilters["closureFilter"];
+    } = { activeTab: "all", closureFilter: "active" };
 
     const { result, rerender } = renderHook(
-      ({ activeTab }: { activeTab: FilterTab }) =>
-        useFilteredJobs(jobs, makeFilters({ activeTab })),
-      { initialProps: { activeTab: "all" } },
+      ({
+        activeTab,
+        closureFilter,
+      }: {
+        activeTab: FilterTab;
+        closureFilter: JobFilters["closureFilter"];
+      }) => useFilteredJobs(jobs, makeFilters({ activeTab, closureFilter })),
+      { initialProps },
     );
 
     expect(result.current.map((job) => job.id)).toEqual(["active"]);
 
-    rerender({ activeTab: "archive" });
-
+    rerender({ activeTab: "all", closureFilter: "closed" });
     expect(result.current.map((job) => job.id)).toEqual(["closed"]);
+
+    rerender({ activeTab: "all", closureFilter: "rejected" });
+    expect(result.current.map((job) => job.id)).toEqual(["closed"]);
+
+    rerender({ activeTab: "all", closureFilter: "all" });
+    expect(result.current.map((job) => job.id)).toEqual(["active", "closed"]);
+
+    rerender({ activeTab: "applied", closureFilter: "closed" });
+    expect(result.current).toEqual([]);
   });
 
   it("composes date filtering with source, sponsor, and salary filters", () => {
