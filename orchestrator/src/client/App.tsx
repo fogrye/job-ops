@@ -54,6 +54,7 @@ const REDIRECTS: Array<{ from: string; to: string }> = [
 ];
 
 const DEMO_WAITLIST_BANNER_DISMISSED_KEY = "jobops.demoWaitlistBannerDismissed";
+const DESKTOP_NAV_COLLAPSED_KEY = "jobops.desktopNavCollapsed";
 
 export const App: React.FC = () => {
   useAnalyticsIdentity();
@@ -63,7 +64,13 @@ export const App: React.FC = () => {
   const isSignInPage = location.pathname === "/sign-in";
   const demoInfo = useDemoInfo({ enabled: !isSignInPage });
   const showDemoBanners = !isSignInPage && demoInfo?.demoMode;
-  const [desktopNavCollapsed, setDesktopNavCollapsed] = useState(false);
+  const [desktopNavCollapsed, setDesktopNavCollapsed] = useState(() => {
+    try {
+      return localStorage.getItem(DESKTOP_NAV_COLLAPSED_KEY) === "1";
+    } catch {
+      return false;
+    }
+  });
   const showDesktopNavigation =
     !isSignInPage &&
     location.pathname !== "/onboarding" &&
@@ -175,7 +182,18 @@ export const App: React.FC = () => {
             <NavigationPanel
               collapsed={desktopNavCollapsed}
               onCollapse={() =>
-                setDesktopNavCollapsed((collapsed) => !collapsed)
+                setDesktopNavCollapsed((collapsed) => {
+                  const next = !collapsed;
+                  try {
+                    localStorage.setItem(
+                      DESKTOP_NAV_COLLAPSED_KEY,
+                      next ? "1" : "0",
+                    );
+                  } catch {
+                    // Ignore storage errors in restricted browser contexts.
+                  }
+                  return next;
+                })
               }
             />
           </aside>

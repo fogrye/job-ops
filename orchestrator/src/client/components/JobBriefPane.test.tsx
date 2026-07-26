@@ -31,6 +31,10 @@ describe("JobBriefPane", () => {
     render(<JobBriefPane job={job} />);
 
     expect(screen.getByText("Build internal workflow tools.")).toBeVisible();
+    expect(screen.getByText("Highlights")).toBeVisible();
+    expect(screen.getByText("They want")).toBeVisible();
+    expect(screen.getByText("Company offers")).toBeVisible();
+    expect(screen.getByText("Missing or unclear")).toBeVisible();
     expect(screen.getByText("TypeScript")).toBeVisible();
     expect(screen.getByText("React")).toBeVisible();
     expect(screen.getByText("Node.js")).toBeVisible();
