@@ -13,7 +13,7 @@ import { CommandDialog, CommandInput } from "@/components/ui/command";
 import { DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { bucketQueryLength, trackProductEvent } from "@/lib/analytics";
 import { cn } from "@/lib/utils";
-import type { ArchiveFilter, FilterTab } from "./constants";
+import type { ClosureFilter, FilterTab } from "./constants";
 import {
   buildCommandBarRows,
   type CommandBarRow,
@@ -37,7 +37,7 @@ interface JobCommandBarProps {
   onSelectJob: (
     tab: FilterTab,
     jobId: string,
-    archiveFilter?: ArchiveFilter,
+    closureFilter?: ClosureFilter,
   ) => void;
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
@@ -356,7 +356,7 @@ export const JobCommandBar: React.FC<JobCommandBarProps> = ({
       onSelectJob(
         getFilterTab(row.job),
         row.job.id,
-        row.job.closedAt != null ? "archived" : undefined,
+        row.job.closedAt != null ? "closed" : undefined,
       );
     },
     [activeLock, applyLock, closeDialog, onSelectJob, query],

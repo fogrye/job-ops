@@ -55,6 +55,23 @@ vi.mock("@/components/ui/dropdown-menu", () => {
       </button>
     ),
     DropdownMenuSeparator: () => <hr />,
+    DropdownMenuSub: ({ children }: { children: React.ReactNode }) => (
+      <div>{children}</div>
+    ),
+    DropdownMenuSubTrigger: ({
+      children,
+      ...props
+    }: {
+      children: React.ReactNode;
+      disabled?: boolean;
+    }) => (
+      <button type="button" role="menuitem" {...props}>
+        {children}
+      </button>
+    ),
+    DropdownMenuSubContent: ({ children }: { children: React.ReactNode }) => (
+      <div role="menu">{children}</div>
+    ),
   };
 });
 
@@ -781,7 +798,7 @@ describe("JobDetailPanel", () => {
     await waitFor(() => expect(onJobUpdated).toHaveBeenCalled());
   });
 
-  it("only offers manual archiving after application", async () => {
+  it("only offers closing after application", async () => {
     const ready = await renderJobDetailPanel({
       activeTab: "ready",
       activeJobs: [],
@@ -793,7 +810,7 @@ describe("JobDetailPanel", () => {
       screen.getByRole("button", { name: /more actions/i }),
     );
     expect(
-      screen.queryByRole("menuitem", { name: /archive job/i }),
+      screen.queryByRole("menuitem", { name: /close application/i }),
     ).not.toBeInTheDocument();
     ready.unmount();
 
@@ -808,17 +825,16 @@ describe("JobDetailPanel", () => {
       screen.getByRole("button", { name: /more actions/i }),
     );
     expect(
-      await screen.findByRole("menuitem", { name: /archive job/i }),
+      await screen.findByRole("menuitem", { name: /close application/i }),
     ).toBeInTheDocument();
   });
 
-  it("archives with a Unix-seconds timestamp", async () => {
-    const now = vi.spyOn(Date, "now").mockReturnValue(1_700_000_123);
-    vi.mocked(api.updateJob).mockResolvedValue(
-      createJob({ status: "applied", closedAt: 1_700_000 }),
+  it("closes with a selected outcome and reopens through the outcome route", async () => {
+    vi.mocked(api.updateJobOutcome).mockResolvedValue(
+      createJob({ status: "applied", outcome: "withdrawn", closedAt: 1 }),
     );
 
-    await renderJobDetailPanel({
+    const open = await renderJobDetailPanel({
       activeTab: "applied",
       activeJobs: [],
       selectedJob: createJob({ status: "applied" }),
@@ -829,40 +845,36 @@ describe("JobDetailPanel", () => {
       screen.getByRole("button", { name: /more actions/i }),
     );
     fireEvent.click(
-      await screen.findByRole("menuitem", { name: /archive job/i }),
+      await screen.findByRole("menuitem", { name: /close application/i }),
     );
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Withdrawn" }));
 
     await waitFor(() =>
-      expect(api.updateJob).toHaveBeenCalledWith("job-1", {
-        closedAt: 1_700_000,
+      expect(api.updateJobOutcome).toHaveBeenCalledWith("job-1", {
+        outcome: "withdrawn",
       }),
     );
-    now.mockRestore();
-  });
-
-  it("restores outcome-less archived jobs by clearing closure fields", async () => {
-    vi.mocked(api.updateJob).mockResolvedValue(
-      createJob({ status: "applied", closedAt: null, outcome: null }),
-    );
+    open.unmount();
 
     await renderJobDetailPanel({
       activeTab: "all",
       activeJobs: [],
-      selectedJob: createJob({ status: "applied", closedAt: 1, outcome: null }),
+      selectedJob: createJob({
+        status: "applied",
+        closedAt: 1,
+        outcome: "withdrawn",
+      }),
       onSelectJobId: vi.fn(),
       onJobUpdated: vi.fn().mockResolvedValue(undefined),
     });
     fireEvent.pointerDown(
       screen.getByRole("button", { name: /more actions/i }),
     );
-    fireEvent.click(
-      await screen.findByRole("menuitem", { name: /restore job/i }),
-    );
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Reopen" }));
 
     await waitFor(() =>
-      expect(api.updateJob).toHaveBeenCalledWith("job-1", {
+      expect(api.updateJobOutcome).toHaveBeenCalledWith("job-1", {
         outcome: null,
-        closedAt: null,
       }),
     );
   });
@@ -925,7 +937,7 @@ describe("JobDetailPanel", () => {
     });
   });
 
-  it("hides mutating actions for archived jobs", async () => {
+  it("hides mutating actions for closed jobs", async () => {
     await renderJobDetailPanel({
       activeTab: "all",
       activeJobs: [],
@@ -938,7 +950,7 @@ describe("JobDetailPanel", () => {
       onJobUpdated: vi.fn().mockResolvedValue(undefined),
     });
 
-    expect(screen.getByRole("button", { name: /archived/i })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /closed/i })).toBeDisabled();
     expect(
       screen.queryByRole("menuitem", {
         name: /refresh description & recalculate/i,

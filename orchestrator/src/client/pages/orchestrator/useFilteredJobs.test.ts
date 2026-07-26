@@ -24,7 +24,7 @@ const defaultDateFilter: JobDateFilter = {
 
 const baseFilters: JobFilters = {
   activeTab: "ready",
-  archiveFilter: "active",
+  closureFilter: "active",
   dateFilter: defaultDateFilter,
   sourceFilter: "all",
   sponsorFilter: "all",
@@ -125,7 +125,7 @@ describe("useFilteredJobs", () => {
     expect(result.current.map((job) => job.id)).toEqual(["applied"]);
   });
 
-  it("filters archived jobs only through All Jobs", () => {
+  it("filters closed jobs by closure facet only through All Jobs", () => {
     const jobs: Job[] = [
       { ...baseJob, id: "active", status: "ready" },
       {
@@ -138,29 +138,32 @@ describe("useFilteredJobs", () => {
     ];
     const initialProps: {
       activeTab: FilterTab;
-      archiveFilter: JobFilters["archiveFilter"];
-    } = { activeTab: "all", archiveFilter: "active" };
+      closureFilter: JobFilters["closureFilter"];
+    } = { activeTab: "all", closureFilter: "active" };
 
     const { result, rerender } = renderHook(
       ({
         activeTab,
-        archiveFilter,
+        closureFilter,
       }: {
         activeTab: FilterTab;
-        archiveFilter: JobFilters["archiveFilter"];
-      }) => useFilteredJobs(jobs, makeFilters({ activeTab, archiveFilter })),
+        closureFilter: JobFilters["closureFilter"];
+      }) => useFilteredJobs(jobs, makeFilters({ activeTab, closureFilter })),
       { initialProps },
     );
 
     expect(result.current.map((job) => job.id)).toEqual(["active"]);
 
-    rerender({ activeTab: "all", archiveFilter: "archived" });
+    rerender({ activeTab: "all", closureFilter: "closed" });
     expect(result.current.map((job) => job.id)).toEqual(["closed"]);
 
-    rerender({ activeTab: "all", archiveFilter: "all" });
+    rerender({ activeTab: "all", closureFilter: "rejected" });
+    expect(result.current.map((job) => job.id)).toEqual(["closed"]);
+
+    rerender({ activeTab: "all", closureFilter: "all" });
     expect(result.current.map((job) => job.id)).toEqual(["active", "closed"]);
 
-    rerender({ activeTab: "applied", archiveFilter: "archived" });
+    rerender({ activeTab: "applied", closureFilter: "closed" });
     expect(result.current).toEqual([]);
   });
 

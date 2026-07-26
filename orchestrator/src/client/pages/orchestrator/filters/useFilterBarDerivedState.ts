@@ -1,7 +1,7 @@
 import type { JobSource } from "@shared/types.js";
 import { useMemo, useState } from "react";
 import type {
-  ArchiveFilter,
+  ClosureFilter,
   EmploymentType,
   FilterTab,
   JobDateFilter,
@@ -21,7 +21,7 @@ interface UseFilterBarDerivedStateArgs {
   sourceFilter: JobSource | "all";
   activeTab: FilterTab;
   sponsorFilter: SponsorFilter;
-  archiveFilter: ArchiveFilter;
+  closureFilter: ClosureFilter;
   dateFilter: JobDateFilter;
   postedWithinDays: number | null;
   employmentTypes: EmploymentType[];
@@ -36,7 +36,7 @@ export const useFilterBarDerivedState = ({
   sourceFilter,
   sponsorFilter,
   activeTab,
-  archiveFilter,
+  closureFilter,
   dateFilter,
   postedWithinDays,
   employmentTypes,
@@ -61,7 +61,7 @@ export const useFilterBarDerivedState = ({
       Number(employmentTypes.length > 0) +
       Number(locationFilter.trim() !== "") +
       Number(salaryActive) +
-      Number(activeTab === "all" && archiveFilter !== "active"),
+      Number(activeTab === "all" && closureFilter !== "active"),
     [
       sourceFilter,
       sponsorFilter,
@@ -69,7 +69,7 @@ export const useFilterBarDerivedState = ({
       postedWithinDays,
       employmentTypes.length,
       locationFilter,
-      archiveFilter,
+      closureFilter,
       activeTab,
       salaryActive,
     ],
