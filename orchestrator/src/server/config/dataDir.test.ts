@@ -1,6 +1,6 @@
 import { mkdir, mkdtemp, realpath, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 describe("getDataDir", () => {
@@ -35,5 +35,14 @@ describe("getDataDir", () => {
 
     expect(getDataDir()).toBe(expectedDataDir);
     expect(process.env.DATA_DIR).toBe(expectedDataDir);
+  });
+
+  it("resolves a relative DATA_DIR for file-serving consumers", async () => {
+    process.env.DATA_DIR = "./relative-data";
+    vi.resetModules();
+
+    const { getDataDir } = await import("./dataDir");
+
+    expect(getDataDir()).toBe(resolve(join(originalCwd, "relative-data")));
   });
 });

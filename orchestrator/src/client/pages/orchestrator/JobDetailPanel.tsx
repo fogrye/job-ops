@@ -1122,7 +1122,7 @@ export const JobDetailPanel: React.FC<JobDetailPanelProps> = ({
                         )}
                       />
                     ) : (
-                      <Star className="mr-2 h-4 w-4" />
+                      <Sparkles className="mr-2 h-4 w-4" />
                     )}
                     {selectedJob.status === "ready"
                       ? "Regenerate PDF"

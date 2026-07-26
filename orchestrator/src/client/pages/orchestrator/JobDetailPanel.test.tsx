@@ -348,6 +348,14 @@ describe("JobDetailPanel", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /start tailoring/i }));
 
+    const buttonIcon = screen
+      .getByRole("button", { name: "Start Tailoring" })
+      .querySelector("svg");
+    const menuIcon = screen
+      .getByRole("menuitem", { name: "Start tailoring" })
+      .querySelector("svg");
+    expect(menuIcon?.innerHTML).toBe(buttonIcon?.innerHTML);
+
     expect(onStartTailoring).toHaveBeenCalledTimes(1);
   });
 
