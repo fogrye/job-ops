@@ -11,7 +11,6 @@ export function useRefreshJobDescription(
     () => new Set(),
   );
   const refreshMutation = useRefreshJobDescriptionMutation();
-
   const isRefreshing = useCallback(
     (jobId?: string | null) => Boolean(jobId && inFlightJobIds.has(jobId)),
     [inFlightJobIds],
@@ -29,14 +28,17 @@ export function useRefreshJobDescription(
       setInFlightJobIds((prev) => new Set(prev).add(jobId));
       const toastId = toast.loading("Refreshing job description...");
       try {
-        await refreshMutation.mutateAsync(jobId);
+        const result = await refreshMutation.mutateAsync(jobId);
         trackProductEvent("jobs_job_action_completed", {
           action: "refresh_description",
           result: "success",
         });
-        toast.success("Description refreshed and match recalculated", {
-          id: toastId,
-        });
+        toast.success(
+          result.sourceRefreshed
+            ? "Description refreshed and match recalculated"
+            : "Source unavailable; match recalculated from current description",
+          { id: toastId },
+        );
         await onJobUpdated();
       } catch (error) {
         trackProductEvent("jobs_job_action_completed", {

@@ -382,16 +382,13 @@ jobsActionsRouter.get(
     }
     const result = operation.result;
     if (!result || !result.ok) {
-      return fail(
-        res,
-        result
-          ? mapJobActionFailure(result)
-          : new AppError({
-              status: 500,
-              code: "INTERNAL_ERROR",
-              message: "Operation completed without a result",
-            }),
-      );
+      return ok(res, {
+        status: "failed" as const,
+        error: result?.error ?? {
+          code: "INTERNAL_ERROR",
+          message: "Operation completed without a result",
+        },
+      });
     }
     ok(res, {
       status: "succeeded" as const,

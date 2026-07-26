@@ -6,6 +6,17 @@ import { getAuthBootstrapStatus } from "@/client/api";
 import { useSettings } from "@/client/hooks/useSettings";
 
 export const OnboardingGate: React.FC = () => {
+  if (
+    import.meta.env.DEV &&
+    import.meta.env.VITE_BYPASS_ONBOARDING === "true"
+  ) {
+    return null;
+  }
+
+  return <OnboardingGateContent />;
+};
+
+const OnboardingGateContent: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const [setupRequired, setSetupRequired] = useState<boolean | null>(null);
