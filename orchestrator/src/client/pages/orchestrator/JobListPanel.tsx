@@ -1,10 +1,7 @@
 import type { JobListItem } from "@shared/types.js";
 import { Loader2 } from "lucide-react";
-import { forwardRef, useImperativeHandle } from "react";
-import {
-  useVirtualizedList,
-  type VirtualListHandle,
-} from "@/client/lib/virtual-list";
+import { forwardRef, useImperativeHandle, useState } from "react";
+import type { VirtualListHandle } from "@/client/lib/virtual-list";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
@@ -16,6 +13,7 @@ import {
   statusTokens,
 } from "./constants";
 import { JobRowContent } from "./JobRowContent";
+import { useVirtualizedList } from "./virtualizedList";
 
 interface EmptyStateAction {
   label: string;
@@ -57,21 +55,54 @@ export const JobListPanel = forwardRef<VirtualListHandle, JobListPanelProps>(
     },
     ref,
   ) => {
-    const virtualizer = useVirtualizedList({
+    const [scrollTop, setScrollTop] = useState(0);
+    const {
+      measureElement,
+      scrollElementRef,
+      scrollToIndex,
+      totalSize,
+      virtualItems,
+    } = useVirtualizedList({
       count: activeJobs.length,
-      mode: "window",
       estimateSize: () => ROW_ESTIMATE,
+      initialRect: {
+        height: typeof window === "undefined" ? 0 : window.innerHeight,
+        width: 0,
+      },
       overscan: 8,
       getItemKey: (index) => activeJobs[index]?.id ?? index,
     });
+    const fallbackViewportHeight = Math.max(
+      240,
+      Math.round(window.innerHeight * 0.65),
+    );
+    const fallbackStartIndex = Math.max(
+      0,
+      Math.floor(scrollTop / ROW_ESTIMATE) - 8,
+    );
+    const renderedVirtualItems =
+      virtualItems.length > 0
+        ? virtualItems
+        : activeJobs
+            .slice(
+              fallbackStartIndex,
+              fallbackStartIndex +
+                Math.ceil(fallbackViewportHeight / ROW_ESTIMATE) +
+                16,
+            )
+            .map((job, index) => ({
+              index: fallbackStartIndex + index,
+              key: job.id,
+              start: (fallbackStartIndex + index) * ROW_ESTIMATE,
+            }));
+    const renderedTotalSize = totalSize || activeJobs.length * ROW_ESTIMATE;
 
     useImperativeHandle(
       ref,
       () => ({
-        scrollToIndex: (index, options) =>
-          virtualizer.scrollToIndex(index, options),
+        scrollToIndex,
       }),
-      [virtualizer],
+      [scrollToIndex],
     );
 
     if (isLoading && jobs.length === 0) {
@@ -116,10 +147,13 @@ export const JobListPanel = forwardRef<VirtualListHandle, JobListPanelProps>(
       );
     }
 
-    const virtualItems = virtualizer.getVirtualItems();
-
     return (
-      <div className="min-w-0 rounded-xl border border-border bg-card shadow-sm lg:sticky lg:top-24 lg:max-h-[calc(100vh-8rem)] lg:overflow-y-auto">
+      <div
+        ref={scrollElementRef}
+        data-testid="job-list-scroll-container"
+        onScroll={(event) => setScrollTop(event.currentTarget.scrollTop)}
+        className="min-w-0 rounded-xl border border-border bg-card shadow-sm lg:sticky lg:top-24 lg:max-h-[calc(100vh-8rem)] lg:overflow-y-auto"
+      >
         <div className="divide-y divide-border/40">
           <div className="flex items-center justify-between gap-3 px-4 py-2 opacity-100 transition-opacity sm:opacity-50 sm:hover:opacity-100">
             <label
@@ -149,13 +183,12 @@ export const JobListPanel = forwardRef<VirtualListHandle, JobListPanelProps>(
           <div
             className="relative"
             style={{
-              height: `${virtualizer.getTotalSize()}px`,
+              height: `${renderedTotalSize}px`,
             }}
           >
-            {virtualItems.map((virtualRow) => {
+            {renderedVirtualItems.map((virtualRow) => {
               const job = activeJobs[virtualRow.index];
               if (!job) return null;
-
               const isSelected = job.id === selectedJobId;
               const isChecked = selectedJobIds.has(job.id);
               const statusToken =
@@ -170,7 +203,7 @@ export const JobListPanel = forwardRef<VirtualListHandle, JobListPanelProps>(
               return (
                 <div
                   key={virtualRow.key}
-                  ref={virtualizer.measureElement}
+                  ref={measureElement}
                   data-index={virtualRow.index}
                   data-job-id={job.id}
                   data-virtual-row="true"

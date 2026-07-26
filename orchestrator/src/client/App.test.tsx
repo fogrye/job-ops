@@ -154,8 +154,17 @@ describe("App demo banner", () => {
       screen.getByRole("button", { name: "collapse navigation" }),
     );
     expect(application.container.querySelector("aside")).toHaveClass("lg:w-16");
+    expect(localStorage.getItem("jobops.desktopNavCollapsed")).toBe("1");
 
     application.unmount();
+    const reloaded = render(
+      <MemoryRouter initialEntries={["/overview"]}>
+        <App />
+      </MemoryRouter>,
+    );
+    expect(reloaded.container.querySelector("aside")).toHaveClass("lg:w-16");
+    reloaded.unmount();
+
     render(
       <MemoryRouter initialEntries={["/sign-in"]}>
         <App />

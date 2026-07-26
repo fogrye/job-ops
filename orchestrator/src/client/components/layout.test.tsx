@@ -103,6 +103,7 @@ describe("NavigationPanel", () => {
     expect(
       screen.getByRole("button", { name: "Expand navigation" }),
     ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Account" })).toHaveClass("px-0");
   });
 
   it("opens account management in place", () => {

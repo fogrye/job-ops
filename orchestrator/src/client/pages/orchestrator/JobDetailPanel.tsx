@@ -996,6 +996,8 @@ export const JobDetailPanel: React.FC<JobDetailPanelProps> = ({
                 <>
                   {primaryBusy ? (
                     <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : selectedJob.status === "ready" ? (
+                    <CheckCircle2 className="h-3.5 w-3.5" />
                   ) : selectedJob.status === "discovered" ? (
                     <Sparkles className="h-3.5 w-3.5" />
                   ) : null}
@@ -1112,14 +1114,16 @@ export const JobDetailPanel: React.FC<JobDetailPanelProps> = ({
                     }
                     disabled={primaryBusy}
                   >
-                    <RefreshCcw
-                      className={cn(
-                        "mr-2 h-4 w-4",
-                        selectedJob.status === "ready" &&
-                          isProcessing &&
-                          "animate-spin",
-                      )}
-                    />
+                    {selectedJob.status === "ready" ? (
+                      <RefreshCcw
+                        className={cn(
+                          "mr-2 h-4 w-4",
+                          isProcessing && "animate-spin",
+                        )}
+                      />
+                    ) : (
+                      <Star className="mr-2 h-4 w-4" />
+                    )}
                     {selectedJob.status === "ready"
                       ? "Regenerate PDF"
                       : "Start tailoring"}
@@ -1200,7 +1204,7 @@ export const JobDetailPanel: React.FC<JobDetailPanelProps> = ({
             </div>
           )}
 
-          {showSponsorInfo ? <JobBriefPane job={selectedJob} /> : null}
+          <JobBriefPane job={selectedJob} />
           <JobDescriptionPanel
             description={selectedJob.jobDescription}
             jobUrl={selectedJob.jobUrl}

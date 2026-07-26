@@ -122,7 +122,7 @@ export const NavigationPanel: React.FC<NavigationPanelProps> = ({
               onClick={() => setAccountOpen(true)}
               className={cn(
                 "h-8 gap-2 px-2 text-xs",
-                collapsed ? "w-8 justify-center" : "w-full justify-start",
+                collapsed ? "w-8 justify-center px-0" : "w-full justify-start",
               )}
             >
               <UserRound className="h-3.5 w-3.5 shrink-0" />
