@@ -107,6 +107,9 @@ describe("NavigationPanel", () => {
       "mx-auto",
       "px-0",
     );
+    expect(
+      screen.getByRole("button", { name: "Account" }).parentElement,
+    ).toHaveClass("flex", "justify-center");
   });
 
   it("opens account management in place", () => {

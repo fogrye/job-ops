@@ -231,16 +231,18 @@ export const JobListPanel = forwardRef<VirtualListHandle, JobListPanelProps>(
                   }}
                 >
                   <div className="relative h-4 w-4 shrink-0">
-                    <span
-                      className={cn(
-                        "absolute inset-0 m-auto h-2 w-2 rounded-full transition-opacity duration-150 ease-out",
-                        statusDotClassName,
-                        isChecked || isSelected
-                          ? "opacity-0"
-                          : "opacity-100 group-hover:opacity-0",
-                      )}
-                      title={statusDotTitle}
-                    />
+                    {activeTab === "all" ? (
+                      <span
+                        className={cn(
+                          "absolute inset-0 m-auto h-2 w-2 rounded-full transition-opacity duration-150 ease-out",
+                          statusDotClassName,
+                          isChecked || isSelected
+                            ? "opacity-0"
+                            : "opacity-100 group-hover:opacity-0",
+                        )}
+                        title={statusDotTitle}
+                      />
+                    ) : null}
                     <Checkbox
                       checked={isChecked}
                       onCheckedChange={() => onToggleSelectJob(job.id)}

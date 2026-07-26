@@ -113,7 +113,12 @@ export const NavigationPanel: React.FC<NavigationPanelProps> = ({
           </button>
         ))}
         <div className="mt-auto space-y-4 pt-6">
-          <div className="space-y-2 border-t border-border/60 pt-4">
+          <div
+            className={cn(
+              "space-y-2 border-t border-border/60 pt-4",
+              collapsed && "flex justify-center",
+            )}
+          >
             <Button
               type="button"
               variant="outline"
