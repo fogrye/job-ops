@@ -238,7 +238,7 @@ describe("JobCommandBar", () => {
           createJob({
             id: "closed-job",
             title: "Closed Platform Engineer",
-            closedAt: "2026-07-26T00:00:00.000Z",
+            closedAt: 1,
           }),
         ]}
         onSelectJob={onSelectJob}
