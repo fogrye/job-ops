@@ -45,7 +45,7 @@ beforeEach(() => {
 const renderFilters = (
   overrides?: Partial<ComponentProps<typeof OrchestratorFilters>>,
 ) => {
-  const props = {
+  const props: ComponentProps<typeof OrchestratorFilters> = {
     activeTab: "ready" as FilterTab,
     onTabChange: vi.fn(),
     counts: {
@@ -53,9 +53,10 @@ const renderFilters = (
       discovered: 1,
       applied: 3,
       all: 6,
-      archive: 0,
     },
     onOpenCommandBar: vi.fn(),
+    archiveFilter: "active" as const,
+    onArchiveFilterChange: vi.fn(),
     sourceFilter: "all" as const,
     onSourceFilterChange: vi.fn(),
     sponsorFilter: "all" as SponsorFilter,
@@ -313,21 +314,12 @@ describe("OrchestratorFilters", () => {
     fireEvent.click(screen.getByRole("button", { name: "Reset" }));
     expect(props.onResetFilters).toHaveBeenCalled();
   });
-  it("opens archived jobs from the overflow menu without adding a primary tab", async () => {
-    const { props } = renderFilters();
+  it("shows the archive filter only in All Jobs", () => {
+    const { props } = renderFilters({ activeTab: "all" });
 
-    expect(
-      screen.queryByRole("tab", { name: /archive/i }),
-    ).not.toBeInTheDocument();
-    const trigger = screen.getByRole("button", {
-      name: /open archived jobs/i,
-    });
-    fireEvent.keyDown(trigger, { key: "ArrowDown" });
-    const menuItem = await screen.findByRole("menuitem", {
-      name: /view archived/i,
-    });
-    fireEvent.click(menuItem);
+    fireEvent.click(screen.getByRole("button", { name: /archive/i }));
+    fireEvent.click(screen.getByRole("button", { name: "Archived jobs" }));
 
-    expect(props.onTabChange).toHaveBeenCalledWith("archive");
+    expect(props.onArchiveFilterChange).toHaveBeenCalledWith("archived");
   });
 });

@@ -1,6 +1,7 @@
 import type React from "react";
 import { Tabs } from "@/components/ui/tabs";
 import type { FilterTab } from "./constants";
+import { ArchiveFilterPill } from "./filters/ArchiveFilterPill";
 import { DateFilterPill } from "./filters/DateFilterPill";
 import { EmploymentTypeFilterPill } from "./filters/EmploymentTypeFilterPill";
 import { LocationFilterInput } from "./filters/LocationFilterInput";
@@ -22,6 +23,8 @@ export const OrchestratorFilters: React.FC<OrchestratorFiltersProps> = ({
   counts,
   onOpenCommandBar,
   showSponsorInfo = true,
+  archiveFilter,
+  onArchiveFilterChange,
   sourceFilter,
   onSourceFilterChange,
   sponsorFilter,
@@ -55,7 +58,9 @@ export const OrchestratorFilters: React.FC<OrchestratorFiltersProps> = ({
     salarySummary,
   } = useFilterBarDerivedState({
     sourceFilter,
+    activeTab,
     sponsorFilter: showSponsorInfo ? sponsorFilter : "all",
+    archiveFilter,
     dateFilter,
     postedWithinDays,
     employmentTypes,
@@ -73,9 +78,7 @@ export const OrchestratorFilters: React.FC<OrchestratorFiltersProps> = ({
     >
       <div className="space-y-3">
         <OrchestratorTabRow
-          activeTab={activeTab}
           counts={counts}
-          onTabChange={onTabChange}
           onOpenCommandBar={onOpenCommandBar}
           isFiltersOpen={isFiltersOpen}
           onFiltersOpenChange={onFiltersOpenChange}
@@ -85,6 +88,13 @@ export const OrchestratorFilters: React.FC<OrchestratorFiltersProps> = ({
 
         {isFiltersOpen ? (
           <OrchestratorFilterBar>
+            {activeTab === "all" ? (
+              <ArchiveFilterPill
+                archiveFilter={archiveFilter}
+                onArchiveFilterChange={onArchiveFilterChange}
+              />
+            ) : null}
+
             <LocationFilterInput
               locationFilter={locationFilter}
               onLocationFilterChange={onLocationFilterChange}

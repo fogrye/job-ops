@@ -55,7 +55,7 @@ describe("orchestrator utils", () => {
     expect(getEnabledSources(createAppSettings())).toContain("naukri");
   });
 
-  it("keeps closed jobs in Archive while preserving active-tab counts", () => {
+  it("excludes closed jobs from active-tab counts", () => {
     const jobs = [
       createJob({ id: "ready", status: "ready", closedAt: null }),
       createJob({ id: "processing", status: "processing", closedAt: null }),
@@ -74,7 +74,6 @@ describe("orchestrator utils", () => {
       discovered: 2,
       applied: 1,
       all: 4,
-      archive: 1,
     });
   });
 

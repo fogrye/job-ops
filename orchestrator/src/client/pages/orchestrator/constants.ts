@@ -80,7 +80,7 @@ export const appliedDuplicateIndicator = {
   dot: "bg-yellow-400",
 };
 
-export type FilterTab = "ready" | "discovered" | "applied" | "all" | "archive";
+export type FilterTab = "ready" | "discovered" | "applied" | "all";
 export type DateFilterPreset = "7" | "14" | "30" | "90" | "custom";
 export type DateFilterDimension = "ready" | "applied" | "closed" | "discovered";
 
@@ -99,6 +99,7 @@ export type SponsorFilter =
   | "not_found"
   | "unknown";
 export type SalaryFilterMode = "at_least" | "at_most" | "between";
+export type ArchiveFilter = "active" | "archived" | "all";
 
 export interface SalaryFilter {
   mode: SalaryFilterMode;
@@ -160,6 +161,7 @@ export interface JobDateFilter {
  */
 export interface JobFilters {
   activeTab: FilterTab;
+  archiveFilter: ArchiveFilter;
   dateFilter: JobDateFilter;
   sourceFilter: JobSource | "all";
   sponsorFilter: SponsorFilter;
@@ -215,8 +217,12 @@ export const tabs: Array<{
 export const jobMatchesTab = (
   job: Pick<JobListItem, "status" | "closedAt">,
   tab: FilterTab,
+  archiveFilter: ArchiveFilter = "active",
 ) => {
-  if (tab === "archive") return job.closedAt != null;
+  if (tab === "all") {
+    if (archiveFilter === "archived") return job.closedAt != null;
+    if (archiveFilter === "all") return true;
+  }
   if (job.closedAt != null) return false;
   const tabDefinition = tabs.find((item) => item.id === tab);
   return Boolean(
@@ -231,7 +237,6 @@ export const emptyStateCopy: Record<FilterTab, string> = {
   discovered: "All discovered jobs have been processed.",
   applied: "You have not applied to any jobs yet.",
   all: "No jobs in the system yet. Run a search to get started.",
-  archive: "No archived jobs yet.",
 };
 
 export const dateFilterDimensionLabels: Record<DateFilterDimension, string> = {

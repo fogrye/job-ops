@@ -15,6 +15,7 @@ import { CSSTransition, SwitchTransition } from "react-transition-group";
 
 import { Button } from "@/components/ui/button";
 import { Toaster } from "@/components/ui/sonner";
+import { NavigationPanel } from "./components/layout";
 import { OnboardingGate } from "./components/OnboardingGate";
 import { useAnalyticsIdentity } from "./hooks/useAnalyticsIdentity";
 import { useDemoInfo } from "./hooks/useDemoInfo";
@@ -62,6 +63,12 @@ export const App: React.FC = () => {
   const isSignInPage = location.pathname === "/sign-in";
   const demoInfo = useDemoInfo({ enabled: !isSignInPage });
   const showDemoBanners = !isSignInPage && demoInfo?.demoMode;
+  const [desktopNavCollapsed, setDesktopNavCollapsed] = useState(false);
+  const showDesktopNavigation =
+    !isSignInPage &&
+    location.pathname !== "/onboarding" &&
+    location.pathname !== "/offline" &&
+    location.pathname !== "/oauth/gmail/callback";
   const [demoWaitlistBannerDismissed, setDemoWaitlistBannerDismissed] =
     useState(() => {
       try {
@@ -152,60 +159,85 @@ export const App: React.FC = () => {
           </div>
         </div>
       )}
-      <div>
-        <SwitchTransition mode="out-in">
-          <CSSTransition
-            key={pageKey}
-            nodeRef={nodeRef}
-            timeout={100}
-            classNames="page"
-            unmountOnExit
+      <div
+        className={
+          showDesktopNavigation
+            ? "lg:grid lg:grid-cols-[auto_minmax(0,1fr)]"
+            : undefined
+        }
+      >
+        {showDesktopNavigation && (
+          <aside
+            className={`hidden lg:sticky lg:top-0 lg:flex lg:h-screen lg:flex-col ${
+              desktopNavCollapsed ? "lg:w-16" : "lg:w-64"
+            }`}
           >
-            <div ref={nodeRef}>
-              <Routes location={location}>
-                {/* Backwards-compatibility redirects */}
-                {REDIRECTS.map(({ from, to }) => (
-                  <Route
-                    key={from}
-                    path={from}
-                    element={<Navigate to={to} replace />}
-                  />
-                ))}
+            <NavigationPanel
+              collapsed={desktopNavCollapsed}
+              onCollapse={() =>
+                setDesktopNavCollapsed((collapsed) => !collapsed)
+              }
+            />
+          </aside>
+        )}
+        <div className="min-w-0">
+          <SwitchTransition mode="out-in">
+            <CSSTransition
+              key={pageKey}
+              nodeRef={nodeRef}
+              timeout={100}
+              classNames="page"
+              unmountOnExit
+            >
+              <div ref={nodeRef}>
+                <Routes location={location}>
+                  {/* Backwards-compatibility redirects */}
+                  {REDIRECTS.map(({ from, to }) => (
+                    <Route
+                      key={from}
+                      path={from}
+                      element={<Navigate to={to} replace />}
+                    />
+                  ))}
 
-                {/* Application routes */}
-                <Route path="/overview" element={<HomePage />} />
-                <Route
-                  path="/oauth/gmail/callback"
-                  element={<GmailOauthCallbackPage />}
-                />
-                <Route path="/job/:id" element={<JobPage />} />
-                <Route path="/job/:id/:view" element={<JobPage />} />
-                <Route
-                  path="/applications/in-progress"
-                  element={<InProgressBoardPage />}
-                />
-                <Route path="/design-resume" element={<DesignResumePage />} />
-                <Route
-                  path="/design-resume/:section"
-                  element={<DesignResumePage />}
-                />
-                <Route path="/onboarding" element={<OnboardingPage />} />
-                <Route path="/offline" element={<OfflinePage />} />
-                <Route path="/sign-in" element={<SignInPage />} />
-                <Route path="/settings" element={<SettingsPage />} />
-                <Route path="/tracer-links" element={<TracerLinksPage />} />
-                <Route path="/visa-sponsors" element={<VisaSponsorsPage />} />
-                <Route path="/tracking-inbox" element={<TrackingInboxPage />} />
-                <Route path="/watchlist" element={<WatchlistPage />} />
-                <Route path="/jobs/:tab" element={<OrchestratorPage />} />
-                <Route
-                  path="/jobs/:tab/:jobId"
-                  element={<OrchestratorPage />}
-                />
-              </Routes>
-            </div>
-          </CSSTransition>
-        </SwitchTransition>
+                  {/* Application routes */}
+                  <Route path="/overview" element={<HomePage />} />
+                  <Route
+                    path="/oauth/gmail/callback"
+                    element={<GmailOauthCallbackPage />}
+                  />
+                  <Route path="/job/:id" element={<JobPage />} />
+                  <Route path="/job/:id/:view" element={<JobPage />} />
+                  <Route
+                    path="/applications/in-progress"
+                    element={<InProgressBoardPage />}
+                  />
+                  <Route path="/design-resume" element={<DesignResumePage />} />
+                  <Route
+                    path="/design-resume/:section"
+                    element={<DesignResumePage />}
+                  />
+                  <Route path="/onboarding" element={<OnboardingPage />} />
+                  <Route path="/offline" element={<OfflinePage />} />
+                  <Route path="/sign-in" element={<SignInPage />} />
+                  <Route path="/settings" element={<SettingsPage />} />
+                  <Route path="/tracer-links" element={<TracerLinksPage />} />
+                  <Route path="/visa-sponsors" element={<VisaSponsorsPage />} />
+                  <Route
+                    path="/tracking-inbox"
+                    element={<TrackingInboxPage />}
+                  />
+                  <Route path="/watchlist" element={<WatchlistPage />} />
+                  <Route path="/jobs/:tab" element={<OrchestratorPage />} />
+                  <Route
+                    path="/jobs/:tab/:jobId"
+                    element={<OrchestratorPage />}
+                  />
+                </Routes>
+              </div>
+            </CSSTransition>
+          </SwitchTransition>
+        </div>
       </div>
 
       <Toaster position="bottom-right" richColors closeButton />

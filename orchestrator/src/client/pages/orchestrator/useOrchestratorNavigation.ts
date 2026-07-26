@@ -1,15 +1,14 @@
 import type { JobListItem, JobStatus } from "@shared/types.js";
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
-import { type FilterTab, jobMatchesTab, tabs } from "./constants";
+import {
+  type ArchiveFilter,
+  type FilterTab,
+  jobMatchesTab,
+  tabs,
+} from "./constants";
 
-const validTabs: FilterTab[] = [
-  "ready",
-  "discovered",
-  "applied",
-  "all",
-  "archive",
-];
+const validTabs: FilterTab[] = ["ready", "discovered", "applied", "all"];
 
 const commandSelectionFilterKeys = [
   "source",
@@ -25,14 +24,17 @@ const commandSelectionFilterKeys = [
   "postedWithin",
   "employment",
   "location",
+  "archive",
 ];
 
 interface UseOrchestratorNavigationArgs {
+  archiveFilter: ArchiveFilter;
   searchParams: URLSearchParams;
 }
 
 export function useOrchestratorNavigation({
   searchParams,
+  archiveFilter,
 }: UseOrchestratorNavigationArgs) {
   const { tab, jobId } = useParams<{ tab: string; jobId?: string }>();
   const navigate = useNavigate();
@@ -80,12 +82,12 @@ export function useOrchestratorNavigation({
         ? jobs.find((job) => job.id === selectedJobId)
         : null;
       const jobFitsTab = selectedItem
-        ? jobMatchesTab(selectedItem, newTab)
+        ? jobMatchesTab(selectedItem, newTab, archiveFilter)
         : false;
 
       navigateWithContext(newTab, jobFitsTab ? selectedJobId : null);
     },
-    [navigateWithContext, selectedJobId],
+    [archiveFilter, navigateWithContext, selectedJobId],
   );
 
   const navigateToStatus = useCallback(
@@ -101,16 +103,23 @@ export function useOrchestratorNavigation({
   );
 
   const navigateToCommandJob = useCallback(
-    (targetTab: FilterTab, id: string) => {
+    (targetTab: FilterTab, id: string, archiveFilter?: ArchiveFilter) => {
       const nextParams = new URLSearchParams(searchParams);
       for (const key of commandSelectionFilterKeys) {
         nextParams.delete(key);
       }
+      if (archiveFilter) nextParams.set("archive", archiveFilter);
       const query = nextParams.toString();
       navigate(`/jobs/${targetTab}/${id}${query ? `?${query}` : ""}`);
     },
     [navigate, searchParams],
   );
+
+  const openArchivedJobs = useCallback(() => {
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.set("archive", "archived");
+    navigate(`/jobs/all?${nextParams.toString()}`);
+  }, [navigate, searchParams]);
 
   return {
     activeTab,
@@ -120,6 +129,7 @@ export function useOrchestratorNavigation({
     setActiveTab,
     navigateToStatus,
     navigateToCommandJob,
+    openArchivedJobs,
   };
 }
 

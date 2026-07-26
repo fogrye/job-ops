@@ -24,6 +24,7 @@ const defaultDateFilter: JobDateFilter = {
 
 const baseFilters: JobFilters = {
   activeTab: "ready",
+  archiveFilter: "active",
   dateFilter: defaultDateFilter,
   sourceFilter: "all",
   sponsorFilter: "all",
@@ -124,14 +125,9 @@ describe("useFilteredJobs", () => {
     expect(result.current.map((job) => job.id)).toEqual(["applied"]);
   });
 
-  it("keeps closed jobs out of active tabs and lists them in Archive", () => {
+  it("filters archived jobs only through All Jobs", () => {
     const jobs: Job[] = [
-      {
-        ...baseJob,
-        id: "active",
-        status: "ready",
-        readyAt: "2026-04-04T14:00:00.000Z",
-      },
+      { ...baseJob, id: "active", status: "ready" },
       {
         ...baseJob,
         id: "closed",
@@ -140,18 +136,32 @@ describe("useFilteredJobs", () => {
         closedAt: 1775347200,
       },
     ];
+    const initialProps: {
+      activeTab: FilterTab;
+      archiveFilter: JobFilters["archiveFilter"];
+    } = { activeTab: "all", archiveFilter: "active" };
 
     const { result, rerender } = renderHook(
-      ({ activeTab }: { activeTab: FilterTab }) =>
-        useFilteredJobs(jobs, makeFilters({ activeTab })),
-      { initialProps: { activeTab: "all" } },
+      ({
+        activeTab,
+        archiveFilter,
+      }: {
+        activeTab: FilterTab;
+        archiveFilter: JobFilters["archiveFilter"];
+      }) => useFilteredJobs(jobs, makeFilters({ activeTab, archiveFilter })),
+      { initialProps },
     );
 
     expect(result.current.map((job) => job.id)).toEqual(["active"]);
 
-    rerender({ activeTab: "archive" });
-
+    rerender({ activeTab: "all", archiveFilter: "archived" });
     expect(result.current.map((job) => job.id)).toEqual(["closed"]);
+
+    rerender({ activeTab: "all", archiveFilter: "all" });
+    expect(result.current.map((job) => job.id)).toEqual(["active", "closed"]);
+
+    rerender({ activeTab: "applied", archiveFilter: "archived" });
+    expect(result.current).toEqual([]);
   });
 
   it("composes date filtering with source, sponsor, and salary filters", () => {

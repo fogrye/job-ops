@@ -1799,7 +1799,7 @@ describe.sequential("Jobs API routes", () => {
     expect((await getJobById(job.id))?.status).toBe("discovered");
   });
   it("archives a declined job and restores it without changing its last active status", async () => {
-    const { createJob, getJobById, updateJob } = await import(
+    const { createJob, getJobById, getJobStats, updateJob } = await import(
       "@server/repositories/jobs"
     );
     const job = await createJob({
@@ -1809,6 +1809,7 @@ describe.sequential("Jobs API routes", () => {
       jobUrl: "https://example.com/job/archive-restore",
     });
     await updateJob(job.id, { status: "applied" });
+    const appliedStats = (await getJobStats()).applied;
 
     const archiveRes = await fetch(`${baseUrl}/api/jobs/${job.id}/outcome`, {
       method: "PATCH",
@@ -1821,6 +1822,7 @@ describe.sequential("Jobs API routes", () => {
       outcome: "rejected",
       closedAt: expect.any(Number),
     });
+    expect((await getJobStats()).applied).toBe(appliedStats);
 
     const restoreRes = await fetch(`${baseUrl}/api/jobs/${job.id}`, {
       method: "PATCH",

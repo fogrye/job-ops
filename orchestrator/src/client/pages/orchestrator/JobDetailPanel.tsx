@@ -684,6 +684,7 @@ export const JobDetailPanel: React.FC<JobDetailPanelProps> = ({
     if (
       !selectedJob ||
       selectedJob.closedAt != null ||
+      !["applied", "in_progress"].includes(selectedJob.status) ||
       statusActionInFlightRef.current
     ) {
       return;
@@ -691,7 +692,7 @@ export const JobDetailPanel: React.FC<JobDetailPanelProps> = ({
     try {
       statusActionInFlightRef.current = true;
       const updatedJob = await api.updateJob(selectedJob.id, {
-        closedAt: Date.now(),
+        closedAt: Math.floor(Date.now() / 1000),
       });
       onJobMutation(updatedJob);
       toast.message("Job archived");
@@ -721,6 +722,7 @@ export const JobDetailPanel: React.FC<JobDetailPanelProps> = ({
     try {
       statusActionInFlightRef.current = true;
       const updatedJob = await api.updateJob(selectedJob.id, {
+        outcome: null,
         closedAt: null,
       });
       onJobMutation(updatedJob);
@@ -917,6 +919,8 @@ export const JobDetailPanel: React.FC<JobDetailPanelProps> = ({
     ["discovered", "ready", "applied", "in_progress"].includes(
       selectedJob.status,
     );
+  const canArchive =
+    !isClosed && ["applied", "in_progress"].includes(selectedJob.status);
   const isRegeneratingPdf = isPdfRegenerating(selectedJob);
   const isStalePdf = isPdfStale(selectedJob);
   const pdfLabels = getPdfActionLabels(selectedJob);
@@ -1026,7 +1030,7 @@ export const JobDetailPanel: React.FC<JobDetailPanelProps> = ({
                     Restore job
                   </DropdownMenuItem>
                 ) : null}
-                {!isClosed ? (
+                {canArchive ? (
                   <DropdownMenuItem
                     onSelect={() => void handleArchive()}
                     disabled={primaryBusy}
