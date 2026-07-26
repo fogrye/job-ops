@@ -8,7 +8,10 @@ import { useProfile } from "@client/hooks/useProfile";
 import { useSettings } from "@client/hooks/useSettings";
 import { resolveFilenameLanguage } from "@client/lib/pdf-filename";
 import { downloadJobPdf, openJobPdf } from "@client/lib/private-pdf";
-import { SHORTCUTS } from "@client/lib/shortcut-map";
+import {
+  APPLIED_CLOSE_SHORTCUT_KEYS,
+  SHORTCUTS,
+} from "@client/lib/shortcut-map";
 import type { Job, JobAction, JobListItem, JobStatus } from "@shared/types.js";
 import type { MutableRefObject } from "react";
 import { useCallback } from "react";
@@ -149,7 +152,10 @@ export function useKeyboardShortcuts(args: UseKeyboardShortcutsArgs): void {
     ],
   );
 
-  const ghostedOutcome = "ghosted" as const;
+  const primaryKey =
+    activeTab === "applied"
+      ? APPLIED_CLOSE_SHORTCUT_KEYS.rejected
+      : SHORTCUTS.moveToReady["key"];
 
   useHotkeys(
     {
@@ -247,7 +253,7 @@ export function useKeyboardShortcuts(args: UseKeyboardShortcutsArgs): void {
             statusActionInFlightRef.current = false;
           });
       },
-      "r": () => {
+      [primaryKey]: () => {
         if (activeTab === "applied") {
           closeApplication("rejected");
           return;
@@ -256,7 +262,8 @@ export function useKeyboardShortcuts(args: UseKeyboardShortcutsArgs): void {
         if (!selectedJob || selectedJob.status !== "discovered") return;
         startTailoring();
       },
-      "g": () => closeApplication(ghostedOutcome),
+      [APPLIED_CLOSE_SHORTCUT_KEYS.ghosted]: () =>
+        closeApplication("ghosted"),
       [SHORTCUTS.viewPdf.key]: () => {
         if (!selectedJob) return;
         if (activeTab !== "ready") return;
