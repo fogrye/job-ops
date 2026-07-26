@@ -157,6 +157,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # Copy package files for production dependency installation.
 COPY package*.json ./
+COPY scripts/install-git-hooks.mjs ./scripts/install-git-hooks.mjs
 COPY docs-site/package*.json ./docs-site/
 COPY shared/package*.json ./shared/
 COPY orchestrator/package*.json ./orchestrator/
