@@ -114,14 +114,14 @@ export const SHORTCUTS = {
   },
   reject: {
     key: APPLIED_CLOSE_SHORTCUT_KEYS.rejected,
-    displayKey: "r",
+    displayKey: APPLIED_CLOSE_SHORTCUT_KEYS.rejected,
     label: "Reject application",
     group: "actions",
     scope: ["applied"],
   },
   ghost: {
     key: APPLIED_CLOSE_SHORTCUT_KEYS.ghosted,
-    displayKey: "g",
+    displayKey: APPLIED_CLOSE_SHORTCUT_KEYS.ghosted,
     label: "Mark as ghosted",
     group: "actions",
     scope: ["applied"],
