@@ -313,10 +313,21 @@ describe("OrchestratorFilters", () => {
     fireEvent.click(screen.getByRole("button", { name: "Reset" }));
     expect(props.onResetFilters).toHaveBeenCalled();
   });
-  it("opens archived jobs from the overflow menu without adding a primary tab", () => {
-    renderFilters();
+  it("opens archived jobs from the overflow menu without adding a primary tab", async () => {
+    const { props } = renderFilters();
+
     expect(
-      screen.getByRole("button", { name: /open archived jobs/i }),
-    ).toBeInTheDocument();
+      screen.queryByRole("tab", { name: /archive/i }),
+    ).not.toBeInTheDocument();
+    const trigger = screen.getByRole("button", {
+      name: /open archived jobs/i,
+    });
+    fireEvent.keyDown(trigger, { key: "ArrowDown" });
+    const menuItem = await screen.findByRole("menuitem", {
+      name: /view archived/i,
+    });
+    fireEvent.click(menuItem);
+
+    expect(props.onTabChange).toHaveBeenCalledWith("archive");
   });
 });
