@@ -9,6 +9,12 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
   Sheet,
   SheetContent,
   SheetHeader,
@@ -16,6 +22,7 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
+import { AccountSettingsSection } from "../pages/settings/components/AccountSettingsSection";
 import { useSettings } from "../hooks/useSettings";
 import { useVersionCheck } from "../hooks/useVersionCheck";
 import { isNavActive, NAV_LINKS } from "./navigation";
@@ -49,6 +56,7 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
   navOpen: controlledNavOpen,
   onNavOpenChange,
 }) => {
+  const [accountOpen, setAccountOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
   const [internalNavOpen, setInternalNavOpen] = useState(false);
@@ -109,7 +117,7 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
                     size="sm"
                     onClick={() => {
                       setNavOpen(false);
-                      navigate("/settings#account");
+                      setAccountOpen(true);
                     }}
                     className="h-8 w-full justify-start gap-2 px-2 text-xs"
                   >
@@ -170,6 +178,14 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
           {actions}
         </div>
       </div>
+      <Dialog open={accountOpen} onOpenChange={setAccountOpen}>
+        <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-xl">
+          <DialogHeader>
+            <DialogTitle>Account</DialogTitle>
+          </DialogHeader>
+          <AccountSettingsSection layoutMode="panel" />
+        </DialogContent>
+      </Dialog>
     </header>
   );
 };

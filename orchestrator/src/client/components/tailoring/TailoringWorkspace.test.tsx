@@ -72,9 +72,11 @@ vi.mock("./useTailoringDraft", () => ({
 function WorkspaceHarness({
   onBusyChange,
   onTailoringCompleted,
+  onGenerationError,
 }: {
   onBusyChange?: (busy: boolean) => void;
   onTailoringCompleted?: (job: Job) => void | Promise<void>;
+  onGenerationError?: () => void;
 }) {
   const [startToken, setStartToken] = useState(0);
   const [mounted, setMounted] = useState(true);
@@ -95,6 +97,7 @@ function WorkspaceHarness({
         <TailoringWorkspace
           mode="editor"
           job={job}
+          onGenerationError={onGenerationError}
           onGenerationChange={onBusyChange}
           onTailoringCompleted={onTailoringCompleted}
           onStartGenerationConsumed={() => setStartToken(0)}
@@ -182,7 +185,26 @@ describe("TailoringWorkspace start lifecycle", () => {
     expect(api.summarizeJob).toHaveBeenCalledTimes(1);
 
     await act(async () => resolveCompletion());
-
     await waitFor(() => expect(onBusyChange).toHaveBeenLastCalledWith(false));
+  });
+
+  it("clears busy state and exposes retry after generation failure", async () => {
+    vi.mocked(api.summarizeJob).mockRejectedValueOnce(
+      new Error("generation failed"),
+    );
+    const onBusyChange = vi.fn();
+    const onGenerationError = vi.fn();
+
+    render(
+      <WorkspaceHarness
+        onBusyChange={onBusyChange}
+        onGenerationError={onGenerationError}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Start" }));
+
+    await waitFor(() => expect(onGenerationError).toHaveBeenCalledTimes(1));
+    expect(onBusyChange).toHaveBeenLastCalledWith(false);
+    expect(screen.getByRole("button", { name: "Start" })).toBeInTheDocument();
   });
 });

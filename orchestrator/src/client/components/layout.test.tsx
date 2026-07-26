@@ -9,6 +9,9 @@ vi.mock("../hooks/useVersionCheck", () => ({
   useVersionCheck: () => ({ version: "v1.0.0", updateAvailable: false }),
 }));
 vi.mock("./StatusIndicator", () => ({ StatusBadgeIndicator: () => null }));
+vi.mock("../pages/settings/components/AccountSettingsSection", () => ({
+  AccountSettingsSection: () => <div>Account controls</div>,
+}));
 
 const LocationWatcher = ({
   onChange,
@@ -33,7 +36,7 @@ describe("PageHeader account navigation", () => {
     });
   });
 
-  it("opens account management instead of signing out", () => {
+  it("opens account management in place instead of navigating or signing out", () => {
     let location = "";
     render(
       <MemoryRouter initialEntries={["/jobs/ready"]}>
@@ -56,6 +59,7 @@ describe("PageHeader account navigation", () => {
     );
     fireEvent.click(screen.getByRole("button", { name: "Account" }));
 
-    expect(location).toBe("/settings#account");
+    expect(location).toBe("/jobs/ready");
+    expect(screen.getByText("Account controls")).toBeInTheDocument();
   });
 });

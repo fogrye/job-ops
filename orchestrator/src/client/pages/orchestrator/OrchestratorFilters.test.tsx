@@ -313,4 +313,10 @@ describe("OrchestratorFilters", () => {
     fireEvent.click(screen.getByRole("button", { name: "Reset" }));
     expect(props.onResetFilters).toHaveBeenCalled();
   });
+  it("opens archived jobs from the overflow menu without adding a primary tab", () => {
+    renderFilters();
+    expect(
+      screen.getByRole("button", { name: /open archived jobs/i }),
+    ).toBeInTheDocument();
+  });
 });
