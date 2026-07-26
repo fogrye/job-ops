@@ -154,7 +154,7 @@ export function isLegacyDesignResumeError(error: unknown): boolean {
 function buildDocumentTitle(document: DesignResumeJson): string {
   const basics = asRecord(document.basics);
   const name = toText(basics?.name).trim();
-  return name ? `${name} Resume` : "Resume Studio";
+  return name ? `${name} Resume` : "My Resume";
 }
 
 function contentUrlForAsset(assetId: string): string {

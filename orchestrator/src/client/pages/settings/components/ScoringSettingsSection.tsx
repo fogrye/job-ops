@@ -34,9 +34,12 @@ export const ScoringSettingsSection: React.FC<ScoringSettingsSectionProps> = ({
     missingSalaryPenalty,
     autoSkipScoreThreshold,
     blockedCompanyKeywords,
+    blockedPositionKeywords,
   } = values;
   const { control, watch, setValue } = useFormContext<UpdateSettingsInput>();
   const [blockedCompanyKeywordDraft, setBlockedCompanyKeywordDraft] =
+    useState("");
+  const [blockedPositionKeywordDraft, setBlockedPositionKeywordDraft] =
     useState("");
 
   // Watch the current form value to conditionally show/hide penalty input
@@ -47,6 +50,8 @@ export const ScoringSettingsSection: React.FC<ScoringSettingsSectionProps> = ({
   const currentAutoSkipThreshold = watch("autoSkipScoreThreshold");
   const blockedCompanyKeywordValues =
     watch("blockedCompanyKeywords") ?? blockedCompanyKeywords.default;
+  const blockedPositionKeywordValues =
+    watch("blockedPositionKeywords") ?? blockedPositionKeywords.default;
 
   return (
     <SettingsSectionFrame
@@ -193,6 +198,39 @@ export const ScoringSettingsSection: React.FC<ScoringSettingsSectionProps> = ({
             | Default:{" "}
             {blockedCompanyKeywords.default.length > 0
               ? blockedCompanyKeywords.default.join(", ")
+              : "None"}
+          </div>
+        </div>
+
+        <div className="space-y-3">
+          <label
+            htmlFor="blocked-position-keywords"
+            className="text-sm font-medium leading-none"
+          >
+            Blocked Position Words
+          </label>
+          <TokenizedInput
+            id="blocked-position-keywords"
+            values={blockedPositionKeywordValues}
+            draft={blockedPositionKeywordDraft}
+            parseInput={parseTokenizedKeywordInput}
+            onDraftChange={setBlockedPositionKeywordDraft}
+            onValuesChange={(value) =>
+              setValue("blockedPositionKeywords", value, { shouldDirty: true })
+            }
+            placeholder='e.g. "senior", "manager"'
+            helperText="Jobs whose position title contains one of these words will be dropped during discovery."
+            removeLabelPrefix="Remove blocked position word"
+            disabled={isLoading || isSaving}
+          />
+          <div className="break-words font-mono text-xs text-muted-foreground">
+            Effective:{" "}
+            {blockedPositionKeywordValues.length > 0
+              ? blockedPositionKeywordValues.join(", ")
+              : "None"}{" "}
+            | Default:{" "}
+            {blockedPositionKeywords.default.length > 0
+              ? blockedPositionKeywords.default.join(", ")
               : "None"}
           </div>
         </div>

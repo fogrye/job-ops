@@ -9,6 +9,7 @@ import {
   Circle,
   CircleAlert,
   Info,
+  Loader2,
   Plus,
   Redo2,
   Sparkles,
@@ -46,6 +47,7 @@ interface TailoringSectionsProps {
   tracerEnableBlockedReason: string | null;
   tracerReadinessChecking?: boolean;
   generatingSection: "summary" | "headline" | "skills" | null;
+  isGeneratingAll: boolean;
   experienceView: TailoredExperienceView | null;
   experienceDisabled: boolean;
   experienceGenerating: boolean;
@@ -341,6 +343,7 @@ export const TailoringSections: React.FC<TailoringSectionsProps> = ({
   tracerEnableBlockedReason,
   tracerReadinessChecking = false,
   generatingSection,
+  isGeneratingAll,
   openSkillGroupId,
   disableInputs,
   onGenerateSummary,
@@ -390,6 +393,10 @@ export const TailoringSections: React.FC<TailoringSectionsProps> = ({
         ? "review"
         : "ready";
   const projectsState: SectionState = selectedIds.size > 0 ? "ready" : "none";
+  const summaryGenerating = isGeneratingAll || generatingSection === "summary";
+  const headlineGenerating =
+    isGeneratingAll || generatingSection === "headline";
+  const skillsGenerating = isGeneratingAll || generatingSection === "skills";
   const noSelectedProjectsInfo = getNoSelectedProjectsInfo({
     catalog,
     isCatalogLoading,
@@ -400,11 +407,20 @@ export const TailoringSections: React.FC<TailoringSectionsProps> = ({
 
   return (
     <Accordion type="multiple" className="space-y-2">
-      <AccordionItem value="summary" className={sectionClass}>
+      <AccordionItem
+        value="summary"
+        className={cn(sectionClass, isGeneratingAll && "border-amber-500/50")}
+      >
         <AccordionTrigger className={triggerClass} aria-label="Summary">
           <SectionTriggerLabel
             title="Summary"
             state={sectionStateForText(summary)}
+            badgeLabel={summaryGenerating ? "Generating" : undefined}
+            badgeAdornment={
+              summaryGenerating ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : undefined
+            }
           />
         </AccordionTrigger>
         <AccordionContent className="px-3 pb-3 pt-3">
@@ -419,10 +435,12 @@ export const TailoringSections: React.FC<TailoringSectionsProps> = ({
                 disabled={disableInputs}
                 aria-label="Generate summary"
               >
-                <Sparkles className="mr-1 h-3.5 w-3.5" />
-                {generatingSection === "summary"
-                  ? "Generating..."
-                  : generateTooltip}
+                {summaryGenerating ? (
+                  <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Sparkles className="mr-1 h-3.5 w-3.5" />
+                )}
+                {summaryGenerating ? "Generating..." : generateTooltip}
               </Button>
             </Tip>
             <Tip asChild clickBehavior="none" content={undoTooltip}>
@@ -471,11 +489,20 @@ export const TailoringSections: React.FC<TailoringSectionsProps> = ({
         </AccordionContent>
       </AccordionItem>
 
-      <AccordionItem value="headline" className={sectionClass}>
+      <AccordionItem
+        value="headline"
+        className={cn(sectionClass, isGeneratingAll && "border-amber-500/50")}
+      >
         <AccordionTrigger className={triggerClass} aria-label="Headline">
           <SectionTriggerLabel
             title="Headline"
             state={sectionStateForText(headline)}
+            badgeLabel={headlineGenerating ? "Generating" : undefined}
+            badgeAdornment={
+              headlineGenerating ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : undefined
+            }
           />
         </AccordionTrigger>
         <AccordionContent className="px-3 pb-3 pt-3">
@@ -490,10 +517,12 @@ export const TailoringSections: React.FC<TailoringSectionsProps> = ({
                 disabled={disableInputs}
                 aria-label="Generate headline"
               >
-                <Sparkles className="mr-1 h-3.5 w-3.5" />
-                {generatingSection === "headline"
-                  ? "Generating..."
-                  : generateTooltip}
+                {headlineGenerating ? (
+                  <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Sparkles className="mr-1 h-3.5 w-3.5" />
+                )}
+                {headlineGenerating ? "Generating..." : generateTooltip}
               </Button>
             </Tip>
             <Tip asChild clickBehavior="none" content={undoTooltip}>
@@ -543,11 +572,20 @@ export const TailoringSections: React.FC<TailoringSectionsProps> = ({
         </AccordionContent>
       </AccordionItem>
 
-      <AccordionItem value="skills" className={sectionClass}>
+      <AccordionItem
+        value="skills"
+        className={cn(sectionClass, isGeneratingAll && "border-amber-500/50")}
+      >
         <AccordionTrigger className={triggerClass} aria-label="Tailored Skills">
           <SectionTriggerLabel
             title="Tailored Skills"
             state={skillsState}
+            badgeLabel={skillsGenerating ? "Generating" : undefined}
+            badgeAdornment={
+              skillsGenerating ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : undefined
+            }
             count={skillsDraft.length > 0 ? skillsDraft.length : undefined}
           />
         </AccordionTrigger>
@@ -563,10 +601,12 @@ export const TailoringSections: React.FC<TailoringSectionsProps> = ({
                 disabled={disableInputs}
                 aria-label="Generate skills"
               >
-                <Sparkles className="mr-1 h-3.5 w-3.5" />
-                {generatingSection === "skills"
-                  ? "Generating..."
-                  : generateTooltip}
+                {skillsGenerating ? (
+                  <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Sparkles className="mr-1 h-3.5 w-3.5" />
+                )}
+                {skillsGenerating ? "Generating..." : generateTooltip}
               </Button>
             </Tip>
             <Tip asChild clickBehavior="none" content={undoTooltip}>
@@ -724,7 +764,10 @@ export const TailoringSections: React.FC<TailoringSectionsProps> = ({
       />
 
       {!isCatalogLoading && catalog.length > 0 && (
-        <AccordionItem value="projects" className={sectionClass}>
+        <AccordionItem
+          value="projects"
+          className={cn(sectionClass, isGeneratingAll && "border-amber-500/50")}
+        >
           <AccordionTrigger
             className={triggerClass}
             aria-label="Selected Projects"
@@ -733,10 +776,16 @@ export const TailoringSections: React.FC<TailoringSectionsProps> = ({
               title="Selected Projects"
               state={projectsState}
               badgeLabel={
-                selectedIds.size > 0 ? String(selectedIds.size) : undefined
+                isGeneratingAll
+                  ? "Generating"
+                  : selectedIds.size > 0
+                    ? String(selectedIds.size)
+                    : undefined
               }
               badgeAdornment={
-                noSelectedProjectsInfo ? (
+                isGeneratingAll ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : noSelectedProjectsInfo ? (
                   <NoSelectedProjectsInfo info={noSelectedProjectsInfo} />
                 ) : null
               }

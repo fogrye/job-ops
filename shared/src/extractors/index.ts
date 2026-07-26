@@ -28,9 +28,6 @@ export interface ExtractorSourceMetadata {
   category: "pipeline" | "manual";
   requiresCredentials?: boolean;
   ukOnly?: boolean;
-  /** Source supports re-fetching a single job's description from its own
-   *  source page via an explicit user action (see ExtractorManifest). */
-  supportsDescriptionRefresh?: boolean;
 }
 
 export const EXTRACTOR_SOURCE_METADATA: Record<
@@ -93,7 +90,6 @@ export const EXTRACTOR_SOURCE_METADATA: Record<
     label: "Jobs.cz",
     order: 112,
     category: "pipeline",
-    supportsDescriptionRefresh: true,
   },
   manual: { label: "Manual", order: 120, category: "manual" },
 };
@@ -127,9 +123,8 @@ export function sortSources<T extends { source: ExtractorSourceId }>(
   );
 }
 
+/** Every registered source can re-fetch a job description from its stored
+ *  source URL through the generic refresh path. */
 export function supportsDescriptionRefresh(source: string): boolean {
-  return (
-    isExtractorSourceId(source) &&
-    Boolean(EXTRACTOR_SOURCE_METADATA[source].supportsDescriptionRefresh)
-  );
+  return source.trim().length > 0;
 }

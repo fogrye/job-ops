@@ -40,6 +40,12 @@ import {
 
 export const jobsDocumentsRouter = Router();
 
+function assertJobIsOpen(job: { closedAt: number | null }): void {
+  if (job.closedAt != null) {
+    throw badRequest("Closed jobs cannot be changed");
+  }
+}
+
 const tailoringGenerateFields = [
   "summary",
   "headline",
@@ -141,6 +147,8 @@ jobsDocumentsRouter.post("/:id/pdf", async (req: Request, res: Response) => {
       fail(res, err);
       return;
     }
+
+    assertJobIsOpen(currentJob);
 
     const uploaded = await uploadJobPdf({
       jobId: req.params.id,
@@ -577,6 +585,9 @@ jobsDocumentsRouter.post(
   "/:id/generate-pdf",
   async (req: Request, res: Response) => {
     try {
+      const currentJob = await requireJob(req.params.id);
+      assertJobIsOpen(currentJob);
+
       if (isDemoMode()) {
         const result = await simulateGeneratePdf(req.params.id);
         if (!result.success) {

@@ -153,7 +153,7 @@ export const JobPage: React.FC = () => {
   const [catalog, setCatalog] = React.useState<ResumeProjectCatalogItem[]>([]);
   const pendingEventRef = React.useRef<StageEvent | null>(null);
   const uploadPdfInputRef = React.useRef<HTMLInputElement | null>(null);
-  const { settings } = useSettings();
+  const { settings, showSponsorInfo } = useSettings();
   const { profile } = useProfile();
   const filenameLanguage = resolveFilenameLanguage({ settings, profile });
   const openEditDetails = React.useCallback(() => {
@@ -430,6 +430,7 @@ export const JobPage: React.FC = () => {
   };
 
   const handleCheckSponsor = async () => {
+    if (!showSponsorInfo) return;
     await runAction("check-sponsor", async () => {
       if (!job) return;
       await checkSponsorMutation.mutateAsync(job.id);
@@ -597,7 +598,7 @@ export const JobPage: React.FC = () => {
                   navigationState={jobPageNavigationState}
                 />
 
-                <JobBriefPane job={job} />
+                {showSponsorInfo ? <JobBriefPane job={job} /> : null}
 
                 <div className="grid gap-4 lg:grid-cols-2">
                   <article className="rounded-xl border border-border/50 bg-card/75 p-4">
@@ -800,7 +801,7 @@ export const JobPage: React.FC = () => {
                   onRegeneratePdf={() => void handleRegeneratePdf()}
                 />
 
-                <JobBriefPane job={job} />
+                {showSponsorInfo ? <JobBriefPane job={job} /> : null}
 
                 <div id="job-description-panel">
                   <JobDescriptionPanel
@@ -932,7 +933,9 @@ export const JobPage: React.FC = () => {
               onCopyJobInfo={() => void handleCopyJobInfo()}
               onRescore={() => void handleRescore()}
               onRefreshDescription={() => void handleRefreshDescription()}
-              onCheckSponsor={() => void handleCheckSponsor()}
+              onCheckSponsor={
+                showSponsorInfo ? () => void handleCheckSponsor() : undefined
+              }
             />
           )}
         </div>

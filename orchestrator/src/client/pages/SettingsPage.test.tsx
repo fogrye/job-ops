@@ -1,10 +1,11 @@
 import { getDefaultPromptTemplate } from "@shared/prompt-template-definitions.js";
 import { createAppSettings } from "@shared/testing/factories.js";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import * as api from "../api";
+import { ApiClientError } from "../api/core";
 import { _resetTracerReadinessCache } from "../hooks/useTracerReadiness";
 import { renderWithQueryClient } from "../test/renderWithQueryClient";
 import { SettingsPage } from "./SettingsPage";
@@ -49,6 +50,7 @@ vi.mock("../api", () => ({
   updateSettings: vi.fn(),
   validateRxresume: vi.fn(),
   getRxResumeProjects: vi.fn(),
+  getRxResumes: vi.fn(),
   clearDatabase: vi.fn(),
   deleteJobsByStatus: vi.fn(),
   getTracerReadiness: vi.fn(),
@@ -122,11 +124,26 @@ const hostedPlatformLlmStatus = {
   hostedTenantConfigured: true,
 };
 
-const renderPage = () => {
-  return render(
-    <MemoryRouter initialEntries={["/settings"]}>
+const renderPage = (initialEntry = "/settings") =>
+  render(
+    <MemoryRouter initialEntries={[initialEntry]}>
       <SettingsPage />
     </MemoryRouter>,
+  );
+
+const SettingsHashNavigator = () => {
+  const navigate = useNavigate();
+
+  return (
+    <>
+      <button type="button" onClick={() => navigate("/settings#account")}>
+        Open account settings
+      </button>
+      <button type="button" onClick={() => navigate("/settings#unknown")}>
+        Open unknown settings
+      </button>
+      <SettingsPage />
+    </>
   );
 };
 
@@ -176,8 +193,8 @@ const openDisplaySection = async () => {
 };
 
 const openEnvironmentSection = async () => {
-  await openNavGroup(/^workspaces & security$/i);
-  await clickLastButtonByName(/workspace access/i);
+  await openNavGroup(/^workspace administration$/i);
+  await clickLastButtonByName(/workspace users.*service accounts/i);
 };
 
 const openScoringSection = async () => {
@@ -221,6 +238,68 @@ describe("SettingsPage", () => {
       configurable: true,
       value: originalScrollIntoView,
     });
+  });
+
+  it("renders account settings from #account on initial navigation", async () => {
+    vi.mocked(api.getSettings).mockResolvedValue(baseSettings);
+
+    renderPage("/settings#account");
+
+    expect(await screen.findByLabelText(/new password/i)).toBeInTheDocument();
+  });
+
+  it("renders account settings after hash navigation", async () => {
+    vi.mocked(api.getSettings).mockResolvedValue(baseSettings);
+
+    render(
+      <MemoryRouter initialEntries={["/settings"]}>
+        <SettingsHashNavigator />
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(
+      screen.getByRole("button", { name: /open account settings/i }),
+    );
+
+    expect(await screen.findByLabelText(/new password/i)).toBeInTheDocument();
+  });
+
+  it("clears a retained settings search when hash navigation opens Account", async () => {
+    vi.mocked(api.getSettings).mockResolvedValue(baseSettings);
+
+    render(
+      <MemoryRouter initialEntries={["/settings"]}>
+        <SettingsHashNavigator />
+      </MemoryRouter>,
+    );
+
+    fireEvent.change(await screen.findByPlaceholderText("Search settings"), {
+      target: { value: "model" },
+    });
+    fireEvent.click(
+      screen.getByRole("button", { name: /open account settings/i }),
+    );
+
+    expect(await screen.findByLabelText(/new password/i)).toBeInTheDocument();
+    expect(screen.getByPlaceholderText("Search settings")).toHaveValue("");
+  });
+
+  it("returns to the default section for an unrecognized hash", async () => {
+    vi.mocked(api.getSettings).mockResolvedValue(baseSettings);
+
+    render(
+      <MemoryRouter initialEntries={["/settings#account"]}>
+        <SettingsHashNavigator />
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByLabelText(/new password/i)).toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole("button", { name: /open unknown settings/i }),
+    );
+
+    expect(await screen.findByLabelText(/default model/i)).toBeInTheDocument();
+    expect(screen.queryByLabelText(/new password/i)).not.toBeInTheDocument();
   });
 
   it("saves trimmed model overrides", async () => {
@@ -638,12 +717,12 @@ describe("SettingsPage", () => {
       </MemoryRouter>,
     );
 
-    await openNavGroup(/^ai$/i);
-
-    expect(screen.queryByRole("button", { name: /models/i })).toBeNull();
-    expect(
-      await screen.findByRole("heading", { name: /writing style/i }),
-    ).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.queryByRole("button", { name: /models/i })).toBeNull();
+      expect(
+        screen.getByRole("heading", { name: /writing style/i }),
+      ).toBeInTheDocument();
+    });
   });
 
   it("does not mark Reactive Resume settings dirty when project catalog hydration finishes", async () => {
@@ -684,6 +763,47 @@ describe("SettingsPage", () => {
 
     const saveButton = getSaveButton();
     await waitFor(() => expect(saveButton).toBeDisabled());
+  });
+
+  it("clears a missing Reactive Resume base selection without a global error", async () => {
+    vi.mocked(api.getRxResumeProjects)
+      .mockRejectedValueOnce(
+        new ApiClientError("Resume not found", { status: 404 }),
+      )
+      .mockResolvedValueOnce([]);
+    vi.mocked(api.getRxResumes).mockRejectedValueOnce(
+      new Error("Resume list unavailable"),
+    );
+    vi.mocked(api.getSettings).mockResolvedValue(
+      createAppSettings({
+        rxresumeApiKeyHint: "rr-v5",
+        rxresumeBaseResumeId: "missing-resume",
+      }),
+    );
+
+    renderPage();
+    await openReactiveResumeSection();
+
+    expect(
+      await screen.findByText(/selected base resume no longer exists/i),
+    ).toBeInTheDocument();
+    expect(getSaveButton()).toBeEnabled();
+    expect(toast.error).not.toHaveBeenCalled();
+
+    vi.mocked(api.getRxResumes).mockResolvedValue([
+      { id: "replacement-resume", name: "Replacement" },
+    ]);
+    fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
+
+    await waitFor(() => {
+      expect(api.getRxResumeProjects).toHaveBeenLastCalledWith(
+        "replacement-resume",
+        expect.any(AbortSignal),
+      );
+    });
+    expect(
+      screen.queryByText(/selected base resume no longer exists/i),
+    ).not.toBeInTheDocument();
   });
 
   it("does not clear the model override when saving an unrelated setting", async () => {
@@ -1110,6 +1230,50 @@ describe("SettingsPage", () => {
         blockedCompanyKeywords: ["staffing"],
       }),
     );
+  });
+
+  it("saves blocked position words from scoring settings", async () => {
+    vi.mocked(api.getSettings).mockResolvedValue(baseSettings);
+    vi.mocked(api.updateSettings).mockResolvedValue({
+      ...baseSettings,
+      blockedPositionKeywords: {
+        value: ["senior"],
+        default: [],
+        override: ["senior"],
+      },
+    });
+
+    renderPage();
+
+    await openScoringSection();
+
+    const input = screen.getByPlaceholderText('e.g. "senior", "manager"');
+    fireEvent.change(input, { target: { value: "senior" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+
+    const saveButton = getSaveButton();
+    await waitFor(() => expect(saveButton).toBeEnabled());
+    fireEvent.click(saveButton);
+
+    await waitFor(() => expect(api.updateSettings).toHaveBeenCalled());
+    expect(api.updateSettings).toHaveBeenCalledWith(
+      expect.objectContaining({
+        blockedPositionKeywords: ["senior"],
+      }),
+    );
+  });
+
+  it("hydrates legacy profiles without blocked position keywords", async () => {
+    const legacySettings = { ...baseSettings };
+    Reflect.deleteProperty(legacySettings, "blockedPositionKeywords");
+    vi.mocked(api.getSettings).mockResolvedValue(legacySettings);
+
+    renderPage();
+
+    await openScoringSection();
+    expect(
+      screen.getByPlaceholderText('e.g. "senior", "manager"'),
+    ).toBeInTheDocument();
   });
 
   it("saves auto-skip score threshold from scoring settings", async () => {

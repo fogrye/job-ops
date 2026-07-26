@@ -213,6 +213,11 @@ export const createAppSettings = (
     default: [],
     override: null,
   },
+  blockedPositionKeywords: {
+    value: [],
+    default: [],
+    override: null,
+  },
   scoringInstructions: {
     value: "",
     default: "",

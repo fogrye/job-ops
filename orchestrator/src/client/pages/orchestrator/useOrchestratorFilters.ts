@@ -78,7 +78,7 @@ const parseEmploymentTypes = (value: string | null): EmploymentType[] => {
   return employmentTypeValues.filter((type) => seen.has(type));
 };
 
-export const useOrchestratorFilters = () => {
+export const useOrchestratorFilters = (showSponsorInfo = true) => {
   const [searchParams, setSearchParams] = useSearchParams();
 
   useEffect(() => {
@@ -91,6 +91,17 @@ export const useOrchestratorFilters = () => {
       { replace: true },
     );
   }, [searchParams, setSearchParams]);
+
+  useEffect(() => {
+    if (showSponsorInfo || !searchParams.has("sponsor")) return;
+    setSearchParams(
+      (prev) => {
+        prev.delete("sponsor");
+        return prev;
+      },
+      { replace: true },
+    );
+  }, [searchParams, setSearchParams, showSponsorInfo]);
 
   const sourceFilter =
     (searchParams.get("source") as JobSource | "all") || "all";
@@ -109,24 +120,25 @@ export const useOrchestratorFilters = () => {
   );
 
   const sponsorFilter = useMemo((): SponsorFilter => {
+    if (!showSponsorInfo) return "all";
     const raw = searchParams.get("sponsor") ?? "all";
     return allowedSponsorFilters.includes(raw as SponsorFilter)
       ? (raw as SponsorFilter)
       : "all";
-  }, [searchParams]);
+  }, [searchParams, showSponsorInfo]);
 
   const setSponsorFilter = useCallback(
     (value: SponsorFilter) => {
       setSearchParams(
         (prev) => {
-          if (value === "all") prev.delete("sponsor");
-          else prev.set("sponsor", value);
+          if (showSponsorInfo && value !== "all") prev.set("sponsor", value);
+          else prev.delete("sponsor");
           return prev;
         },
         { replace: true },
       );
     },
-    [setSearchParams],
+    [setSearchParams, showSponsorInfo],
   );
 
   const salaryFilter = useMemo((): SalaryFilter => {

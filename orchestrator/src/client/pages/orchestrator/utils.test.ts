@@ -55,12 +55,18 @@ describe("orchestrator utils", () => {
     expect(getEnabledSources(createAppSettings())).toContain("naukri");
   });
 
-  it("counts processing jobs in ready and discovered tabs", () => {
+  it("keeps closed jobs in Archive while preserving active-tab counts", () => {
     const jobs = [
       createJob({ id: "ready", status: "ready", closedAt: null }),
       createJob({ id: "processing", status: "processing", closedAt: null }),
       createJob({ id: "discovered", status: "discovered", closedAt: null }),
       createJob({ id: "applied", status: "applied", closedAt: null }),
+      createJob({
+        id: "declined",
+        status: "applied",
+        outcome: "rejected",
+        closedAt: 1,
+      }),
     ];
 
     expect(getJobCounts(jobs)).toEqual({
@@ -68,6 +74,7 @@ describe("orchestrator utils", () => {
       discovered: 2,
       applied: 1,
       all: 4,
+      archive: 1,
     });
   });
 

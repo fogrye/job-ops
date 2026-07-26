@@ -143,7 +143,7 @@ describe("DesignResumePdfPreview", () => {
     } as unknown as CanvasRenderingContext2D);
   });
 
-  it("restores the same relative scroll position after preview regeneration", async () => {
+  it("regenerates for a newer persisted document without reloading unchanged state", async () => {
     vi.mocked(api.generateDesignResumePdf)
       .mockResolvedValueOnce({
         fileName: "resume.pdf",
@@ -214,7 +214,10 @@ describe("DesignResumePdfPreview", () => {
 
     rerender(
       <DesignResumePdfPreview
-        draft={{ ...baseDraft, revision: 2 }}
+        draft={{
+          ...baseDraft,
+          updatedAt: "2026-05-22T09:00:02.000Z",
+        }}
         pdfRenderer="typst"
         typstTheme="classic"
         isUpdatingRenderer={false}
@@ -233,5 +236,25 @@ describe("DesignResumePdfPreview", () => {
     await waitFor(() => {
       expect(viewer.scrollTop).toBe(2000);
     });
+
+    await waitFor(() => {
+      expect(api.generateDesignResumePdf).toHaveBeenCalledTimes(2);
+    });
+
+    rerender(
+      <DesignResumePdfPreview
+        draft={{
+          ...baseDraft,
+          updatedAt: "2026-05-22T09:00:02.000Z",
+        }}
+        pdfRenderer="typst"
+        typstTheme="classic"
+        isUpdatingRenderer={false}
+        isDirty={false}
+        saveState="idle"
+      />,
+    );
+
+    expect(api.generateDesignResumePdf).toHaveBeenCalledTimes(2);
   });
 });

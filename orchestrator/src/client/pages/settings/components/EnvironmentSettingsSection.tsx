@@ -86,16 +86,7 @@ function AccountManagementSection() {
     },
   });
 
-  if (!meQuery.data?.isSystemAdmin) {
-    return (
-      <div className="space-y-2">
-        <div className="text-sm font-semibold">Workspace</div>
-        <p className="text-sm text-muted-foreground">
-          Signed in as {meQuery.data?.username ?? "a workspace user"}.
-        </p>
-      </div>
-    );
-  }
+  if (!meQuery.data?.isSystemAdmin) return null;
 
   const users = usersQuery.data ?? [];
 
@@ -302,7 +293,7 @@ export const EnvironmentSettingsSection: React.FC<
 
         <div className="space-y-4">
           <div className="text-sm font-bold uppercase tracking-wider text-muted-foreground">
-            Security
+            Workspace Administration
           </div>
           <AccountManagementSection />
         </div>

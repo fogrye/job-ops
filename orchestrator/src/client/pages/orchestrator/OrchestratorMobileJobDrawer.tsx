@@ -1,4 +1,4 @@
-import type { Job, JobListItem } from "@shared/types.js";
+import type { Job, JobListItem, JobStatus } from "@shared/types.js";
 import type React from "react";
 import { Button } from "@/components/ui/button";
 import { Drawer, DrawerClose, DrawerContent } from "@/components/ui/drawer";
@@ -15,9 +15,12 @@ interface OrchestratorMobileJobDrawerProps {
   selectedJobLoadState: SelectedJobLoadState;
   onOpenChange: (open: boolean) => void;
   onSelectJobId: (jobId: string | null) => void;
+  onNavigateToStatus: (status: JobStatus, jobId: string) => void;
   onJobUpdated: () => Promise<void>;
+  onJobMutation: (job: Job) => void;
   onPauseRefreshChange: (paused: boolean) => void;
   onRetrySelectedJob: () => void;
+  statusActionInFlightRef: React.MutableRefObject<boolean>;
 }
 
 export const OrchestratorMobileJobDrawer: React.FC<
@@ -31,9 +34,12 @@ export const OrchestratorMobileJobDrawer: React.FC<
   selectedJobLoadState,
   onOpenChange,
   onSelectJobId,
+  onNavigateToStatus,
   onJobUpdated,
+  onJobMutation,
   onPauseRefreshChange,
   onRetrySelectedJob,
+  statusActionInFlightRef,
 }) => (
   <Drawer open={open} onOpenChange={onOpenChange}>
     <DrawerContent className="max-h-[90vh]">
@@ -55,9 +61,12 @@ export const OrchestratorMobileJobDrawer: React.FC<
           selectedJobListItem={selectedJobListItem}
           selectedJobLoadState={selectedJobLoadState}
           onSelectJobId={onSelectJobId}
+          onNavigateToStatus={onNavigateToStatus}
           onJobUpdated={onJobUpdated}
+          onJobMutation={onJobMutation}
           onPauseRefreshChange={onPauseRefreshChange}
           onRetrySelectedJob={onRetrySelectedJob}
+          statusActionInFlightRef={statusActionInFlightRef}
         />
       </div>
     </DrawerContent>

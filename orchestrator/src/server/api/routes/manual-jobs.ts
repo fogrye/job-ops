@@ -3,7 +3,6 @@ import {
   badRequest,
   conflict,
   notFound,
-  requestTimeout,
   toAppError,
 } from "@infra/errors";
 import { fail, ok } from "@infra/http";
@@ -14,15 +13,28 @@ import { getSetting } from "@server/repositories/settings";
 import { inferManualJobDetails } from "@server/services/manualJob";
 import { getProfile } from "@server/services/profile";
 import { scoreJobSuitability } from "@server/services/scorer";
+import { fetchJobDescriptionFromUrl } from "@server/services/source-job-description";
 import { settingsRegistry } from "@shared/settings-registry";
 import { type Request, type Response, Router } from "express";
-import { JSDOM } from "jsdom";
 import { z } from "zod";
 
 export const manualJobsRouter = Router();
+const httpUrlSchema = z
+  .string()
+  .trim()
+  .url()
+  .max(2000)
+  .refine((value) => {
+    try {
+      const protocol = new URL(value).protocol;
+      return protocol === "http:" || protocol === "https:";
+    } catch {
+      return false;
+    }
+  }, "URL must use HTTP or HTTPS");
 
 const manualJobFetchSchema = z.object({
-  url: z.string().trim().url().max(2000),
+  url: httpUrlSchema,
 });
 
 const manualJobInferenceSchema = z.object({
@@ -42,7 +54,7 @@ const manualJobImportSchema = z.object({
     sourceJobId: z.string().trim().max(500).optional(),
     title: z.string().trim().min(1).max(500),
     employer: z.string().trim().min(1).max(500),
-    jobUrl: z.string().trim().url().max(2000),
+    jobUrl: httpUrlSchema,
     applicationLink: z.string().trim().url().max(2000).optional(),
     location: z.string().trim().max(200).optional(),
     salary: z.string().trim().max(200).optional(),
@@ -109,23 +121,10 @@ function getBlockedAutofetchLabel(url: string): string | null {
   return blocked?.label ?? null;
 }
 
-function buildFetchFailureMessage(status: number): string {
-  if (status === 401 || status === 403 || status === 429) {
-    return "This site blocks automated fetch requests. Paste the job description manually.";
-  }
-  if (status === 404) {
-    return "We couldn't find that page. Check the URL or paste the job description manually.";
-  }
-  return "Couldn't fetch this URL automatically. Paste the job description manually.";
-}
-
 /**
  * POST /api/manual-jobs/fetch - Fetch and extract job content from a URL
  */
 manualJobsRouter.post("/fetch", async (req: Request, res: Response) => {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 15000);
-
   try {
     const input = manualJobFetchSchema.parse(req.body ?? {});
     const blockedLabel = getBlockedAutofetchLabel(input.url);
@@ -140,120 +139,13 @@ manualJobsRouter.post("/fetch", async (req: Request, res: Response) => {
       );
     }
 
-    const response = await fetch(input.url, {
-      signal: controller.signal,
-      headers: {
-        "User-Agent":
-          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        Accept:
-          "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-      },
-    });
-
-    if (!response.ok) {
-      return fail(
-        res,
-        new AppError({
-          status: 502,
-          code: "UPSTREAM_ERROR",
-          message: buildFetchFailureMessage(response.status),
-          details: { upstreamStatus: response.status },
-        }),
-      );
-    }
-
-    const html = await response.text();
-    const dom = new JSDOM(html);
-    const document = dom.window.document;
-
-    // Extract page title (often contains job title)
-    const pageTitle =
-      document.querySelector("title")?.textContent?.trim() || "";
-
-    // Extract meta description
-    const metaDescription =
-      document
-        .querySelector('meta[name="description"]')
-        ?.getAttribute("content")
-        ?.trim() || "";
-
-    // Extract Open Graph data
-    const ogTitle =
-      document
-        .querySelector('meta[property="og:title"]')
-        ?.getAttribute("content")
-        ?.trim() || "";
-    const ogDescription =
-      document
-        .querySelector('meta[property="og:description"]')
-        ?.getAttribute("content")
-        ?.trim() || "";
-    const ogSiteName =
-      document
-        .querySelector('meta[property="og:site-name"]')
-        ?.getAttribute("content")
-        ?.trim() || "";
-
-    // Remove non-content elements
-    const elementsToRemove = document.querySelectorAll(
-      "script, style, nav, header, footer, aside, iframe, noscript, " +
-        '[role="navigation"], [role="banner"], [role="contentinfo"], ' +
-        ".nav, .navbar, .header, .footer, .sidebar, .menu, .cookie, .popup, .modal, .ad, .advertisement",
-    );
-    elementsToRemove.forEach((el) => {
-      el.remove();
-    });
-
-    // Try to find the main job content area
-    const mainContent =
-      document.querySelector(
-        'main, [role="main"], article, ' +
-          ".job-description, .job-details, .job-content, .vacancy-description, " +
-          "#job-description, #job-details, #job-content, " +
-          '[class*="job-desc"], [class*="jobDesc"], [class*="vacancy"], [class*="posting"]',
-      ) || document.body;
-
-    // Get text content
-    let textContent = mainContent?.textContent || "";
-
-    // Clean up whitespace
-    textContent = textContent
-      .replace(/[\t ]+/g, " ")
-      .replace(/\n\s*\n/g, "\n\n")
-      .replace(/\n{3,}/g, "\n\n")
-      .trim();
-
-    // Build enriched content with extracted metadata
-    let enrichedContent = "";
-    if (pageTitle) enrichedContent += `Page Title: ${pageTitle}\n`;
-    if (ogTitle && ogTitle !== pageTitle)
-      enrichedContent += `Job Title: ${ogTitle}\n`;
-    if (ogSiteName) enrichedContent += `Company/Site: ${ogSiteName}\n`;
-    if (ogDescription) enrichedContent += `Summary: ${ogDescription}\n`;
-    if (metaDescription && metaDescription !== ogDescription)
-      enrichedContent += `Description: ${metaDescription}\n`;
-    if (enrichedContent) enrichedContent += "\n---\n\n";
-    enrichedContent += textContent;
-
-    // Limit to reasonable size
-    if (enrichedContent.length > 50000) {
-      enrichedContent = enrichedContent.substring(0, 50000);
-    }
-
-    ok(res, {
-      content: enrichedContent,
-      url: input.url,
-    });
+    const content = await fetchJobDescriptionFromUrl(input.url);
+    ok(res, { content, url: input.url });
   } catch (error) {
     if (error instanceof z.ZodError) {
       return fail(res, badRequest(error.message, error.flatten()));
     }
-    if (error instanceof Error && error.name === "AbortError") {
-      return fail(res, requestTimeout());
-    }
     fail(res, toAppError(error));
-  } finally {
-    clearTimeout(timeout);
   }
 });
 

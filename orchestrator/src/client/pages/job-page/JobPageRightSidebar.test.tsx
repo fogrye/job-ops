@@ -32,7 +32,7 @@ const noop = vi.fn();
 
 function renderRightSidebar(
   overrides: Parameters<typeof createJob>[0] = {},
-  options: { isBusy?: boolean } = {},
+  options: { isBusy?: boolean; showSponsorInfo?: boolean } = {},
 ) {
   const job = createJob({
     status: "ready",
@@ -72,7 +72,7 @@ function renderRightSidebar(
       onCopyJobInfo={noop}
       onRescore={noop}
       onRefreshDescription={noop}
-      onCheckSponsor={noop}
+      onCheckSponsor={options.showSponsorInfo === false ? undefined : noop}
     />,
   );
 }
@@ -104,15 +104,23 @@ describe("JobPageRightSidebar actions", () => {
     ).toBeGreaterThan(0);
   });
 
-  it("shows Refresh description & recalculate only for sources that support it", () => {
-    renderRightSidebar({ source: "linkedin" });
+  it("hides Check sponsorship status when sponsorship is disabled", () => {
+    renderRightSidebar({}, { showSponsorInfo: false });
+
+    expect(
+      screen.queryByRole("button", { name: /check sponsorship status/i }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("shows Refresh description & recalculate for every non-processing source", () => {
+    renderRightSidebar({ source: "linkedin", status: "processing" });
     expect(
       screen.queryByRole("button", {
         name: /refresh description & recalculate/i,
       }),
     ).toBeNull();
 
-    renderRightSidebar({ source: "jobs-cz" });
+    renderRightSidebar({ source: "linkedin", status: "ready" });
     expect(
       screen.getByRole("button", {
         name: /refresh description & recalculate/i,

@@ -27,6 +27,39 @@ describe.sequential("Manual jobs API routes", () => {
       expect(res.status).toBe(400);
     });
 
+    it("rejects non-HTTP(S) URLs", async () => {
+      const res = await fetch(`${baseUrl}/api/manual-jobs/fetch`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: "file:///etc/passwd" }),
+      });
+
+      expect(res.status).toBe(400);
+    });
+
+    it("preserves source fetch timeout responses", async () => {
+      const { requestTimeout } = await import("@infra/errors");
+      const { fetchJobDescriptionFromUrl } = await import(
+        "@server/services/source-job-description"
+      );
+      vi.mocked(fetchJobDescriptionFromUrl).mockRejectedValueOnce(
+        requestTimeout("Source fetch timed out"),
+      );
+
+      const res = await fetch(`${baseUrl}/api/manual-jobs/fetch`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: "https://careers.example/jobs/123" }),
+      });
+      const body = await res.json();
+
+      expect(res.status).toBe(408);
+      expect(body.error).toMatchObject({
+        code: "REQUEST_TIMEOUT",
+        message: "Source fetch timed out",
+      });
+    });
+
     it("rejects empty payload", async () => {
       const res = await fetch(`${baseUrl}/api/manual-jobs/fetch`, {
         method: "POST",

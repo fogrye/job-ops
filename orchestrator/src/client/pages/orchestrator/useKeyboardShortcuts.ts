@@ -9,8 +9,9 @@ import { useSettings } from "@client/hooks/useSettings";
 import { resolveFilenameLanguage } from "@client/lib/pdf-filename";
 import { downloadJobPdf, openJobPdf } from "@client/lib/private-pdf";
 import { SHORTCUTS } from "@client/lib/shortcut-map";
-import type { JobAction, JobListItem } from "@shared/types.js";
-import { useCallback, useRef } from "react";
+import type { Job, JobAction, JobListItem, JobStatus } from "@shared/types.js";
+import type { MutableRefObject } from "react";
+import { useCallback } from "react";
 import { toast } from "sonner";
 import { showErrorToast } from "@/client/lib/error-toast";
 import { safeFilenamePart } from "@/lib/utils";
@@ -31,6 +32,9 @@ type UseKeyboardShortcutsArgs = {
   handleSelectJobId: (id: string | null) => void;
   requestScrollToJob: (id: string, opts?: { ensureSelected?: boolean }) => void;
   setActiveTab: (tab: FilterTab) => void;
+  navigateToStatus: (status: JobStatus, id: string) => void;
+  onJobMutation: (job: Job) => void;
+  statusActionInFlightRef: MutableRefObject<boolean>;
   setIsCommandBarOpen: (open: boolean) => void;
   setIsHelpDialogOpen: (updater: (prev: boolean) => boolean) => void;
   clearSelection: () => void;
@@ -54,6 +58,9 @@ export function useKeyboardShortcuts(args: UseKeyboardShortcutsArgs): void {
     handleSelectJobId,
     requestScrollToJob,
     setActiveTab,
+    navigateToStatus,
+    onJobMutation,
+    statusActionInFlightRef,
     setIsCommandBarOpen,
     setIsHelpDialogOpen,
     clearSelection,
@@ -62,7 +69,6 @@ export function useKeyboardShortcuts(args: UseKeyboardShortcutsArgs): void {
     loadJobs,
   } = args;
 
-  const shortcutActionInFlight = useRef(false);
   const markAsAppliedMutation = useMarkAsAppliedMutation();
   const skipJobMutation = useSkipJobMutation();
   const { settings } = useSettings();
@@ -131,6 +137,7 @@ export function useKeyboardShortcuts(args: UseKeyboardShortcutsArgs): void {
       [SHORTCUTS.tabDiscovered.key]: () => setActiveTab("discovered"),
       [SHORTCUTS.tabApplied.key]: () => setActiveTab("applied"),
       [SHORTCUTS.tabAll.key]: () => setActiveTab("all"),
+      "5": () => setActiveTab("archive"),
       [SHORTCUTS.prevTabArrow.key]: (e) => {
         e.preventDefault();
         navigateTab(-1);
@@ -143,22 +150,27 @@ export function useKeyboardShortcuts(args: UseKeyboardShortcutsArgs): void {
       // ── Context actions ─────────────────────────────────────────────────
       [SHORTCUTS.skip.key]: () => {
         if (!["discovered", "ready"].includes(activeTab)) return;
-        if (shortcutActionInFlight.current) return;
+        if (statusActionInFlightRef.current) return;
 
         if (selectedJobIds.size > 0) {
-          void runJobAction("skip");
+          statusActionInFlightRef.current = true;
+          void runJobAction("skip").finally(() => {
+            statusActionInFlightRef.current = false;
+          });
           return;
         }
 
         if (!selectedJob) return;
-        shortcutActionInFlight.current = true;
+        statusActionInFlightRef.current = true;
         const jobId = selectedJob.id;
         skipJobMutation
           .mutateAsync(jobId)
-          .then(async () => {
+          .then(() => {
             toast.message("Job skipped");
             selectNextAfterAction(jobId);
-            await loadJobs();
+            void Promise.resolve()
+              .then(loadJobs)
+              .catch(() => {});
           })
           .catch((err: unknown) => {
             const msg =
@@ -166,24 +178,27 @@ export function useKeyboardShortcuts(args: UseKeyboardShortcutsArgs): void {
             toast.error(msg);
           })
           .finally(() => {
-            shortcutActionInFlight.current = false;
+            statusActionInFlightRef.current = false;
           });
       },
 
       [SHORTCUTS.markApplied.key]: () => {
         if (!selectedJob) return;
         if (activeTab !== "ready") return;
-        if (shortcutActionInFlight.current) return;
-        shortcutActionInFlight.current = true;
+        if (statusActionInFlightRef.current) return;
+        statusActionInFlightRef.current = true;
         const jobId = selectedJob.id;
         markAsAppliedMutation
           .mutateAsync(jobId)
-          .then(async () => {
+          .then((updatedJob) => {
+            onJobMutation(updatedJob);
             toast.success("Marked as applied", {
               description: `${selectedJob.title} at ${selectedJob.employer}`,
             });
-            selectNextAfterAction(jobId);
-            await loadJobs();
+            navigateToStatus("applied", jobId);
+            void Promise.resolve()
+              .then(loadJobs)
+              .catch(() => {});
           })
           .catch((err: unknown) => {
             const msg =
@@ -191,33 +206,39 @@ export function useKeyboardShortcuts(args: UseKeyboardShortcutsArgs): void {
             toast.error(msg);
           })
           .finally(() => {
-            shortcutActionInFlight.current = false;
+            statusActionInFlightRef.current = false;
           });
       },
 
       [SHORTCUTS.moveToReady.key]: () => {
         if (activeTab !== "discovered") return;
-        if (shortcutActionInFlight.current) return;
+        if (statusActionInFlightRef.current) return;
 
         if (selectedJobIds.size > 0) {
-          void runJobAction("move_to_ready");
+          statusActionInFlightRef.current = true;
+          void runJobAction("move_to_ready").finally(() => {
+            statusActionInFlightRef.current = false;
+          });
           return;
         }
 
         if (!selectedJob) return;
 
-        shortcutActionInFlight.current = true;
+        statusActionInFlightRef.current = true;
         const jobId = selectedJob.id;
         toast.message("Moving job to Ready...");
 
         api
           .processJob(jobId)
-          .then(async () => {
+          .then((updatedJob) => {
+            onJobMutation(updatedJob);
             toast.success("Job moved to Ready", {
               description: "Your tailored PDF has been generated.",
             });
-            selectNextAfterAction(jobId);
-            await loadJobs();
+            navigateToStatus("ready", jobId);
+            void Promise.resolve()
+              .then(loadJobs)
+              .catch(() => {});
           })
           .catch((err: unknown) => {
             const msg =
@@ -227,7 +248,7 @@ export function useKeyboardShortcuts(args: UseKeyboardShortcutsArgs): void {
             toast.error(msg);
           })
           .finally(() => {
-            shortcutActionInFlight.current = false;
+            statusActionInFlightRef.current = false;
           });
       },
 

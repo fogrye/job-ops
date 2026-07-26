@@ -655,6 +655,39 @@ describe("useOrchestratorData", () => {
     expect(sse.close).toHaveBeenCalledTimes(1);
   });
 
+  it("keeps a seeded transition selected when the destination refresh fails", async () => {
+    const discoveredJob = createJob({
+      id: "job-1",
+      status: "discovered",
+      updatedAt: "2026-01-01T00:00:00.000Z",
+    });
+    vi.mocked(api.getJobs).mockResolvedValueOnce(
+      makeJobsResponse([discoveredJob]),
+    );
+    vi.mocked(api.getJob).mockResolvedValue(discoveredJob);
+
+    const { result } = renderHook(() => useOrchestratorData("job-1"));
+    await waitFor(() => expect(result.current.selectedJob?.id).toBe("job-1"));
+
+    const readyJob = createJob({
+      ...discoveredJob,
+      status: "ready",
+      updatedAt: "2026-01-02T00:00:00.000Z",
+    });
+    act(() => result.current.seedJob(readyJob));
+
+    expect(result.current.jobs[0]?.status).toBe("ready");
+    expect(result.current.selectedJob).toEqual(readyJob);
+
+    vi.mocked(api.getJobs).mockRejectedValueOnce(new Error("refresh failed"));
+    await act(async () => {
+      await result.current.loadJobs();
+    });
+
+    expect(result.current.jobs[0]?.status).toBe("ready");
+    expect(result.current.selectedJob).toEqual(readyJob);
+  });
+
   it("loads full selected job details on demand", async () => {
     vi.mocked(api.getJobs).mockResolvedValue({
       jobs: [

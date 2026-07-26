@@ -64,6 +64,7 @@ import { getSourceStatus } from "./automatic-run-source-status";
 interface AutomaticRunTabProps {
   open: boolean;
   settings: AppSettings | null;
+  showSponsorInfo?: boolean;
   enabledSources: JobSource[];
   pipelineSources: JobSource[];
   onToggleSource: (source: JobSource, checked: boolean) => void;
@@ -157,6 +158,7 @@ export const AutomaticRunTab: React.FC<AutomaticRunTabProps> = ({
   onUpdateSavedSearch,
   onDeleteSavedSearch,
   onApplySavedSearch,
+  showSponsorInfo = false,
 }) => {
   const [isSaving, setIsSaving] = useState(false);
   const [nearbyPlaceCount, setNearbyPlaceCount] = useState<number | null>(null);
@@ -799,6 +801,7 @@ export const AutomaticRunTab: React.FC<AutomaticRunTabProps> = ({
               planSummary={planSummary}
               planWarnings={planWarnings}
               planSource={planSource}
+              showSponsorInfo={showSponsorInfo}
               onSearchPromptChange={setSearchPrompt}
               onGenerateSearchPlan={() => void handleGenerateSearchPlan()}
               onConfigureManually={() => setAutomaticTab("details")}
@@ -909,6 +912,7 @@ export const AutomaticRunTab: React.FC<AutomaticRunTabProps> = ({
 
                 <AutomaticRankingPreferencesCard
                   scoringInstructions={scoringInstructions}
+                  showSponsorInfo={showSponsorInfo}
                   onScoringInstructionsChange={(value) =>
                     setValue("scoringInstructions", value, {
                       shouldDirty: true,

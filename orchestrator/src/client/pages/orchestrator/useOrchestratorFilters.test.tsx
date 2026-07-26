@@ -1,4 +1,4 @@
-import { act, renderHook } from "@testing-library/react";
+import { act, renderHook, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { MemoryRouter, useLocation } from "react-router-dom";
 import { describe, expect, it } from "vitest";
@@ -94,5 +94,15 @@ describe("useOrchestratorFilters", () => {
     });
 
     expect(getLocation()).toBe("/all");
+  });
+
+  it("strips sponsor URL state when sponsorship is disabled", async () => {
+    const { Wrapper, getLocation } = createWrapper("/all?sponsor=confirmed");
+    const { result } = renderHook(() => useOrchestratorFilters(false), {
+      wrapper: Wrapper,
+    });
+
+    expect(result.current.sponsorFilter).toBe("all");
+    await waitFor(() => expect(getLocation()).toBe("/all"));
   });
 });

@@ -5,6 +5,7 @@ import {
   toAppError,
 } from "@infra/errors";
 import { fail, ok } from "@infra/http";
+import { resolveShowSponsorInfo } from "@server/services/sponsor-visibility";
 import * as visaSponsors from "@server/services/visa-sponsors/index";
 import { getVisaSponsorProviderRegistry } from "@server/services/visa-sponsors/providers/registry";
 import { normalizeCountryKey } from "@shared/location-support.js";
@@ -18,6 +19,44 @@ import { z } from "zod";
 
 export const visaSponsorsRouter = Router();
 
+visaSponsorsRouter.use((req, res, next) => {
+  void (async () => {
+    try {
+      if (await resolveShowSponsorInfo()) {
+        next();
+        return;
+      }
+
+      if (req.method === "GET" && req.path === "/status") {
+        ok<VisaSponsorStatusResponse>(res, { providers: [] });
+        return;
+      }
+      if (req.method === "POST" && req.path === "/search") {
+        ok<VisaSponsorSearchResponse>(res, {
+          results: [],
+          query: "",
+          total: 0,
+        });
+        return;
+      }
+      if (req.method === "GET" && req.path.startsWith("/organization/")) {
+        ok(res, []);
+        return;
+      }
+      if (req.method === "POST" && req.path.startsWith("/update")) {
+        ok(res, {
+          message: "Sponsor information is disabled.",
+          status: { providers: [] },
+        });
+        return;
+      }
+
+      next();
+    } catch (error) {
+      fail(res, toAppError(error));
+    }
+  })();
+});
 /**
  * GET /api/visa-sponsors/status - Get status of all registered providers
  */

@@ -9,6 +9,7 @@ import {
 } from "@server/services/demo-simulator";
 import { getProfile } from "@server/services/profile";
 import { scoreJobSuitability } from "@server/services/scorer";
+import { fetchJobDescriptionFromUrl } from "@server/services/source-job-description";
 import type { ExtractorSourceId } from "@shared/extractors";
 import type {
   Job,
@@ -130,6 +131,10 @@ export async function executeJobActionForJob(
         code: "NOT_FOUND",
         message: "Job not found",
       });
+    }
+
+    if (job.closedAt != null) {
+      throw badRequest("Closed jobs cannot be changed", { jobId });
     }
 
     if (action === "skip") {
@@ -287,12 +292,12 @@ async function scoreAndPersistJob(
 }
 
 /**
- * Re-fetches a job's description directly from its source page (via the
- * owning extractor manifest's optional `refreshJobDescription` capability),
- * then scores and persists the description together with the resulting
- * score/reason/brief in one write. Explicit, single-job action only — never
- * runs implicitly from a bulk rescore, and never falls back to leaving
- * stale data if the fetch fails.
+ * Re-fetches a job's description from its source page, preferring the owning
+ * extractor's provider-specific refresh when available and otherwise using the
+ * generic stored-job-URL extraction path. It then scores and persists the
+ * description with the resulting score/reason/brief in one write. Explicit,
+ * single-job action only — never runs implicitly from a bulk rescore, and
+ * never falls back to leaving stale data if the fetch fails.
  */
 export async function refreshJobDescriptionFromSourceAndRescore(
   jobId: string,
@@ -316,25 +321,36 @@ export async function refreshJobDescriptionFromSourceAndRescore(
       });
     }
 
-    const registry = await getExtractorRegistry();
-    const manifest = registry.manifestBySource.get(
+    const manifest = (await getExtractorRegistry()).manifestBySource.get(
       job.source as ExtractorSourceId,
     );
-    if (!manifest?.refreshJobDescription) {
-      throw badRequest(
-        `Source "${job.source}" doesn't support refreshing the description from source.`,
-        { jobId, source: job.source },
+    let refreshed: string | undefined;
+    if (manifest?.refreshJobDescription) {
+      try {
+        refreshed = await manifest.refreshJobDescription({
+          jobUrl: job.jobUrl,
+          sourceJobId: job.sourceJobId,
+        });
+      } catch {
+        // The stored source URL remains the provider-independent fallback.
+      }
+    }
+    if (!refreshed?.trim()) {
+      refreshed = await fetchJobDescriptionFromUrl(job.jobUrl).catch(
+        (error) => {
+          if (error instanceof AppError) throw error;
+          throw new AppError({
+            status: 502,
+            code: "UPSTREAM_ERROR",
+            message:
+              "Couldn't fetch an updated description from the source site.",
+            cause: error,
+          });
+        },
       );
     }
 
-    const refreshed = await manifest
-      .refreshJobDescription({
-        jobUrl: job.jobUrl,
-        sourceJobId: job.sourceJobId,
-      })
-      .catch(() => undefined);
-
-    if (!refreshed) {
+    if (!refreshed.trim()) {
       throw new AppError({
         status: 502,
         code: "UPSTREAM_ERROR",
@@ -347,13 +363,15 @@ export async function refreshJobDescriptionFromSourceAndRescore(
     });
   } catch (error) {
     const mapped = mapErrorForResult(error);
+    const resultError = {
+      code: mapped.code,
+      message: mapped.message,
+      ...(mapped.details !== undefined ? { details: mapped.details } : {}),
+    };
     return {
       jobId,
       ok: false,
-      error: {
-        code: mapped.code,
-        message: mapped.message,
-      },
+      error: resultError,
     };
   }
 }
@@ -366,10 +384,13 @@ export function mapJobActionFailure(
       ? failure.error.code
       : "INTERNAL_ERROR"
   ) as AppErrorCode;
+  const details =
+    "details" in failure.error ? failure.error.details : undefined;
 
   return new AppError({
     status: STATUS_BY_APP_ERROR_CODE[code],
     code,
     message: failure.error.message,
+    ...(details !== undefined ? { details } : {}),
   });
 }

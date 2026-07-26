@@ -123,6 +123,33 @@ describe("useJobSelectionActions", () => {
     expect(result.current.selectedJobIds.size).toBe(500);
   });
 
+  it("makes every bulk action ineligible for closed jobs", () => {
+    const activeJobs = [
+      createJob({
+        id: "closed-job",
+        status: "discovered",
+        outcome: "rejected",
+        closedAt: 1_700_000_000,
+      }),
+    ];
+    const { result } = renderHook(() =>
+      useJobSelectionActions({
+        activeJobs,
+        activeTab: "discovered",
+        loadJobs: vi.fn().mockResolvedValue(undefined),
+      }),
+    );
+
+    act(() => {
+      result.current.toggleSelectJob("closed-job");
+    });
+
+    expect(result.current.canSkipSelected).toBe(false);
+    expect(result.current.canMoveSelected).toBe(false);
+    expect(result.current.canRescoreSelected).toBe(false);
+    expect(result.current.canRefreshDescriptionSelected).toBe(false);
+  });
+
   it("does not send action requests above the max selection size", async () => {
     const activeJobs = Array.from({ length: 501 }, (_, index) =>
       createJob({ id: `job-${index + 1}`, status: "discovered" }),

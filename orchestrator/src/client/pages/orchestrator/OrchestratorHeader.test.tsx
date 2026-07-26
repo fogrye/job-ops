@@ -1,9 +1,14 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { renderWithQueryClient } from "@client/test/renderWithQueryClient";
+import { fireEvent, screen } from "@testing-library/react";
 import type React from "react";
 import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 
 import { OrchestratorHeader } from "./OrchestratorHeader";
+
+vi.mock("@/client/api", () => ({
+  getSettings: vi.fn().mockResolvedValue(null),
+}));
 
 vi.mock("@/components/ui/sheet", () => ({
   Sheet: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
@@ -65,7 +70,7 @@ const renderHeader = (
 
   return {
     props,
-    ...render(
+    ...renderWithQueryClient(
       <MemoryRouter>
         <OrchestratorHeader {...props} />
       </MemoryRouter>,

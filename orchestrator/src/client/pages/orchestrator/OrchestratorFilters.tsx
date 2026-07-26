@@ -21,6 +21,7 @@ export const OrchestratorFilters: React.FC<OrchestratorFiltersProps> = ({
   onTabChange,
   counts,
   onOpenCommandBar,
+  showSponsorInfo = true,
   sourceFilter,
   onSourceFilterChange,
   sponsorFilter,
@@ -54,7 +55,7 @@ export const OrchestratorFilters: React.FC<OrchestratorFiltersProps> = ({
     salarySummary,
   } = useFilterBarDerivedState({
     sourceFilter,
-    sponsorFilter,
+    sponsorFilter: showSponsorInfo ? sponsorFilter : "all",
     dateFilter,
     postedWithinDays,
     employmentTypes,
@@ -109,11 +110,13 @@ export const OrchestratorFilters: React.FC<OrchestratorFiltersProps> = ({
               onDateFilterChange={onDateFilterChange}
             />
 
-            <SponsorFilterPill
-              sponsorFilter={sponsorFilter}
-              onSponsorFilterChange={onSponsorFilterChange}
-              sponsorLabel={sponsorLabel}
-            />
+            {showSponsorInfo ? (
+              <SponsorFilterPill
+                sponsorFilter={sponsorFilter}
+                onSponsorFilterChange={onSponsorFilterChange}
+                sponsorLabel={sponsorLabel}
+              />
+            ) : null}
 
             <SalaryFilterPill
               salaryFilter={salaryFilter}

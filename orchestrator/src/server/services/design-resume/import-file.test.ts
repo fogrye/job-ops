@@ -146,6 +146,37 @@ describe("importDesignResumeFromFile", () => {
     expect(result.resumeJson.basics.name).toBe("Jordan Park");
   });
 
+  it("preserves employer links enabled in Reactive Resume JSON", async () => {
+    const resumeJson = buildDefaultReactiveResumeDocument() as DesignResumeJson;
+    resumeJson.sections.experience.items = [
+      {
+        id: "experience-1",
+        hidden: false,
+        company: "Acme",
+        position: "Engineer",
+        location: "",
+        period: "2024",
+        website: { url: "https://acme.example.com", label: "Acme" },
+        description: "",
+        roles: [],
+        options: { showLinkInTitle: true },
+      },
+    ];
+
+    const result = await importDesignResumeFromFile({
+      fileName: "resume.json",
+      mediaType: "application/json",
+      dataBase64: Buffer.from(JSON.stringify(resumeJson), "utf8").toString(
+        "base64",
+      ),
+    });
+
+    expect(result.resumeJson.sections.experience.items[0]).toMatchObject({
+      website: { url: "https://acme.example.com" },
+      options: { showLinkInTitle: true },
+    });
+  });
+
   it("accepts data-wrapped Reactive Resume JSON exports", async () => {
     const resumeJson = buildDefaultReactiveResumeDocument() as DesignResumeJson;
     resumeJson.basics.name = "Sam Rivera";
@@ -1047,6 +1078,25 @@ describe("importDesignResumeFromFile", () => {
               }),
               sections: expect.objectContaining({
                 additionalProperties: false,
+                properties: expect.objectContaining({
+                  experience: expect.objectContaining({
+                    properties: expect.objectContaining({
+                      items: expect.objectContaining({
+                        items: expect.objectContaining({
+                          properties: expect.objectContaining({
+                            options: expect.objectContaining({
+                              properties: expect.objectContaining({
+                                showLinkInTitle: expect.objectContaining({
+                                  type: "boolean",
+                                }),
+                              }),
+                            }),
+                          }),
+                        }),
+                      }),
+                    }),
+                  }),
+                }),
               }),
             }),
             required: [

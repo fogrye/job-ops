@@ -10,11 +10,13 @@ import { Textarea } from "@/components/ui/textarea";
 
 interface AutomaticRankingPreferencesCardProps {
   scoringInstructions: string;
+  showSponsorInfo: boolean;
   onScoringInstructionsChange: (value: string) => void;
 }
 
 export function AutomaticRankingPreferencesCard({
   scoringInstructions,
+  showSponsorInfo,
   onScoringInstructionsChange,
 }: AutomaticRankingPreferencesCardProps) {
   return (
@@ -40,7 +42,11 @@ export function AutomaticRankingPreferencesCard({
           aria-label="Ranking preferences"
           value={scoringInstructions}
           onChange={(event) => onScoringInstructionsChange(event.target.value)}
-          placeholder="For example: Prioritise backend API work, visa sponsorship and roles above £40k."
+          placeholder={
+            showSponsorInfo
+              ? "For example: Prioritise backend API work, visa sponsorship and roles above £40k."
+              : "For example: Prioritise backend API work and roles above £40k."
+          }
           className="min-h-28 resize-y"
           maxLength={4000}
         />

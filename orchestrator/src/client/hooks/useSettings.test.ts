@@ -40,14 +40,13 @@ describe("useSettings", () => {
     expect(api.getSettings).toHaveBeenCalledTimes(1);
   });
 
-  it("uses default values when settings are null", async () => {
-    vi.mocked(api.getSettings).mockResolvedValue(null as any);
+  it("hides sponsor info when settings are unavailable", async () => {
+    vi.mocked(api.getSettings).mockResolvedValue(null as never);
 
     const { result } = renderHookWithQueryClient(() => useSettings());
 
     await waitFor(() => {
-      // settings is null, so showSponsorInfo should default to true
-      expect(result.current.showSponsorInfo).toBe(true);
+      expect(result.current.showSponsorInfo).toBe(false);
       expect(result.current.renderMarkdownInJobDescriptions).toBe(true);
     });
   });
@@ -98,5 +97,28 @@ describe("useSettings", () => {
 
     expect(result.current.isLoading).toBe(false);
     expect(result.current.settings).toBeNull();
+  });
+
+  it("hides stale sponsor info after a refresh error", async () => {
+    const cachedSettings = createAppSettings({
+      showSponsorInfo: { value: true, default: true, override: null },
+    });
+    const mockError = new Error("Failed to refresh");
+    vi.mocked(api.getSettings)
+      .mockResolvedValueOnce(cachedSettings)
+      .mockRejectedValueOnce(mockError);
+
+    const { result } = renderHookWithQueryClient(() => useSettings());
+    await waitFor(() => expect(result.current.showSponsorInfo).toBe(true));
+
+    await act(async () => {
+      await expect(result.current.refreshSettings()).rejects.toBe(mockError);
+    });
+
+    await waitFor(() => {
+      expect(result.current.settings).toEqual(cachedSettings);
+      expect(result.current.error).toBe(mockError);
+      expect(result.current.showSponsorInfo).toBe(false);
+    });
   });
 });

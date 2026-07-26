@@ -25,6 +25,7 @@ interface RunModeModalProps {
   showCloseButton?: boolean;
   showModeTabs?: boolean;
   settings: AppSettings | null;
+  showSponsorInfo?: boolean;
   enabledSources: JobSource[];
   pipelineSources: JobSource[];
   onToggleSource: (source: JobSource, checked: boolean) => void;
@@ -58,6 +59,7 @@ export const RunModeModal: React.FC<RunModeModalProps> = ({
   showCloseButton = true,
   showModeTabs = true,
   settings,
+  showSponsorInfo = false,
   enabledSources,
   pipelineSources,
   onToggleSource,
@@ -161,6 +163,7 @@ export const RunModeModal: React.FC<RunModeModalProps> = ({
             <AutomaticRunTab
               open={open}
               settings={settings}
+              showSponsorInfo={showSponsorInfo}
               enabledSources={enabledSources}
               pipelineSources={pipelineSources}
               onToggleSource={onToggleSource}

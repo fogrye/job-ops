@@ -9,6 +9,7 @@ import { trackCanonicalActivationEvent } from "@server/services/activation-funne
 import { transitionStage } from "@server/services/applicationTracking";
 import { simulateApplyJob } from "@server/services/demo-simulator";
 import { notifyJobCompleteWebhook } from "@server/services/jobs/webhooks";
+import { resolveShowSponsorInfo } from "@server/services/sponsor-visibility";
 import * as visaSponsors from "@server/services/visa-sponsors/index";
 import { type Request, type Response, Router } from "express";
 import { hydrateJobPdfFreshness, requireJob, toJobsRouteError } from "./shared";
@@ -20,6 +21,16 @@ jobsApplicationRouter.post(
   async (req: Request, res: Response) => {
     try {
       const job = await requireJob(req.params.id);
+
+      const showSponsorInfo = await resolveShowSponsorInfo();
+      if (!showSponsorInfo) {
+        return ok(res, {
+          ...(await hydrateJobPdfFreshness(job)),
+          sponsorMatchScore: null,
+          sponsorMatchNames: null,
+          matchResults: [],
+        });
+      }
 
       if (!job.employer) {
         return fail(res, badRequest("Job has no employer name"));
@@ -73,14 +84,20 @@ jobsApplicationRouter.post(
   "/:id/apply",
   async (req: Request, res: Response) => {
     try {
+      const job = await requireJob(req.params.id);
+      if (job.closedAt != null) {
+        return fail(
+          res,
+          badRequest("Archived jobs cannot be marked as applied"),
+        );
+      }
+
       if (isDemoMode()) {
-        const updatedJob = await simulateApplyJob(req.params.id);
+        const updatedJob = await simulateApplyJob(job.id);
         return okWithMeta(res, await hydrateJobPdfFreshness(updatedJob), {
           simulated: true,
         });
       }
-
-      const job = await requireJob(req.params.id);
 
       const appliedAtDate = new Date();
       const appliedAt = appliedAtDate.toISOString();

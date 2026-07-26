@@ -1,3 +1,6 @@
+import * as jobsRepo from "@server/repositories/jobs";
+import * as settingsRepo from "@server/repositories/settings";
+import * as visaSponsors from "@server/services/visa-sponsors/index";
 import { createJob } from "@shared/testing/factories";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { scoreJobsStep } from "./score-jobs";
@@ -108,6 +111,61 @@ describe("scoreJobsStep auto-skip behavior", () => {
       minScore: 50,
       countryKey: "united kingdom",
     });
+  });
+
+  it("clears sponsor fields when sponsorship is disabled", async () => {
+    vi.mocked(settingsRepo.getSetting).mockImplementation(async (key) =>
+      key === "showSponsorInfo" ? "0" : null,
+    );
+
+    await scoreJobsStep({ profile: {} });
+
+    expect(visaSponsors.searchSponsors).not.toHaveBeenCalled();
+    expect(visaSponsors.calculateSponsorMatchSummary).not.toHaveBeenCalled();
+    expect(jobsRepo.updateJob).toHaveBeenCalledWith(
+      "job-1",
+      expect.objectContaining({
+        sponsorMatchScore: null,
+        sponsorMatchNames: null,
+      }),
+    );
+  });
+
+  it("continues scoring without sponsor data when visibility lookup fails", async () => {
+    vi.mocked(settingsRepo.getSetting)
+      .mockResolvedValueOnce(null)
+      .mockRejectedValueOnce(new Error("settings unavailable"));
+
+    await scoreJobsStep({ profile: {} });
+
+    expect(visaSponsors.searchSponsors).not.toHaveBeenCalled();
+    expect(jobsRepo.updateJob).toHaveBeenCalledWith(
+      "job-1",
+      expect.objectContaining({
+        sponsorMatchScore: null,
+        sponsorMatchNames: null,
+      }),
+    );
+  });
+  it("clears sponsor fields when the job has no employer", async () => {
+    vi.mocked(jobsRepo.getUnscoredDiscoveredJobs).mockResolvedValue([
+      createJob({
+        employer: undefined,
+        status: "discovered",
+        suitabilityScore: null,
+      }),
+    ]);
+
+    await scoreJobsStep({ profile: {} });
+
+    expect(visaSponsors.searchSponsors).not.toHaveBeenCalled();
+    expect(jobsRepo.updateJob).toHaveBeenCalledWith(
+      "job-1",
+      expect.objectContaining({
+        sponsorMatchScore: null,
+        sponsorMatchNames: null,
+      }),
+    );
   });
 
   it("passes per-run scoring instructions to the scorer", async () => {

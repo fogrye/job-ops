@@ -8,6 +8,8 @@ const SEARCH_PROMPT_EXAMPLES = [
   {
     label: "Masters placement",
     prompt:
+      "Masters placement roles in software engineering, data, or QA. Prefer Manchester, Sheffield, Leeds, or remote. Avoid unpaid roles.",
+    sponsorPrompt:
       "Masters placement roles in software engineering, data, or QA. Prefer Manchester, Sheffield, Leeds, or remote. Visa-friendly is important. Avoid unpaid roles.",
   },
   {
@@ -18,12 +20,15 @@ const SEARCH_PROMPT_EXAMPLES = [
   {
     label: "Data analyst internship",
     prompt:
+      "Data analyst internships in the UK. Prefer paid roles using SQL, Python, or dashboards. Rank remote-friendly employers higher.",
+    sponsorPrompt:
       "Data analyst internships in the UK. Prefer paid roles using SQL, Python, or dashboards. Rank remote-friendly and visa-friendly employers higher.",
   },
   {
     label: "Visa-friendly roles",
     prompt:
       "Software roles from visa-friendly employers. Prioritize backend TypeScript, platform engineering, or API work. Avoid unpaid roles and roles below GBP 45k.",
+    sponsorOnly: true,
   },
 ];
 
@@ -33,6 +38,7 @@ interface AutomaticSearchPromptProps {
   planSummary: string | null;
   planWarnings: string[];
   planSource: "ai" | "fallback" | null;
+  showSponsorInfo?: boolean;
   onSearchPromptChange: (value: string) => void;
   onGenerateSearchPlan: () => void;
   onConfigureManually: () => void;
@@ -47,6 +53,7 @@ export function AutomaticSearchPrompt({
   onSearchPromptChange,
   onGenerateSearchPlan,
   onConfigureManually,
+  showSponsorInfo = false,
 }: AutomaticSearchPromptProps) {
   return (
     <div className="mx-auto flex w-full max-w-[40rem] flex-col">
@@ -70,21 +77,33 @@ export function AutomaticSearchPrompt({
         id="search-plan-prompt"
         value={searchPrompt}
         onChange={(event) => onSearchPromptChange(event.target.value)}
-        placeholder="Example: Software engineering jobs in Manchester above GBP 60k. Prefer backend/API work, hybrid or remote roles, and visa-friendly employers. Lower-score generic graduate programmes."
+        placeholder={
+          showSponsorInfo
+            ? "Example: Software engineering jobs in Manchester above GBP 60k. Prefer backend/API work, hybrid or remote roles, and visa-friendly employers. Lower-score generic graduate programmes."
+            : "Example: Software engineering jobs in Manchester above GBP 60k. Prefer backend/API work, hybrid or remote roles. Lower-score generic graduate programmes."
+        }
         className="min-h-48 resize-none rounded-lg border-border/70 bg-background/35 px-4 py-4 text-base leading-7 shadow-none placeholder:text-muted-foreground/75 focus-visible:ring-1 focus-visible:ring-primary/70"
       />
 
       <div className="mt-5 space-y-2">
         <p className="text-sm text-muted-foreground">Try these examples</p>
         <div className="flex flex-wrap gap-2">
-          {SEARCH_PROMPT_EXAMPLES.map((example) => (
+          {SEARCH_PROMPT_EXAMPLES.filter(
+            (example) => showSponsorInfo || !example.sponsorOnly,
+          ).map((example) => (
             <Button
               key={example.label}
               type="button"
               variant="outline"
               size="sm"
               className="h-8 gap-2 rounded-md border-border/70 bg-background/35 px-3 text-xs text-muted-foreground hover:text-foreground"
-              onClick={() => onSearchPromptChange(example.prompt)}
+              onClick={() =>
+                onSearchPromptChange(
+                  showSponsorInfo
+                    ? (example.sponsorPrompt ?? example.prompt)
+                    : example.prompt,
+                )
+              }
             >
               <Search className="h-3.5 w-3.5" />
               {example.label}

@@ -20,11 +20,11 @@ import { getEnabledSources } from "./orchestrator/utils";
 
 export const OrchestratorPage: React.FC = () => {
   const [isManualImportOpen, setIsManualImportOpen] = useState(false);
-  const filters = useOrchestratorFilters();
+  const { settings, showSponsorInfo } = useSettings();
+  const filters = useOrchestratorFilters(showSponsorInfo);
   const navigation = useOrchestratorNavigation({
     searchParams: filters.searchParams,
   });
-  const { settings } = useSettings();
   const {
     jobs,
     selectedJob,
@@ -38,6 +38,7 @@ export const OrchestratorPage: React.FC = () => {
     pipelineTerminalEvent,
     setIsRefreshPaused,
     loadJobs,
+    seedJob,
   } = useOrchestratorData(navigation.selectedJobId);
 
   useNavigationRefresh(loadJobs);
@@ -130,6 +131,7 @@ export const OrchestratorPage: React.FC = () => {
           <OrchestratorSearchComposer
             mode={runMode}
             settings={settings ?? null}
+            showSponsorInfo={showSponsorInfo}
             enabledSources={enabledSources}
             pipelineSources={pipelineSources}
             onToggleSource={toggleSource}
@@ -157,8 +159,10 @@ export const OrchestratorPage: React.FC = () => {
             isLoading={isLoading}
             isPipelineRunning={isPipelineRunning}
             loadJobs={loadJobs}
+            seedJob={seedJob}
             setIsRefreshPaused={setIsRefreshPaused}
             filters={filters}
+            showSponsorInfo={showSponsorInfo}
             navigation={navigation}
             ui={ui}
             openRunMode={openRunMode}

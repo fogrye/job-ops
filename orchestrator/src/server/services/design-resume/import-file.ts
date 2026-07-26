@@ -90,9 +90,13 @@ function schemaArrayOf(items: unknown) {
 
 const STRING_SCHEMA = { type: "string" };
 const NUMBER_SCHEMA = { type: "number" };
+const BOOLEAN_SCHEMA = { type: "boolean" };
 const URL_SCHEMA = strictSchemaObject({
   url: STRING_SCHEMA,
   label: STRING_SCHEMA,
+});
+const ITEM_OPTIONS_SCHEMA = strictSchemaObject({
+  showLinkInTitle: BOOLEAN_SCHEMA,
 });
 
 function sectionSchema(itemSchema: unknown) {
@@ -140,6 +144,7 @@ const DESIGN_RESUME_IMPORT_CODEX_JSON_SCHEMA: JsonSchemaDefinition = {
             location: STRING_SCHEMA,
             period: STRING_SCHEMA,
             website: URL_SCHEMA,
+            options: ITEM_OPTIONS_SCHEMA,
             description: STRING_SCHEMA,
             roles: schemaArrayOf(
               strictSchemaObject({

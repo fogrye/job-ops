@@ -4,6 +4,7 @@ import {
   EXTRACTOR_SOURCE_METADATA,
   extractorSourceEnum,
   isExtractorSourceId,
+  supportsDescriptionRefresh,
 } from "./index";
 
 describe("extractor source catalog", () => {
@@ -23,6 +24,12 @@ describe("extractor source catalog", () => {
     for (const source of EXTRACTOR_SOURCE_IDS) {
       expect(EXTRACTOR_SOURCE_METADATA[source]).toBeDefined();
       expect(EXTRACTOR_SOURCE_METADATA[source].label.length).toBeGreaterThan(0);
+    }
+  });
+
+  it("supports description refresh for every registered source", () => {
+    for (const source of EXTRACTOR_SOURCE_IDS) {
+      expect(supportsDescriptionRefresh(source)).toBe(true);
     }
   });
 

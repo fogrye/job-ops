@@ -184,6 +184,30 @@ describe.sequential("Visa sponsors API routes", () => {
       `${baseUrl}/api/visa-sponsors/organization/Acme?providerId=uk`,
     );
     expect(orgRes.status).toBe(404);
+
+    const settingsRes = await fetch(`${baseUrl}/api/settings`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ showSponsorInfo: false }),
+    });
+    expect(settingsRes.status).toBe(200);
+    vi.mocked(searchSponsors).mockClear();
+
+    const disabledRes = await fetch(`${baseUrl}/api/visa-sponsors/search`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ query: "Acme" }),
+    });
+    const disabledBody = await disabledRes.json();
+    expect(disabledBody.ok).toBe(true);
+    expect(disabledBody.data).toEqual({ results: [], query: "", total: 0 });
+    expect(searchSponsors).not.toHaveBeenCalled();
+
+    const disabledStatusRes = await fetch(
+      `${baseUrl}/api/visa-sponsors/status`,
+    );
+    const disabledStatusBody = await disabledStatusRes.json();
+    expect(disabledStatusBody.data.providers).toEqual([]);
   });
 
   it("rejects invalid provider ids before organization lookup", async () => {

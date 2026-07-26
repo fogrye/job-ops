@@ -23,6 +23,7 @@ import type React from "react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useQueryErrorToast } from "@/client/hooks/useQueryErrorToast";
+import { useSettings } from "@/client/hooks/useSettings";
 import { showErrorToast } from "@/client/lib/error-toast";
 import { queryKeys } from "@/client/lib/queryKeys";
 import { Badge } from "@/components/ui/badge";
@@ -72,6 +73,7 @@ const getResultKey = (
 ) => `${result.providerId}::${result.sponsor.organisationName}`;
 
 export const VisaSponsorsPage: React.FC = () => {
+  const { showSponsorInfo } = useSettings();
   const queryClient = useQueryClient();
   // State
   const [searchQuery, setSearchQuery] = useState("");
@@ -92,6 +94,7 @@ export const VisaSponsorsPage: React.FC = () => {
   const statusQuery = useQuery<VisaSponsorStatusResponse>({
     queryKey: queryKeys.visaSponsors.status(),
     queryFn: api.getVisaSponsorStatus,
+    enabled: showSponsorInfo,
   });
   const status = statusQuery.data ?? null;
   useQueryErrorToast(statusQuery.error, "Failed to fetch status");
@@ -146,7 +149,7 @@ export const VisaSponsorsPage: React.FC = () => {
         minScore: 20,
         country: selectedCountry ?? undefined,
       }),
-    enabled: Boolean(debouncedSearchQuery.trim()),
+    enabled: showSponsorInfo && Boolean(debouncedSearchQuery.trim()),
   });
   useQueryErrorToast(searchQueryResult.error, "Search failed");
 
@@ -173,7 +176,7 @@ export const VisaSponsorsPage: React.FC = () => {
             selectedResult?.providerId,
           )
         : Promise.resolve([]),
-    enabled: Boolean(selectedOrg),
+    enabled: showSponsorInfo && Boolean(selectedOrg),
   });
   const orgDetails = orgDetailsQuery.data ?? [];
   useQueryErrorToast(orgDetailsQuery.error, "Failed to fetch details");
@@ -357,6 +360,7 @@ export const VisaSponsorsPage: React.FC = () => {
     </div>
   );
 
+  if (!showSponsorInfo) return null;
   return (
     <>
       <PageHeader

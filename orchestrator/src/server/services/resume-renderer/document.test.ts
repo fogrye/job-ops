@@ -68,6 +68,7 @@ describe("normalizeResumeJsonToLatexDocument", () => {
               location: "Remote",
               period: "2023 -- Present",
               website: { url: "https://acme.example.com" },
+              options: { showLinkInTitle: true },
               description:
                 "<p>Led platform modernization.</p><ul><li>Improved API reliability</li></ul>",
             },
@@ -238,6 +239,7 @@ describe("normalizeResumeJsonToLatexDocument", () => {
     expect(document.experience[0]?.bullets).toEqual([
       "Improved API reliability",
     ]);
+    expect(document.experience[0]?.url).toBe("https://acme.example.com");
     expect(document.education).toHaveLength(1);
     expect(document.projects).toHaveLength(1);
     expect(document.skillGroups).toHaveLength(1);
@@ -257,6 +259,38 @@ describe("normalizeResumeJsonToLatexDocument", () => {
     expect(document.references).toHaveLength(1);
     expect(document.sectionTitles?.profiles).toBe("Links");
     expect(document.sectionTitles?.summary).toBe("About");
+  });
+
+  it("links employer titles only when explicitly enabled", () => {
+    const document = normalizeResumeJsonToLatexDocument({
+      sections: {
+        experience: {
+          hidden: false,
+          items: [
+            {
+              company: "Enabled",
+              website: { url: "https://enabled.example.com" },
+              options: { showLinkInTitle: true },
+            },
+            {
+              company: "Disabled",
+              website: { url: "https://disabled.example.com" },
+              options: { showLinkInTitle: false },
+            },
+            {
+              company: "Unconfigured",
+              website: { url: "https://unconfigured.example.com" },
+            },
+          ],
+        },
+      },
+    });
+
+    expect(document.experience.map((entry) => entry.url)).toEqual([
+      "https://enabled.example.com",
+      undefined,
+      undefined,
+    ]);
   });
 
   it("respects hidden sections and items", () => {

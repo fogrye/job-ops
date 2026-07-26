@@ -6,6 +6,7 @@ import {
   type SuitabilityResult,
   scoreJobSuitability,
 } from "@server/services/scorer";
+import { resolveShowSponsorInfo } from "@server/services/sponsor-visibility";
 import * as visaSponsors from "@server/services/visa-sponsors/index";
 import { asyncPool } from "@server/utils/async-pool";
 import type { Job } from "@shared/types";
@@ -30,6 +31,7 @@ export async function scoreJobsStep(args: {
   const autoSkipThreshold = autoSkipThresholdRaw
     ? parseInt(autoSkipThresholdRaw, 10)
     : null;
+  const showSponsorInfo = await resolveShowSponsorInfo();
 
   updateProgress({
     step: "scoring",
@@ -97,21 +99,17 @@ export async function scoreJobsStep(args: {
       const { score, reason, jobBrief, jobUpdates = {} } = scoringResult;
       if (args.shouldCancel?.()) return;
 
-      let sponsorMatchScore = 0;
-      let sponsorMatchNames: string | undefined;
-
-      if (job.employer) {
-        const sponsorResults = await visaSponsors.searchSponsors(job.employer, {
-          limit: 10,
-          minScore: 50,
-          countryKey: args.visaSponsorCountryKey ?? undefined,
-        });
-
-        const summary =
-          visaSponsors.calculateSponsorMatchSummary(sponsorResults);
-        sponsorMatchScore = summary.sponsorMatchScore;
-        sponsorMatchNames = summary.sponsorMatchNames ?? undefined;
-      }
+      const sponsorMatch =
+        showSponsorInfo && job.employer
+          ? await visaSponsors.searchSponsors(job.employer, {
+              limit: 10,
+              minScore: 50,
+              countryKey: args.visaSponsorCountryKey ?? undefined,
+            })
+          : null;
+      const sponsorSummary = sponsorMatch
+        ? visaSponsors.calculateSponsorMatchSummary(sponsorMatch)
+        : null;
 
       // Check if job should be auto-skipped based on score threshold
       const shouldAutoSkip =
@@ -126,8 +124,8 @@ export async function scoreJobsStep(args: {
         suitabilityScore: score,
         suitabilityReason: reason,
         jobBrief,
-        sponsorMatchScore,
-        sponsorMatchNames,
+        sponsorMatchScore: sponsorSummary?.sponsorMatchScore ?? null,
+        sponsorMatchNames: sponsorSummary?.sponsorMatchNames ?? null,
         ...(shouldAutoSkip ? { status: "skipped" } : {}),
       });
 

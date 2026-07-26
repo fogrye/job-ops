@@ -233,7 +233,7 @@ describe("Sponsor Match Calculation", () => {
       );
     });
 
-    it("should not set sponsor match when no matches found", async () => {
+    it("should clear sponsor match names when no matches are found", async () => {
       const mockJob = createJob({ employer: "Unknown Company XYZ" });
       getUnscoredDiscoveredJobs.mockResolvedValue([mockJob]);
 
@@ -243,20 +243,16 @@ describe("Sponsor Match Calculation", () => {
       const { runPipeline } = await import("./orchestrator");
       await runPipeline({ sources: [], enableCrawling: false });
 
-      // sponsorMatchScore should be 0 (not set) and sponsorMatchNames undefined
+      // A no-match explicitly clears names so stale sponsor results cannot persist.
       expect(updateJob).toHaveBeenCalledWith(
         "test-job-1",
         expect.objectContaining({
           suitabilityScore: 75,
           suitabilityReason: "Good match",
+          sponsorMatchScore: 0,
+          sponsorMatchNames: null,
         }),
       );
-
-      // Verify that sponsorMatchScore is 0 and sponsorMatchNames is not included
-      // when there are no matches
-      const updateCall = updateJob.mock.calls[0][1];
-      expect(updateCall.sponsorMatchScore).toBe(0);
-      expect(updateCall.sponsorMatchNames).toBeUndefined();
     });
 
     it("should skip sponsor matching when job has no employer", async () => {
