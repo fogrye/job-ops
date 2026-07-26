@@ -1,5 +1,11 @@
-import type { ApplicationStage, JobListItem } from "@shared/types.js";
-import { ExternalLink, MoreVertical, PlusCircle } from "lucide-react";
+import {
+  OUTCOME_LABELS,
+  outcomesForStage,
+  type ApplicationStage,
+  type JobListItem,
+  type JobOutcome,
+} from "@shared/types.js";
+import { ExternalLink, MoreVertical, PlusCircle, XCircle } from "lucide-react";
 import type React from "react";
 import { Link } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
@@ -8,11 +14,16 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn, formatTimestamp } from "@/lib/utils";
 
 export type InProgressBoardCardProps = {
+  onClose: (outcome: JobOutcome) => void;
   job: JobListItem;
   stage: ApplicationStage;
   latestEventAt: number | null;
@@ -25,6 +36,7 @@ export type InProgressBoardCardProps = {
 };
 
 export const InProgressBoardCard: React.FC<InProgressBoardCardProps> = ({
+  onClose,
   job,
   stage,
   latestEventAt,
@@ -36,6 +48,7 @@ export const InProgressBoardCard: React.FC<InProgressBoardCardProps> = ({
   onLogEvent,
 }) => {
   const canLogEvents = stage !== "closed";
+  const closeOutcomes = outcomesForStage(stage);
 
   return (
     // biome-ignore lint/a11y/noStaticElementInteractions: full-card drag target for kanban lanes
@@ -99,6 +112,23 @@ export const InProgressBoardCard: React.FC<InProgressBoardCardProps> = ({
                 <PlusCircle className="mr-2 h-4 w-4" />
                 Log event
               </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuSub>
+                <DropdownMenuSubTrigger className="text-destructive focus:text-destructive">
+                  <XCircle className="mr-2 h-4 w-4" />
+                  Close application
+                </DropdownMenuSubTrigger>
+                <DropdownMenuSubContent>
+                  {closeOutcomes.map((outcome) => (
+                    <DropdownMenuItem
+                      key={outcome}
+                      onSelect={() => onClose(outcome)}
+                    >
+                      {OUTCOME_LABELS[outcome]}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuSubContent>
+              </DropdownMenuSub>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>

@@ -101,6 +101,25 @@ describe("logJobStageEvent", () => {
     );
   });
 
+  it("maps ghosted to closed with outcome", async () => {
+    await logJobStageEvent({
+      jobId: "job-1",
+      currentStage: "technical_interview",
+      values: {
+        ...baseValues,
+        stage: "ghosted",
+      },
+    });
+
+    expect(api.transitionJobStage).toHaveBeenCalledWith(
+      "job-1",
+      expect.objectContaining({
+        toStage: "closed",
+        outcome: "ghosted",
+      }),
+    );
+  });
+
   it("updates an existing event when eventId is provided", async () => {
     await logJobStageEvent({
       jobId: "job-1",

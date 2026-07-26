@@ -1184,6 +1184,8 @@ const migrations = [
        ORDER BY se.occurred_at DESC, se.id DESC
        LIMIT 1
      ), 'applied') = 'closed'`,
+  "UPDATE jobs SET outcome = 'ghosted' WHERE outcome = 'no_response'",
+  "UPDATE stage_events SET outcome = 'ghosted' WHERE outcome = 'no_response'",
 ];
 
 console.log("🔧 Running database migrations...");

@@ -1,8 +1,10 @@
 import {
+  outcomesForStage,
   type ApplicationStage,
   type ApplicationTask,
   type Job,
   type JobNote,
+  type JobOutcome,
   type ResumeProjectCatalogItem,
   STAGE_LABELS,
   type StageEvent,
@@ -400,6 +402,23 @@ export const JobPage: React.FC = () => {
     });
   };
 
+  const handleClose = async (outcome: JobOutcome) => {
+    await runAction("close", async () => {
+      if (!job) return;
+      await api.updateJobOutcome(job.id, { outcome });
+      toast.message("Application closed");
+      if (outcome === "offer_accepted") celebrateOffer();
+    });
+  };
+
+  const handleReopen = async () => {
+    await runAction("reopen", async () => {
+      if (!job) return;
+      await api.updateJobOutcome(job.id, { outcome: null });
+      toast.success("Job reopened");
+    });
+  };
+
   const handleRescore = async () => {
     await runAction("rescore", async () => {
       if (!job) return;
@@ -529,6 +548,13 @@ export const JobPage: React.FC = () => {
   const isDiscovered = job?.status === "discovered";
   const isReady = job?.status === "ready";
   const isApplied = job?.status === "applied";
+  const closeOutcomes =
+    job &&
+    !isClosedStage &&
+    (isApplied || isInProgress) &&
+    currentStage
+      ? outcomesForStage(currentStage)
+      : [];
   const baseJobPath = id ? `/job/${id}` : "";
   const latestNote = notes[0] ?? null;
   const latestEvent = events.at(-1) ?? null;
@@ -906,6 +932,8 @@ export const JobPage: React.FC = () => {
               isReady={Boolean(isReady)}
               isApplied={Boolean(isApplied)}
               isInProgress={Boolean(isInProgress)}
+              closeOutcomes={closeOutcomes}
+              isClosed={job.closedAt != null}
               canLogEvents={canLogEvents}
               isBusy={isBusy}
               isUploadingPdf={isUploadingPdf}
@@ -940,6 +968,8 @@ export const JobPage: React.FC = () => {
               onCheckSponsor={
                 showSponsorInfo ? () => void handleCheckSponsor() : undefined
               }
+              onClose={(outcome) => void handleClose(outcome)}
+              onReopen={() => void handleReopen()}
             />
           )}
         </div>

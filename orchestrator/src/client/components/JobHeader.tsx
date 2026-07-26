@@ -165,7 +165,6 @@ const outcomeDotColors: Record<JobOutcome, string> = {
   offer_declined: "bg-rose-500",
   rejected: "bg-rose-500",
   withdrawn: "bg-amber-500",
-  no_response: "bg-slate-500",
   ghosted: "bg-slate-500",
 };
 const postingAgeDotColor = {

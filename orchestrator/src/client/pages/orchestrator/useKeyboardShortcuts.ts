@@ -1,3 +1,4 @@
+import * as api from "@client/api";
 import {
   useMarkAsAppliedMutation,
   useSkipJobMutation,
@@ -113,6 +114,43 @@ export function useKeyboardShortcuts(args: UseKeyboardShortcutsArgs): void {
     [activeJobs, handleSelectJobId],
   );
 
+  const closeApplication = useCallback(
+    (outcome: "rejected" | "ghosted") => {
+      if (activeTab !== "applied") return;
+      if (!selectedJob || selectedJob.status !== "applied") return;
+      if (statusActionInFlightRef.current) return;
+
+      statusActionInFlightRef.current = true;
+      const jobId = selectedJob.id;
+      api
+        .updateJobOutcome(jobId, { outcome })
+        .then((updatedJob) => {
+          onJobMutation(updatedJob);
+          toast.message("Application closed");
+          selectNextAfterAction(jobId);
+          void Promise.resolve()
+            .then(loadJobs)
+            .catch(() => {});
+        })
+        .catch((error: unknown) => {
+          showErrorToast(error, "Failed to close application");
+        })
+        .finally(() => {
+          statusActionInFlightRef.current = false;
+        });
+    },
+    [
+      activeTab,
+      loadJobs,
+      onJobMutation,
+      selectNextAfterAction,
+      selectedJob,
+      statusActionInFlightRef,
+    ],
+  );
+
+  const ghostedOutcome = "ghosted" as const;
+
   useHotkeys(
     {
       // ── Navigation ──────────────────────────────────────────────────────
@@ -209,13 +247,16 @@ export function useKeyboardShortcuts(args: UseKeyboardShortcutsArgs): void {
             statusActionInFlightRef.current = false;
           });
       },
-
-      [SHORTCUTS.moveToReady.key]: () => {
+      "r": () => {
+        if (activeTab === "applied") {
+          closeApplication("rejected");
+          return;
+        }
         if (activeTab !== "discovered") return;
         if (!selectedJob || selectedJob.status !== "discovered") return;
         startTailoring();
       },
-
+      "g": () => closeApplication(ghostedOutcome),
       [SHORTCUTS.viewPdf.key]: () => {
         if (!selectedJob) return;
         if (activeTab !== "ready") return;

@@ -7,6 +7,7 @@ import {
   APPLICATION_STAGES,
   type ApplicationStage,
   type JobListItem,
+  type JobOutcome,
   STAGE_LABELS,
   type StageEvent,
 } from "@shared/types.js";
@@ -242,6 +243,24 @@ export const InProgressBoardPage: React.FC = () => {
     [dragging, queryClient, transitionMutation],
   );
 
+  const handleCloseCard = React.useCallback(
+    async (jobId: string, outcome: JobOutcome) => {
+      try {
+        await api.updateJobOutcome(jobId, { outcome });
+        toast.success("Application closed");
+        await queryClient.invalidateQueries({
+          queryKey: queryKeys.jobs.inProgressBoard(),
+        });
+        if (outcome === "offer_accepted") {
+          celebrateOffer();
+        }
+      } catch (error) {
+        showErrorToast(error, "Failed to close application");
+      }
+    },
+    [queryClient],
+  );
+
   const handleBoardLogEvent = React.useCallback(
     async (values: LogEventFormValues) => {
       if (!logEventTarget) return;
@@ -392,6 +411,9 @@ export const InProgressBoardPage: React.FC = () => {
                               setDropTargetStage(null);
                             }}
                             onLogEvent={() => setLogEventTarget({ job, stage })}
+                            onClose={(outcome) =>
+                              void handleCloseCard(job.id, outcome)
+                            }
                           />
                         ))
                       )}

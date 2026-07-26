@@ -902,7 +902,7 @@ describe("JobDetailPanel", () => {
 
   it("closes with a selected outcome and reopens through the outcome route", async () => {
     vi.mocked(api.updateJobOutcome).mockResolvedValue(
-      createJob({ status: "applied", outcome: "withdrawn", closedAt: 1 }),
+      createJob({ status: "applied", outcome: "rejected", closedAt: 1 }),
     );
 
     const open = await renderJobDetailPanel({
@@ -918,11 +918,11 @@ describe("JobDetailPanel", () => {
     fireEvent.click(
       await screen.findByRole("menuitem", { name: /close application/i }),
     );
-    fireEvent.click(await screen.findByRole("menuitem", { name: "Withdrawn" }));
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Rejected" }));
 
     await waitFor(() =>
       expect(api.updateJobOutcome).toHaveBeenCalledWith("job-1", {
-        outcome: "withdrawn",
+        outcome: "rejected",
       }),
     );
     open.unmount();
@@ -933,7 +933,7 @@ describe("JobDetailPanel", () => {
       selectedJob: createJob({
         status: "applied",
         closedAt: 1,
-        outcome: "withdrawn",
+        outcome: "rejected",
       }),
       onSelectJobId: vi.fn(),
       onJobUpdated: vi.fn().mockResolvedValue(undefined),
@@ -950,7 +950,7 @@ describe("JobDetailPanel", () => {
     );
   });
 
-  it("declines a job through the closed outcome path", async () => {
+  it("closes an applied job through the closed outcome path", async () => {
     const onJobUpdated = vi.fn().mockResolvedValue(undefined);
     vi.mocked(api.updateJobOutcome).mockResolvedValue(
       createJob({
@@ -968,7 +968,13 @@ describe("JobDetailPanel", () => {
       onJobUpdated,
     });
 
-    fireEvent.click(screen.getByRole("menuitem", { name: /decline job/i }));
+    fireEvent.pointerDown(
+      screen.getByRole("button", { name: /more actions/i }),
+    );
+    fireEvent.click(
+      await screen.findByRole("menuitem", { name: /close application/i }),
+    );
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Rejected" }));
 
     await waitFor(() =>
       expect(api.updateJobOutcome).toHaveBeenCalledWith("job-1", {
@@ -978,12 +984,12 @@ describe("JobDetailPanel", () => {
     await waitFor(() => expect(onJobUpdated).toHaveBeenCalled());
   });
 
-  it("gates other status actions while declining", async () => {
-    let resolveDecline: (value: Job) => void = () => {};
-    const pendingDecline = new Promise<Job>((resolve) => {
-      resolveDecline = resolve;
+  it("gates other status actions while closing", async () => {
+    let resolveClose: (value: Job) => void = () => {};
+    const pendingClose = new Promise<Job>((resolve) => {
+      resolveClose = resolve;
     });
-    vi.mocked(api.updateJobOutcome).mockReturnValue(pendingDecline);
+    vi.mocked(api.updateJobOutcome).mockReturnValue(pendingClose);
 
     await renderJobDetailPanel({
       activeTab: "applied",
@@ -993,7 +999,13 @@ describe("JobDetailPanel", () => {
       onJobUpdated: vi.fn().mockResolvedValue(undefined),
     });
 
-    fireEvent.click(screen.getByRole("menuitem", { name: /decline job/i }));
+    fireEvent.pointerDown(
+      screen.getByRole("button", { name: /more actions/i }),
+    );
+    fireEvent.click(
+      await screen.findByRole("menuitem", { name: /close application/i }),
+    );
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Rejected" }));
 
     expect(
       screen.getByRole("button", { name: /move to in progress/i }),
@@ -1004,7 +1016,7 @@ describe("JobDetailPanel", () => {
     expect(api.updateJob).not.toHaveBeenCalled();
 
     await act(async () => {
-      resolveDecline(createJob({ closedAt: 1, outcome: "rejected" }));
+      resolveClose(createJob({ closedAt: 1, outcome: "rejected" }));
     });
   });
 
@@ -1035,7 +1047,7 @@ describe("JobDetailPanel", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("blocks decline while a shared keyboard status action is in flight", async () => {
+  it("blocks closing while a shared keyboard status action is in flight", async () => {
     await renderJobDetailPanel({
       activeTab: "applied",
       activeJobs: [createJob({ status: "applied" })],
@@ -1045,7 +1057,13 @@ describe("JobDetailPanel", () => {
       statusActionInFlightRef: { current: true },
     });
 
-    fireEvent.click(screen.getByRole("menuitem", { name: /decline job/i }));
+    fireEvent.pointerDown(
+      screen.getByRole("button", { name: /more actions/i }),
+    );
+    fireEvent.click(
+      await screen.findByRole("menuitem", { name: /close application/i }),
+    );
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Rejected" }));
 
     expect(api.updateJobOutcome).not.toHaveBeenCalled();
   });

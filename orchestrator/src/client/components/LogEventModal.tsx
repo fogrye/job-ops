@@ -56,7 +56,7 @@ const STAGE_OPTIONS = [
   { label: STAGE_LABELS.offer, value: "offer" },
   { label: "Rejected", value: "rejected" },
   { label: "Withdrawn", value: "withdrawn" },
-  { label: STAGE_LABELS.closed, value: "closed" },
+  { label: "Ghosted", value: "ghosted" },
 ];
 
 const REASON_CODES = ["Skills", "Visa", "Timing", "Culture", "Unknown"];
