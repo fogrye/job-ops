@@ -358,6 +358,10 @@ describe("JobListPanel", () => {
     expect(renderedRows.length).toBeLessThan(jobs.length);
 
     const scrollContainer = screen.getByTestId("job-list-scroll-container");
+    expect(scrollContainer).toHaveClass(
+      "max-h-[calc(100vh-8rem)]",
+      "overflow-y-auto",
+    );
     act(() => {
       scrollContainer.scrollTop = 2800;
       scrollContainer.dispatchEvent(new Event("scroll"));

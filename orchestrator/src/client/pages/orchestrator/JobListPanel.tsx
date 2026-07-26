@@ -107,7 +107,7 @@ export const JobListPanel = forwardRef<VirtualListHandle, JobListPanelProps>(
 
     if (isLoading && jobs.length === 0) {
       return (
-        <div className="min-w-0 rounded-xl border border-border bg-card shadow-sm lg:sticky lg:top-24 lg:max-h-[calc(100vh-8rem)] lg:overflow-y-auto">
+        <div className="min-w-0 max-h-[calc(100vh-8rem)] overflow-y-auto rounded-xl border border-border bg-card shadow-sm lg:sticky lg:top-24">
           <div className="flex flex-col items-center justify-center gap-3 px-6 py-12 text-center">
             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
             <div className="text-sm text-muted-foreground">Loading jobs...</div>
@@ -118,7 +118,7 @@ export const JobListPanel = forwardRef<VirtualListHandle, JobListPanelProps>(
 
     if (activeJobs.length === 0) {
       return (
-        <div className="min-w-0 rounded-xl border border-border bg-card shadow-sm lg:sticky lg:top-24 lg:max-h-[calc(100vh-8rem)] lg:overflow-y-auto">
+        <div className="min-w-0 max-h-[calc(100vh-8rem)] overflow-y-auto rounded-xl border border-border bg-card shadow-sm lg:sticky lg:top-24">
           <div className="flex flex-col items-center justify-center gap-4 px-6 py-12 text-center">
             <div className="text-base font-semibold">No jobs found</div>
             <p className="max-w-md text-sm text-muted-foreground">
@@ -152,7 +152,7 @@ export const JobListPanel = forwardRef<VirtualListHandle, JobListPanelProps>(
         ref={scrollElementRef}
         data-testid="job-list-scroll-container"
         onScroll={(event) => setScrollTop(event.currentTarget.scrollTop)}
-        className="min-w-0 rounded-xl border border-border bg-card shadow-sm lg:sticky lg:top-24 lg:max-h-[calc(100vh-8rem)] lg:overflow-y-auto"
+        className="min-w-0 max-h-[calc(100vh-8rem)] overflow-y-auto rounded-xl border border-border bg-card shadow-sm lg:sticky lg:top-24"
       >
         <div className="divide-y divide-border/40">
           <div className="flex items-center justify-between gap-3 px-4 py-2 opacity-100 transition-opacity sm:opacity-50 sm:hover:opacity-100">
