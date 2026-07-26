@@ -229,6 +229,34 @@ describe("JobCommandBar", () => {
     expect(onSelectJob).toHaveBeenCalledWith("applied", "applied-job");
   });
 
+  it("opens closed jobs in the all tab with a closed filter", async () => {
+    const onSelectJob = vi.fn();
+
+    render(
+      <JobCommandBar
+        jobs={[
+          createJob({
+            id: "closed-job",
+            title: "Closed Platform Engineer",
+            closedAt: 1,
+          }),
+        ]}
+        onSelectJob={onSelectJob}
+      />,
+    );
+
+    openWithKeyboard();
+    fireEvent.change(
+      screen.getByPlaceholderText(
+        "Search jobs by job title or company name...",
+      ),
+      { target: { value: "Closed Platform" } },
+    );
+    fireEvent.click(await screen.findByText("Closed Platform Engineer"));
+
+    expect(onSelectJob).toHaveBeenCalledWith("all", "closed-job", "closed");
+  });
+
   it("returns only locked status results", async () => {
     const jobs: JobListItem[] = [
       createJob({

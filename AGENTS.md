@@ -100,6 +100,11 @@ When adding a new extractor workspace under `extractors/`:
 - Update deployment coverage in `orchestrator/src/server/extractors/deployment.test.ts` so Docker/compose support is asserted for the new extractor.
 - If this is missed, the source can appear in shared settings/UI but still fail at runtime as "not available at runtime" because the extractor manifest is not present inside the container.
 
+
+## Local visual testing
+
+For UI work, restore a backup copy with `npm run db:restore -- <backup.db>`, then run `npm run dev:visual`. It binds to loopback only, bypasses sign-in/onboarding only for local testing, and preserves real AI failures. Inspect the changed route in a browser; use `JOBOPS_API_PORT` and `JOBOPS_WEB_PORT` for parallel instances.
+
 ## Validation / Verification
 
 Before marking work complete, verify changes with the same checks used by CI.
