@@ -18,7 +18,6 @@ const createJobs = (count: number) =>
       employer: `Employer ${index + 1}`,
     }),
   );
-
 let virtualizationEnvironment: ReturnType<
   typeof setupWindowVirtualizerTestEnvironment
 > | null = null;
@@ -358,9 +357,14 @@ describe("JobListPanel", () => {
     expect(renderedRows.length).toBeGreaterThan(0);
     expect(renderedRows.length).toBeLessThan(jobs.length);
 
+    const scrollContainer = screen.getByTestId("job-list-scroll-container");
+    expect(scrollContainer).toHaveClass(
+      "max-h-[calc(100vh-8rem)]",
+      "overflow-y-auto",
+    );
     act(() => {
-      window.scrollY = 2800;
-      window.dispatchEvent(new Event("scroll"));
+      scrollContainer.scrollTop = 2800;
+      scrollContainer.dispatchEvent(new Event("scroll"));
     });
 
     await waitFor(() => {
