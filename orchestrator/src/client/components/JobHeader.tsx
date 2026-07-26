@@ -1,5 +1,11 @@
 import { isAwaitingAiScore, ScoreRing } from "@client/components";
-import type { AppliedDuplicateMatch, Job, JobListItem } from "@shared/types.js";
+import {
+  type AppliedDuplicateMatch,
+  type Job,
+  type JobListItem,
+  type JobOutcome,
+  OUTCOME_LABELS,
+} from "@shared/types.js";
 import { Calendar, DollarSign, Loader2, MapPin, Search } from "lucide-react";
 import type React from "react";
 import { useMemo, useState } from "react";
@@ -154,12 +160,19 @@ const AppliedDuplicatePill: React.FC<{
   );
 };
 
+const outcomeDotColors: Record<JobOutcome, string> = {
+  offer_accepted: "bg-emerald-500",
+  offer_declined: "bg-rose-500",
+  rejected: "bg-rose-500",
+  withdrawn: "bg-amber-500",
+  no_response: "bg-slate-500",
+  ghosted: "bg-slate-500",
+};
 const postingAgeDotColor = {
   fresh: "bg-emerald-500",
   aging: "bg-amber-500",
   old: "bg-slate-500",
 };
-
 export const JobHeader: React.FC<JobHeaderProps> = ({
   job,
   className,
@@ -180,6 +193,14 @@ export const JobHeader: React.FC<JobHeaderProps> = ({
     : { jobPageBackTo: `${location.pathname}${location.search}` };
   const deadline = formatDate(job.deadline);
   const postingAge = formatPostingAgeLabel(job.datePosted);
+  const closureLabel = job.outcome
+    ? OUTCOME_LABELS[job.outcome]
+    : job.closedAt != null
+      ? "Closed"
+      : null;
+  const closureDotColor = job.outcome
+    ? outcomeDotColors[job.outcome]
+    : "bg-slate-500";
   const jobStatusTooltip =
     job.status === "discovered" ? (
       <p className="text-xs">Found by the pipeline. Not tailored yet.</p>
@@ -260,6 +281,19 @@ export const JobHeader: React.FC<JobHeaderProps> = ({
             tooltipClassName="max-w-xs"
             className={jobStatusTooltip ? "cursor-help" : undefined}
           />
+          {closureLabel && (
+            <StatusIndicator
+              dotColor={closureDotColor}
+              label={closureLabel}
+              tooltip={
+                job.outcome
+                  ? `Application closed as ${closureLabel}.`
+                  : "Application closed without an outcome."
+              }
+              tooltipClassName="max-w-xs"
+              className="cursor-help"
+            />
+          )}
           {tracerStatus && (
             <StatusIndicator
               dotColor={tracerStatus.dotColor}

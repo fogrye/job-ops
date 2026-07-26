@@ -324,6 +324,7 @@ export const JobDetailPanel: React.FC<JobDetailPanelProps> = ({
   const [isDeclining, setIsDeclining] = useState(false);
   const [isClosing, setIsClosing] = useState(false);
   const [isEditDetailsOpen, setIsEditDetailsOpen] = useState(false);
+  const [isJobDescriptionOpen, setIsJobDescriptionOpen] = useState(false);
   const [catalog, setCatalog] = useState<ResumeProjectCatalogItem[]>([]);
   const [isUploadingPdf, setIsUploadingPdf] = useState(false);
   const [openedListingJobIds, setOpenedListingJobIds] = useState<Set<string>>(
@@ -946,7 +947,7 @@ export const JobDetailPanel: React.FC<JobDetailPanelProps> = ({
     <Tabs
       value={inspectorTab}
       onValueChange={(value) => setInspectorTab(value as InspectorTab)}
-      className="flex min-h-0 min-w-0 flex-1 flex-col lg:sticky lg:top-24 lg:self-start lg:max-h-[calc(100vh-8rem)] lg:overflow-y-auto p-1"
+      className="flex min-h-0 min-w-0 flex-1 flex-col p-1 lg:h-full"
     >
       <InspectorTabsList inspectorTab={inspectorTab} />
       <JobHeader
@@ -996,7 +997,7 @@ export const JobDetailPanel: React.FC<JobDetailPanelProps> = ({
                 <>
                   {primaryBusy ? (
                     <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  ) : selectedJob.status === "ready" ? (
+                  ) : ["ready", "applied"].includes(selectedJob.status) ? (
                     <CheckCircle2 className="h-3.5 w-3.5" />
                   ) : selectedJob.status === "discovered" ? (
                     <Sparkles className="h-3.5 w-3.5" />
@@ -1122,7 +1123,7 @@ export const JobDetailPanel: React.FC<JobDetailPanelProps> = ({
                         )}
                       />
                     ) : (
-                      <Star className="mr-2 h-4 w-4" />
+                      <Sparkles className="mr-2 h-4 w-4" />
                     )}
                     {selectedJob.status === "ready"
                       ? "Regenerate PDF"
@@ -1191,7 +1192,7 @@ export const JobDetailPanel: React.FC<JobDetailPanelProps> = ({
         }
       />
 
-      <div className="flex min-w-0 flex-col rounded-lg rounded-t-none border border-t-0 border-border/50 bg-card p-4">
+      <div className="min-w-0 rounded-lg rounded-t-none border border-t-0 border-border/50 bg-card p-4 lg:min-h-0 lg:flex-1 lg:overflow-y-auto">
         <TabsContent value="brief" className="space-y-4">
           {!brief && (
             <div className="grid gap-2 sm:grid-cols-2">
@@ -1206,6 +1207,10 @@ export const JobDetailPanel: React.FC<JobDetailPanelProps> = ({
 
           <JobBriefPane job={selectedJob} />
           <JobDescriptionPanel
+            defaultOpen={false}
+            open={isJobDescriptionOpen}
+            onOpenChange={setIsJobDescriptionOpen}
+            maxHeightClassName="max-h-none"
             description={selectedJob.jobDescription}
             jobUrl={selectedJob.jobUrl}
             onSave={handleSaveDescription}

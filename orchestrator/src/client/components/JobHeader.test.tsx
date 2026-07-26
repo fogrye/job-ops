@@ -62,6 +62,35 @@ describe("JobHeader", () => {
     expect(screen.getByText("London")).toBeInTheDocument();
     expect(screen.getByText("£60,000")).toBeInTheDocument();
   });
+  it("shows the closure outcome beside the application status", () => {
+    renderWithRouter(
+      <JobHeader
+        job={{ ...mockJob, status: "applied", outcome: "withdrawn" }}
+      />,
+    );
+
+    expect(screen.getByText("Applied")).toBeInTheDocument();
+    expect(screen.getByText("Withdrawn")).toBeInTheDocument();
+  });
+  it("uses a positive tone for an accepted offer outcome", () => {
+    renderWithRouter(
+      <JobHeader
+        job={{ ...mockJob, status: "applied", outcome: "offer_accepted" }}
+      />,
+    );
+
+    const outcomeLabel = screen.getByText("Offer accepted");
+    expect(outcomeLabel.querySelector("span")).toHaveClass("bg-emerald-500");
+  });
+  it("shows a closed fallback when no outcome was recorded", () => {
+    renderWithRouter(
+      <JobHeader
+        job={{ ...mockJob, status: "applied", closedAt: 123, outcome: null }}
+      />,
+    );
+
+    expect(screen.getByText("Closed")).toBeInTheDocument();
+  });
 
   it("renders lightweight list data without full-detail indicators", () => {
     const {

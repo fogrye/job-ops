@@ -207,6 +207,33 @@ describe("typst resume renderer", () => {
     },
   );
 
+  it.skipIf(!typstAvailable())(
+    "links the employer name in the professional resume",
+    async () => {
+      const tempDir = await createTempDir();
+      tempDirs.push(tempDir);
+      const outputPath = join(tempDir, "professional-employer-link.pdf");
+
+      await renderTypstPdf({
+        document: baseDocument,
+        outputPath,
+        jobId: "job-render-professional-employer-link",
+        typstTheme: "jobops-cv",
+      });
+
+      const pdf = await getDocument({
+        data: new Uint8Array(await readFile(outputPath)),
+      }).promise;
+      const annotations = await (await pdf.getPage(1)).getAnnotations();
+
+      expect(
+        annotations.some(
+          (annotation) => annotation.unsafeUrl === "https://acme.example.com",
+        ),
+      ).toBe(true);
+    },
+  );
+
   it("renders compact theme tokens and localized section titles", async () => {
     const tokens = await readNativeThemeTokens("compact");
     const typst = buildTypstDocument(

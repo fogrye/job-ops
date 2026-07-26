@@ -12,6 +12,10 @@ vi.mock("@client/api", () => ({
   getDesignResumePdfBlob: vi.fn(),
 }));
 
+vi.mock("pdfjs-dist/build/pdf.worker.mjs?url", () => ({
+  default: "/assets/pdf.worker.mjs",
+}));
+
 vi.mock("@/lib/analytics", () => ({
   trackProductEvent: vi.fn(),
 }));
@@ -141,6 +145,10 @@ describe("DesignResumePdfPreview", () => {
     vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue({
       setTransform: vi.fn(),
     } as unknown as CanvasRenderingContext2D);
+  });
+
+  it("configures PDF.js with the bundled worker asset", () => {
+    expect(pdfjs.GlobalWorkerOptions.workerSrc).toBe("/assets/pdf.worker.mjs");
   });
 
   it("regenerates for a newer persisted document without reloading unchanged state", async () => {

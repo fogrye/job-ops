@@ -5,7 +5,7 @@ let cachedDir: string | null = null;
 
 export function getDataDir(): string {
   const fromEnv = (process.env.DATA_DIR || "").trim();
-  if (fromEnv) return fromEnv;
+  if (fromEnv) return resolve(fromEnv);
 
   if (cachedDir) return cachedDir;
 

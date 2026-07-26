@@ -126,7 +126,7 @@ export const OrchestratorPage: React.FC = () => {
         className={
           isSearchComposerVisible
             ? "min-h-[calc(100dvh-6rem)]"
-            : "container mx-auto space-y-6 px-4 py-6 pb-12"
+            : "container mx-auto flex flex-col space-y-6 px-4 py-6 pb-12 lg:h-[calc(100dvh-4.3125rem)] lg:min-h-0 lg:overflow-hidden"
         }
       >
         {isSearchComposerVisible ? (

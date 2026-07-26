@@ -348,6 +348,14 @@ describe("JobDetailPanel", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /start tailoring/i }));
 
+    const buttonIcon = screen
+      .getByRole("button", { name: "Start Tailoring" })
+      .querySelector("svg");
+    const menuIcon = screen
+      .getByRole("menuitem", { name: "Start tailoring" })
+      .querySelector("svg");
+    expect(menuIcon?.innerHTML).toBe(buttonIcon?.innerHTML);
+
     expect(onStartTailoring).toHaveBeenCalledTimes(1);
   });
 
@@ -568,6 +576,7 @@ describe("JobDetailPanel", () => {
       onSelectJobId: vi.fn(),
       onJobUpdated: vi.fn().mockResolvedValue(undefined),
     });
+    fireEvent.click(screen.getByRole("button", { name: /job description/i }));
 
     expect(
       screen.getByText(
@@ -575,6 +584,59 @@ describe("JobDetailPanel", () => {
           node?.tagName === "P" && node.textContent === "Hello world",
       ),
     ).toBeInTheDocument();
+    expect(
+      screen
+        .getByText(
+          (_, node) =>
+            node?.tagName === "P" && node.textContent === "Hello world",
+        )
+        .closest("div.max-h-none"),
+    ).toBeInTheDocument();
+  });
+  it("keeps the description expanded when navigating to another job", async () => {
+    const rendered = await renderJobDetailPanel({
+      activeTab: "all",
+      activeJobs: [],
+      selectedJob: createJob({
+        id: "job-1",
+        status: "applied",
+        jobDescription: "First description",
+      }),
+      onSelectJobId: vi.fn(),
+      onJobUpdated: vi.fn().mockResolvedValue(undefined),
+    });
+
+    const descriptionTrigger = screen.getByRole("button", {
+      name: /job description/i,
+    });
+    fireEvent.click(descriptionTrigger);
+    expect(descriptionTrigger).toHaveAttribute("aria-expanded", "true");
+
+    const nextJob = createJob({
+      id: "job-2",
+      status: "applied",
+      jobDescription: "Second description",
+    });
+    rendered.rerender(
+      <JobDetailPanel
+        activeTab="all"
+        activeJobs={[]}
+        selectedJob={nextJob}
+        selectedJobListItem={nextJob}
+        selectedJobLoadState="idle"
+        onSelectJobId={vi.fn()}
+        onJobUpdated={vi.fn().mockResolvedValue(undefined)}
+        onJobMutation={vi.fn()}
+        onRetrySelectedJob={vi.fn()}
+        statusActionInFlightRef={{ current: false }}
+      />,
+    );
+
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", { name: /job description/i }),
+      ).toHaveAttribute("aria-expanded", "true"),
+    );
   });
 
   it("renders markdown in the brief job description when enabled", async () => {
@@ -588,6 +650,7 @@ describe("JobDetailPanel", () => {
       onSelectJobId: vi.fn(),
       onJobUpdated: vi.fn().mockResolvedValue(undefined),
     });
+    fireEvent.click(screen.getByRole("button", { name: /job description/i }));
 
     expect(
       screen.getByRole("heading", { name: "Responsibilities" }),
@@ -631,6 +694,7 @@ describe("JobDetailPanel", () => {
       onSelectJobId: vi.fn(),
       onJobUpdated: vi.fn().mockResolvedValue(undefined),
     });
+    fireEvent.click(screen.getByRole("button", { name: /job description/i }));
 
     const rawDescription = rendered.container.querySelector(
       "div.whitespace-pre-wrap",
@@ -654,6 +718,7 @@ describe("JobDetailPanel", () => {
       onSelectJobId: vi.fn(),
       onJobUpdated,
     });
+    fireEvent.click(screen.getByRole("button", { name: /job description/i }));
 
     fireEvent.click(await screen.findByRole("button", { name: /^edit$/i }));
 
@@ -762,6 +827,12 @@ describe("JobDetailPanel", () => {
       onJobUpdated,
       onJobMutation,
     });
+
+    expect(
+      screen
+        .getByRole("button", { name: /move to in progress/i })
+        .querySelector("svg.lucide-circle-check"),
+    ).toBeInTheDocument();
 
     fireEvent.click(
       screen.getByRole("button", { name: /move to in progress/i }),

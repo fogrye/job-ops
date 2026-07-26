@@ -59,7 +59,7 @@
   ]
 }
 
-#let timeline-entry(entry, lead: none, heading: none) = {
+#let timeline-entry(entry, lead: none, heading: none, lead-url: "") = {
   let title = if heading != none { heading } else { entry-line(entry) }
   let link = text-of-item(entry, "url")
   let date = text-of-item(entry, "date")
@@ -69,9 +69,9 @@
       columns: (1fr, auto),
       column-gutter: 12pt,
       [
-        #if lead != none [#lead]
+        #if lead != none [#link-or-text(lead, lead-url)]
         #if lead != none [#h(4pt)#text(size: 13.5pt)[—]#h(4pt)]
-        #if link == "" [#row-title(title)] else [#row-title(link-or-text(title, link))]
+        #if link == "" or lead-url != "" [#row-title(title)] else [#row-title(link-or-text(title, link))]
       ],
       [#date-style(date)],
     )
@@ -195,6 +195,7 @@
       #timeline-entry(
         entry,
         lead: row-title(text-of-item(entry, "title")),
+        lead-url: text-of-item(entry, "url"),
         heading: text-of-item(entry, "subtitle"),
       )
     ]

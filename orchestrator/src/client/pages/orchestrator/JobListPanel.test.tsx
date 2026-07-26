@@ -232,7 +232,7 @@ describe("JobListPanel", () => {
         activeJobs={jobs}
         selectedJobId={null}
         selectedJobIds={new Set()}
-        activeTab="ready"
+        activeTab="all"
         onSelectJob={vi.fn()}
         onToggleSelectJob={vi.fn()}
         onToggleSelectAll={vi.fn()}
@@ -243,6 +243,37 @@ describe("JobListPanel", () => {
     expect(screen.getByTitle("Previously Applied")).toHaveClass(
       "bg-yellow-400",
     );
+  });
+
+  it("hides status dots outside All Jobs", () => {
+    const job = createJob({
+      id: "job-1",
+      appliedDuplicateMatch: {
+        jobId: "job-applied",
+        title: "Backend Engineer",
+        employer: "Acme Labs",
+        appliedAt: "2026-04-01T10:00:00.000Z",
+        score: 96,
+        titleScore: 97,
+        employerScore: 95,
+      },
+    });
+
+    render(
+      <JobListPanel
+        isLoading={false}
+        jobs={[job]}
+        activeJobs={[job]}
+        selectedJobId={null}
+        selectedJobIds={new Set()}
+        activeTab="ready"
+        onSelectJob={vi.fn()}
+        onToggleSelectJob={vi.fn()}
+        onToggleSelectAll={vi.fn()}
+      />,
+    );
+
+    expect(screen.queryByTitle("Previously Applied")).not.toBeInTheDocument();
   });
 
   it("toggles row selection and select-all", () => {

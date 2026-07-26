@@ -10,6 +10,7 @@ import {
   getDocument,
   type PDFDocumentProxy,
 } from "pdfjs-dist";
+import pdfWorkerSrc from "pdfjs-dist/build/pdf.worker.mjs?url";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { trackProductEvent } from "@/lib/analytics";
 
@@ -35,10 +36,7 @@ const PDF_ZOOM_STEP = 0.1;
 const PDF_ZOOM_MIN = 0.5;
 const PDF_ZOOM_MAX = 2;
 
-GlobalWorkerOptions.workerSrc = new URL(
-  "pdfjs-dist/build/pdf.worker.mjs",
-  import.meta.url,
-).toString();
+GlobalWorkerOptions.workerSrc = pdfWorkerSrc;
 
 function captureScrollSnapshot(
   element: HTMLDivElement | null,
