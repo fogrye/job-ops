@@ -1748,7 +1748,6 @@ describe("OrchestratorPage", () => {
     expect(api.processJob).not.toHaveBeenCalled();
   });
 
-
   it("increments the tailoring token from the move-to-ready shortcut", async () => {
     mockJobs = [job2];
     mockSelectedJob = job2;
@@ -1760,10 +1759,7 @@ describe("OrchestratorPage", () => {
       <MemoryRouter initialEntries={["/jobs/discovered"]}>
         <Routes>
           <Route path="/jobs/:tab" element={<OrchestratorPage />} />
-          <Route
-            path="/jobs/:tab/:jobId"
-            element={<OrchestratorPage />}
-          />
+          <Route path="/jobs/:tab/:jobId" element={<OrchestratorPage />} />
         </Routes>
       </MemoryRouter>,
     );

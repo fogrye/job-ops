@@ -22,9 +22,9 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
-import { AccountSettingsSection } from "../pages/settings/components/AccountSettingsSection";
 import { useSettings } from "../hooks/useSettings";
 import { useVersionCheck } from "../hooks/useVersionCheck";
+import { AccountSettingsSection } from "../pages/settings/components/AccountSettingsSection";
 import { isNavActive, NAV_LINKS } from "./navigation";
 import { StatusBadgeIndicator } from "./StatusIndicator";
 import { Tip } from "./Tip";
