@@ -1,4 +1,5 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
+import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { JobDescriptionPanel } from "./JobDescriptionPanel";
 
@@ -24,5 +25,32 @@ describe("JobDescriptionPanel", () => {
     ).toBeInTheDocument();
     expect(screen.getByText("Build systems")).toBeInTheDocument();
     expect(container.querySelector("script")).toBeNull();
+  });
+
+  it("keeps controlled expansion when the description changes", () => {
+    let isOpen = false;
+    let rerender: (ui: ReactNode) => void = () => {};
+    const renderPanel = (description: string) => (
+      <JobDescriptionPanel
+        description={description}
+        open={isOpen}
+        onOpenChange={(nextOpen) => {
+          isOpen = nextOpen;
+          rerender(renderPanel("Updated description"));
+        }}
+      />
+    );
+
+    const rendered = render(renderPanel("Initial description"));
+    rerender = rendered.rerender;
+
+    const trigger = screen.getByRole("button", { name: /job description/i });
+    expect(trigger).toHaveAttribute("aria-expanded", "false");
+
+    fireEvent.click(trigger);
+    expect(trigger).toHaveAttribute("aria-expanded", "true");
+
+    rendered.rerender(renderPanel("Updated description"));
+    expect(trigger).toHaveAttribute("aria-expanded", "true");
   });
 });
