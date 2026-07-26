@@ -149,7 +149,10 @@ export function useKeyboardShortcuts(args: UseKeyboardShortcutsArgs): void {
     ],
   );
 
-  const ghostedOutcome = "ghosted" as const;
+  const primaryKey =
+    activeTab === "applied"
+      ? SHORTCUTS["reject"]["key"]
+      : SHORTCUTS.moveToReady["key"];
 
   useHotkeys(
     {
@@ -247,7 +250,7 @@ export function useKeyboardShortcuts(args: UseKeyboardShortcutsArgs): void {
             statusActionInFlightRef.current = false;
           });
       },
-      "r": () => {
+      [primaryKey]: () => {
         if (activeTab === "applied") {
           closeApplication("rejected");
           return;
@@ -256,7 +259,8 @@ export function useKeyboardShortcuts(args: UseKeyboardShortcutsArgs): void {
         if (!selectedJob || selectedJob.status !== "discovered") return;
         startTailoring();
       },
-      "g": () => closeApplication(ghostedOutcome),
+      [SHORTCUTS["ghost"]["key"]]: () =>
+        closeApplication("ghosted"),
       [SHORTCUTS.viewPdf.key]: () => {
         if (!selectedJob) return;
         if (activeTab !== "ready") return;

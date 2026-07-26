@@ -20,6 +20,7 @@ export interface ShortcutDef {
 
 // ─── Definitions ─────────────────────────────────────────────────────────────
 
+
 export const SHORTCUTS = {
   // Navigation
   nextJob: {
