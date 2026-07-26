@@ -107,6 +107,20 @@ export const SHORTCUTS = {
     group: "actions",
     scope: ["ready"],
   },
+  reject: {
+    key: "r",
+    displayKey: "r",
+    label: "Reject application",
+    group: "actions",
+    scope: ["applied"],
+  },
+  ghost: {
+    key: "g",
+    displayKey: "g",
+    label: "Mark as ghosted",
+    group: "actions",
+    scope: ["applied"],
+  },
   viewPdf: {
     key: "p",
     displayKey: "p",

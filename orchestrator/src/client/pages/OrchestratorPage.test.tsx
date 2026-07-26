@@ -44,6 +44,7 @@ vi.mock("../api", () => ({
   skipJob: vi.fn().mockResolvedValue({}),
   markAsApplied: vi.fn().mockResolvedValue({}),
   processJob: vi.fn().mockResolvedValue({}),
+  updateJobOutcome: vi.fn().mockResolvedValue({}),
   getWatchlistSources: vi.fn().mockResolvedValue({
     catalogSources: [],
     selectedSources: [],
@@ -1779,6 +1780,43 @@ describe("OrchestratorPage", () => {
     pressKey("r");
     await Promise.resolve();
     expect(api.processJob).not.toHaveBeenCalled();
+  });
+
+  it("closes applied jobs with contextual shortcuts", async () => {
+    window.matchMedia = createMatchMedia(
+      true,
+    ) as unknown as typeof window.matchMedia;
+    const appliedJob = createJob({ id: "job-applied", status: "applied" });
+    mockJobs = [appliedJob];
+    mockSelectedJob = appliedJob;
+    vi.mocked(api.updateJobOutcome).mockResolvedValue(appliedJob);
+
+    render(
+      <MemoryRouter initialEntries={["/jobs/applied"]}>
+        <Routes>
+          <Route path="/jobs/:tab/:jobId" element={<OrchestratorPage />} />
+          <Route path="/jobs/:tab" element={<OrchestratorPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    await waitFor(() =>
+      expect(screen.getByTestId("selected-job")).toHaveTextContent("job-applied"),
+    );
+
+    pressKey("r");
+    await waitFor(() =>
+      expect(api.updateJobOutcome).toHaveBeenCalledWith("job-applied", {
+        outcome: "rejected",
+      }),
+    );
+
+    pressKey("g");
+    await waitFor(() =>
+      expect(api.updateJobOutcome).toHaveBeenLastCalledWith("job-applied", {
+        outcome: "ghosted",
+      }),
+    );
   });
 
   it("increments the tailoring token from the move-to-ready shortcut", async () => {
