@@ -28,8 +28,6 @@ export interface ExtractorSourceMetadata {
   category: "pipeline" | "manual";
   requiresCredentials?: boolean;
   ukOnly?: boolean;
-  /** Every registered source can re-fetch a job description from its stored
-   *  source URL through the generic refresh path. */
 }
 
 export const EXTRACTOR_SOURCE_METADATA: Record<
@@ -125,6 +123,8 @@ export function sortSources<T extends { source: ExtractorSourceId }>(
   );
 }
 
+/** Every registered source can re-fetch a job description from its stored
+ *  source URL through the generic refresh path. */
 export function supportsDescriptionRefresh(source: string): boolean {
   return source.trim().length > 0;
 }

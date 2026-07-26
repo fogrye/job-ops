@@ -113,7 +113,7 @@ describe("scoreJobsStep auto-skip behavior", () => {
     });
   });
 
-  it("skips sponsor matching and sponsor fields when sponsorship is disabled", async () => {
+  it("clears sponsor fields when sponsorship is disabled", async () => {
     vi.mocked(settingsRepo.getSetting).mockImplementation(async (key) =>
       key === "showSponsorInfo" ? "0" : null,
     );
@@ -122,9 +122,33 @@ describe("scoreJobsStep auto-skip behavior", () => {
 
     expect(visaSponsors.searchSponsors).not.toHaveBeenCalled();
     expect(visaSponsors.calculateSponsorMatchSummary).not.toHaveBeenCalled();
-    const [, update] = vi.mocked(jobsRepo.updateJob).mock.calls[0];
-    expect(update).not.toHaveProperty("sponsorMatchScore");
-    expect(update).not.toHaveProperty("sponsorMatchNames");
+    expect(jobsRepo.updateJob).toHaveBeenCalledWith(
+      "job-1",
+      expect.objectContaining({
+        sponsorMatchScore: null,
+        sponsorMatchNames: null,
+      }),
+    );
+  });
+  it("clears sponsor fields when the job has no employer", async () => {
+    vi.mocked(jobsRepo.getUnscoredDiscoveredJobs).mockResolvedValue([
+      createJob({
+        employer: undefined,
+        status: "discovered",
+        suitabilityScore: null,
+      }),
+    ]);
+
+    await scoreJobsStep({ profile: {} });
+
+    expect(visaSponsors.searchSponsors).not.toHaveBeenCalled();
+    expect(jobsRepo.updateJob).toHaveBeenCalledWith(
+      "job-1",
+      expect.objectContaining({
+        sponsorMatchScore: null,
+        sponsorMatchNames: null,
+      }),
+    );
   });
 
   it("passes per-run scoring instructions to the scorer", async () => {

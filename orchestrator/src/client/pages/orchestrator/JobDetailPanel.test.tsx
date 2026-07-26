@@ -80,11 +80,17 @@ vi.mock("@client/hooks/useSettings", () => ({
 
 vi.mock("@client/components/tailoring/TailoringWorkspace", () => ({
   TailoringWorkspace: ({
+    job,
     onDirtyChange,
     startGenerationToken = 0,
+    onStartGenerationConsumed,
+    onTailoringCompleted,
   }: {
+    job: Job;
     onDirtyChange?: (isDirty: boolean) => void;
     startGenerationToken?: number;
+    onStartGenerationConsumed?: () => void;
+    onTailoringCompleted?: (job: Job) => void;
   }) => (
     <div
       data-start-generation-token={startGenerationToken}
@@ -95,6 +101,12 @@ vi.mock("@client/components/tailoring/TailoringWorkspace", () => ({
       </button>
       <button type="button" onClick={() => onDirtyChange?.(false)}>
         Mark tailoring clean
+      </button>
+      <button type="button" onClick={onStartGenerationConsumed}>
+        Consume tailoring start
+      </button>
+      <button type="button" onClick={() => onTailoringCompleted?.(job)}>
+        Complete tailoring
       </button>
     </div>
   ),
@@ -296,6 +308,62 @@ describe("JobDetailPanel", () => {
       "data-start-generation-token",
       "1",
     );
+  });
+
+  it("consumes a tailoring start request before the workspace can remount", async () => {
+    const job = createJob({ id: "job-99", status: "discovered" });
+
+    await renderJobDetailPanel({
+      activeTab: "discovered",
+      activeJobs: [job],
+      selectedJob: job,
+      onSelectJobId: vi.fn(),
+      onJobUpdated: vi.fn().mockResolvedValue(undefined),
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /start tailoring/i }));
+    fireEvent.click(
+      screen.getByRole("button", { name: /consume tailoring start/i }),
+    );
+
+    expect(screen.getByTestId("tailoring-workspace")).toHaveAttribute(
+      "data-start-generation-token",
+      "0",
+    );
+  });
+
+  it("requires Mark Ready after tailoring completes", async () => {
+    const job = createJob({ id: "job-99", status: "discovered" });
+    const onNavigateToStatus = vi.fn();
+    vi.mocked(api.generateJobPdf).mockResolvedValue(
+      createJob({ id: "job-99", status: "ready" }),
+    );
+
+    await renderJobDetailPanel({
+      activeTab: "discovered",
+      activeJobs: [job],
+      selectedJob: job,
+      onSelectJobId: vi.fn(),
+      onNavigateToStatus,
+      onJobUpdated: vi.fn().mockResolvedValue(undefined),
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /start tailoring/i }));
+    fireEvent.click(
+      screen.getByRole("button", { name: /complete tailoring/i }),
+    );
+
+    expect(
+      screen.getByRole("button", { name: /mark ready/i }),
+    ).toBeInTheDocument();
+    expect(api.generateJobPdf).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("button", { name: /mark ready/i }));
+
+    await waitFor(() =>
+      expect(api.generateJobPdf).toHaveBeenCalledWith("job-99"),
+    );
+    expect(onNavigateToStatus).toHaveBeenCalledWith("ready", "job-99");
   });
 
   it("shows stale PDF copy and old-PDF actions in the application kit", async () => {
@@ -607,8 +675,32 @@ describe("JobDetailPanel", () => {
     await waitFor(() =>
       expect(api.markAsApplied).toHaveBeenCalledWith("job-1"),
     );
-    expect(onJobUpdated).toHaveBeenCalled();
+    await waitFor(() => expect(onJobUpdated).toHaveBeenCalled());
     expect(onNavigateToStatus).toHaveBeenCalledWith("applied", "job-1");
+  });
+
+  it("navigates after marking applied even when the list refresh fails", async () => {
+    const onNavigateToStatus = vi.fn();
+    vi.mocked(api.markAsApplied).mockResolvedValue(
+      createJob({ status: "applied" }),
+    );
+
+    await renderJobDetailPanel({
+      activeTab: "ready",
+      activeJobs: [],
+      selectedJob: createJob({ status: "ready" }),
+      onSelectJobId: vi.fn(),
+      onNavigateToStatus,
+      onJobUpdated: vi.fn().mockRejectedValue(new Error("refresh failed")),
+    });
+
+    fireEvent.click(
+      within(getApplyPanel()).getByRole("button", { name: /mark applied/i }),
+    );
+
+    await waitFor(() =>
+      expect(onNavigateToStatus).toHaveBeenCalledWith("applied", "job-1"),
+    );
   });
 
   it("moves an applied job to in progress from the action button", async () => {
@@ -634,7 +726,7 @@ describe("JobDetailPanel", () => {
         status: "in_progress",
       }),
     );
-    expect(onJobUpdated).toHaveBeenCalled();
+    await waitFor(() => expect(onJobUpdated).toHaveBeenCalled());
   });
 
   it("skips a job from the menu", async () => {
@@ -656,7 +748,7 @@ describe("JobDetailPanel", () => {
     fireEvent.click(skipItem);
 
     await waitFor(() => expect(api.skipJob).toHaveBeenCalledWith("job-1"));
-    expect(onJobUpdated).toHaveBeenCalled();
+    await waitFor(() => expect(onJobUpdated).toHaveBeenCalled());
   });
 
   it("declines a job through the closed outcome path", async () => {
@@ -684,7 +776,64 @@ describe("JobDetailPanel", () => {
         outcome: "rejected",
       }),
     );
-    expect(onJobUpdated).toHaveBeenCalled();
+    await waitFor(() => expect(onJobUpdated).toHaveBeenCalled());
+  });
+
+  it("gates other status actions while declining", async () => {
+    let resolveDecline: (value: Job) => void = () => {};
+    const pendingDecline = new Promise<Job>((resolve) => {
+      resolveDecline = resolve;
+    });
+    vi.mocked(api.updateJobOutcome).mockReturnValue(pendingDecline);
+
+    await renderJobDetailPanel({
+      activeTab: "applied",
+      activeJobs: [createJob({ status: "applied" })],
+      selectedJob: createJob({ status: "applied" }),
+      onSelectJobId: vi.fn(),
+      onJobUpdated: vi.fn().mockResolvedValue(undefined),
+    });
+
+    fireEvent.click(screen.getByRole("menuitem", { name: /decline job/i }));
+
+    expect(
+      screen.getByRole("button", { name: /move to in progress/i }),
+    ).toBeDisabled();
+    fireEvent.click(
+      screen.getByRole("button", { name: /move to in progress/i }),
+    );
+    expect(api.updateJob).not.toHaveBeenCalled();
+
+    await act(async () => {
+      resolveDecline(createJob({ closedAt: 1, outcome: "rejected" }));
+    });
+  });
+
+  it("hides mutating actions for archived jobs", async () => {
+    await renderJobDetailPanel({
+      activeTab: "archive",
+      activeJobs: [],
+      selectedJob: createJob({
+        closedAt: 1,
+        source: "linkedin",
+        status: "ready",
+      }),
+      onSelectJobId: vi.fn(),
+      onJobUpdated: vi.fn().mockResolvedValue(undefined),
+    });
+
+    expect(screen.getByRole("button", { name: /archived/i })).toBeDisabled();
+    expect(
+      screen.queryByRole("menuitem", {
+        name: /refresh description & recalculate/i,
+      }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("menuitem", { name: /recalculate match/i }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("menuitem", { name: /upload pdf/i }),
+    ).not.toBeInTheDocument();
   });
 
   it("forwards tailoring dirty state to refresh pause callback", async () => {

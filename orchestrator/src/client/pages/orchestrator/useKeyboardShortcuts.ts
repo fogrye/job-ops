@@ -157,10 +157,12 @@ export function useKeyboardShortcuts(args: UseKeyboardShortcutsArgs): void {
         const jobId = selectedJob.id;
         skipJobMutation
           .mutateAsync(jobId)
-          .then(async () => {
+          .then(() => {
             toast.message("Job skipped");
             selectNextAfterAction(jobId);
-            await loadJobs();
+            void Promise.resolve()
+              .then(loadJobs)
+              .catch(() => {});
           })
           .catch((err: unknown) => {
             const msg =
@@ -180,12 +182,14 @@ export function useKeyboardShortcuts(args: UseKeyboardShortcutsArgs): void {
         const jobId = selectedJob.id;
         markAsAppliedMutation
           .mutateAsync(jobId)
-          .then(async () => {
+          .then(() => {
             toast.success("Marked as applied", {
               description: `${selectedJob.title} at ${selectedJob.employer}`,
             });
-            await loadJobs();
             navigateToStatus("applied", jobId);
+            void Promise.resolve()
+              .then(loadJobs)
+              .catch(() => {});
           })
           .catch((err: unknown) => {
             const msg =
@@ -214,12 +218,14 @@ export function useKeyboardShortcuts(args: UseKeyboardShortcutsArgs): void {
 
         api
           .processJob(jobId)
-          .then(async () => {
+          .then(() => {
             toast.success("Job moved to Ready", {
               description: "Your tailored PDF has been generated.",
             });
-            await loadJobs();
             navigateToStatus("ready", jobId);
+            void Promise.resolve()
+              .then(loadJobs)
+              .catch(() => {});
           })
           .catch((err: unknown) => {
             const msg =

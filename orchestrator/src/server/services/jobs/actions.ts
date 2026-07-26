@@ -320,13 +320,23 @@ export async function refreshJobDescriptionFromSourceAndRescore(
     const manifest = (await getExtractorRegistry()).manifestBySource.get(
       job.source as ExtractorSourceId,
     );
-    const refreshed = await (manifest?.refreshJobDescription
-      ? manifest.refreshJobDescription({
-          jobUrl: job.jobUrl,
-          sourceJobId: job.sourceJobId,
-        })
-      : fetchJobDescriptionFromUrl(job.jobUrl)
-    ).catch(() => undefined);
+    const refreshed = manifest?.refreshJobDescription
+      ? await manifest
+          .refreshJobDescription({
+            jobUrl: job.jobUrl,
+            sourceJobId: job.sourceJobId,
+          })
+          .catch(() => undefined)
+      : await fetchJobDescriptionFromUrl(job.jobUrl).catch((error) => {
+          if (error instanceof AppError) throw error;
+          throw new AppError({
+            status: 502,
+            code: "UPSTREAM_ERROR",
+            message:
+              "Couldn't fetch an updated description from the source site.",
+            cause: error,
+          });
+        });
 
     if (!refreshed) {
       throw new AppError({

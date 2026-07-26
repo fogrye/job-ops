@@ -14,6 +14,7 @@ interface OrchestratorSearchComposerProps
   extends PipelineSearchPresetComposerProps {
   mode: RunMode;
   settings: AppSettings | null;
+  showSponsorInfo?: boolean;
   enabledSources: JobSource[];
   pipelineSources: JobSource[];
   watchlistSources: WatchlistSelectedSource[];
@@ -35,6 +36,7 @@ export const OrchestratorSearchComposer: React.FC<
 > = ({
   mode,
   settings,
+  showSponsorInfo = false,
   enabledSources,
   pipelineSources,
   watchlistSources,
@@ -62,6 +64,7 @@ export const OrchestratorSearchComposer: React.FC<
     showCloseButton={false}
     showModeTabs={false}
     settings={settings}
+    showSponsorInfo={showSponsorInfo}
     enabledSources={enabledSources}
     pipelineSources={pipelineSources}
     onToggleSource={onToggleSource}

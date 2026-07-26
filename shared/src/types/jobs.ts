@@ -611,8 +611,8 @@ export interface UpdateJobInput {
   tracerLinksEnabled?: boolean;
   readyAt?: string;
   appliedAt?: string;
-  sponsorMatchScore?: number;
-  sponsorMatchNames?: string;
+  sponsorMatchScore?: number | null;
+  sponsorMatchNames?: string | null;
 }
 
 export interface CreateJobNoteInput {

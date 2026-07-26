@@ -130,6 +130,7 @@ export const OrchestratorPage: React.FC = () => {
           <OrchestratorSearchComposer
             mode={runMode}
             settings={settings ?? null}
+            showSponsorInfo={showSponsorInfo}
             enabledSources={enabledSources}
             pipelineSources={pipelineSources}
             onToggleSource={toggleSource}

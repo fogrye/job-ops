@@ -325,6 +325,14 @@ const SETTINGS_NAV_GROUPS: SettingsNavGroup[] = [
     ],
   },
 ];
+const getSettingsSectionFromHash = (hash: string): SettingsSectionId | null => {
+  const sectionId = hash.replace(/^#/, "") as SettingsSectionId;
+  return SETTINGS_NAV_GROUPS.some((group) =>
+    group.items.some((item) => item.id === sectionId),
+  )
+    ? sectionId
+    : null;
+};
 
 const SECTION_FIELD_MAP: Record<
   SettingsSectionId,
@@ -887,8 +895,9 @@ export const SettingsPage: React.FC = () => {
   const queryClient = useQueryClient();
   const location = useLocation();
   const [settings, setSettings] = useState<AppSettings | null>(null);
-  const [activeSection, setActiveSection] =
-    useState<SettingsSectionId>("model");
+  const [activeSection, setActiveSection] = useState<SettingsSectionId>(
+    () => getSettingsSectionFromHash(location.hash) ?? "model",
+  );
   const [openGroups, setOpenGroups] = useState<SettingsGroupId[]>([]);
 
   const [settingsSearch, setSettingsSearch] = useState("");
@@ -1637,20 +1646,24 @@ export const SettingsPage: React.FC = () => {
   );
 
   useEffect(() => {
-    const hash = location.hash.replace(/^#/, "");
-    const allSectionIds = visibleNavGroups.flatMap((g) =>
-      g.items.map((i) => i.id),
-    );
-    if (hash && allSectionIds.includes(hash as SettingsSectionId)) {
-      setActiveSection(hash as SettingsSectionId);
+    const sectionId = getSettingsSectionFromHash(location.hash);
+    if (
+      sectionId &&
+      visibleNavGroups.some((group) =>
+        group.items.some((item) => item.id === sectionId),
+      )
+    ) {
+      setActiveSection(sectionId);
       const parentGroup = visibleNavGroups.find((g) =>
-        g.items.some((i) => i.id === hash),
+        g.items.some((i) => i.id === sectionId),
       );
       if (parentGroup) {
         setOpenGroups((prev) =>
           prev.includes(parentGroup.id) ? prev : [...prev, parentGroup.id],
         );
       }
+    } else if (!sectionId) {
+      setActiveSection("model");
     }
   }, [location.hash, visibleNavGroups]);
 

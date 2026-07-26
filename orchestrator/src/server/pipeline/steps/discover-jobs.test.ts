@@ -739,7 +739,7 @@ describe("discoverJobsStep", () => {
     ).not.toHaveBeenCalled();
   });
 
-  it("drops discovered jobs when employer or title matches blocked keywords", async () => {
+  it("keeps company substring matching and uses whole position tokens", async () => {
     const settingsRepo = await import("@server/repositories/settings");
     const registryModule = await import("@server/extractors/registry");
 
@@ -768,6 +768,18 @@ describe("discoverJobsStep", () => {
             employer: "Fabrikam",
             jobUrl: "https://example.com/job-3",
           },
+          {
+            source: "linkedin",
+            title: "International Sales Engineer",
+            employer: "Northwind",
+            jobUrl: "https://example.com/job-4",
+          },
+          {
+            source: "linkedin",
+            title: "Senior-Intern Engineer",
+            employer: "Adventure Works",
+            jobUrl: "https://example.com/job-5",
+          },
         ],
       }),
     };
@@ -795,9 +807,11 @@ describe("discoverJobsStep", () => {
       },
     });
 
-    expect(result.discoveredJobs).toHaveLength(1);
-    expect(result.discoveredJobs[0]?.employer).toBe("Contoso");
-    expect(getProgress().fanout).toMatchObject({ results: 3, unique: 1 });
+    expect(result.discoveredJobs.map((job) => job.employer)).toEqual([
+      "Contoso",
+      "Northwind",
+    ]);
+    expect(getProgress().fanout).toMatchObject({ results: 5, unique: 2 });
   });
 
   it("applies shared city filtering for sources without native city filtering", async () => {

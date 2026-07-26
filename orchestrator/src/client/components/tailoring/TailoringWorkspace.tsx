@@ -45,6 +45,7 @@ interface TailoringWorkspaceEditorProps extends TailoringWorkspaceBaseProps {
   onRegisterSave?: (save: () => Promise<void>) => void;
   onBeforeGenerate?: () => boolean | Promise<boolean>;
   startGenerationToken?: number;
+  onStartGenerationConsumed?: () => void;
   onGenerationChange?: (isGenerating: boolean) => void;
   onTailoringCompleted?: (job: Job) => void;
 }
@@ -271,13 +272,16 @@ export const TailoringWorkspace: React.FC<TailoringWorkspaceProps> = (
   }, [savedPayloadKey]);
 
   useEffect(() => {
+    isMountedRef.current = true;
     return () => {
       isMountedRef.current = false;
-      if (autosaveTimerRef.current) {
+      props.onGenerationChange?.(false);
+      if (autosaveTimerRef.current !== null) {
         clearTimeout(autosaveTimerRef.current);
+        autosaveTimerRef.current = null;
       }
     };
-  }, []);
+  }, [props.onGenerationChange]);
 
   const runAutosaveLoop = useCallback(async () => {
     if (saveInFlightRef.current) {
@@ -441,34 +445,31 @@ export const TailoringWorkspace: React.FC<TailoringWorkspaceProps> = (
     try {
       setGenerateTarget("all");
       await flushAutosave();
-      let updatedJob: Job;
-      if (props.job.status === "discovered") {
-        updatedJob = await api.processJob(props.job.id, { force: true });
-      } else {
-        await api.summarizeJob(props.job.id, { force: true });
-        updatedJob = await api.generateJobPdf(props.job.id);
-      }
+      const updatedJob = await api.summarizeJob(props.job.id, { force: true });
       applyIncomingDraft(updatedJob);
       setAiBaseline(toBaselineFromJob(updatedJob));
-      setExperienceView(await api.getJobTailoredExperienceView(props.job.id));
-      toast.success(
-        props.job.status === "discovered"
-          ? "Job moved to Ready"
-          : "Resume regenerated",
-        { description: "Your tailored PDF has been generated." },
-      );
-      await props.onUpdate();
+      toast.success("Draft content generated");
       props.onTailoringCompleted?.(updatedJob);
+      void Promise.resolve()
+        .then(props.onUpdate)
+        .catch(() => {});
+      void api
+        .getJobTailoredExperienceView(props.job.id)
+        .then((view) => {
+          if (isMountedRef.current) setExperienceView(view);
+        })
+        .catch(() => {
+          if (isMountedRef.current) setExperienceView(null);
+        });
     } catch (error) {
       showErrorToast(error, "AI generation failed");
     } finally {
-      setGenerateTarget(null);
+      if (isMountedRef.current) setGenerateTarget(null);
     }
   }, [
     applyIncomingDraft,
     flushAutosave,
     props.job.id,
-    props.job.status,
     props.onTailoringCompleted,
     props.onUpdate,
   ]);
@@ -481,8 +482,13 @@ export const TailoringWorkspace: React.FC<TailoringWorkspaceProps> = (
       return;
     }
     startedGenerationTokenRef.current = props.startGenerationToken;
+    props.onStartGenerationConsumed?.();
     void handleGenerateAll();
-  }, [handleGenerateAll, props.startGenerationToken]);
+  }, [
+    handleGenerateAll,
+    props.onStartGenerationConsumed,
+    props.startGenerationToken,
+  ]);
 
   const handleGenerateSummary = useCallback(async () => {
     await handleGenerateTailoring("summary");
@@ -533,6 +539,7 @@ export const TailoringWorkspace: React.FC<TailoringWorkspaceProps> = (
   }, [setTailoredExperience]);
 
   const handleGeneratePdf = useCallback(async () => {
+    if (props.job.status !== "ready") return;
     try {
       const shouldProceed = props.onBeforeGenerate
         ? await props.onBeforeGenerate()
@@ -554,9 +561,15 @@ export const TailoringWorkspace: React.FC<TailoringWorkspaceProps> = (
         showErrorToast(error, "PDF generation failed");
       }
     } finally {
-      setIsGeneratingPdf(false);
+      if (isMountedRef.current) setIsGeneratingPdf(false);
     }
-  }, [props.onBeforeGenerate, props.onUpdate, flushAutosave, props.job.id]);
+  }, [
+    props.job.status,
+    props.onBeforeGenerate,
+    props.onUpdate,
+    flushAutosave,
+    props.job.id,
+  ]);
 
   const handleUndoSummary = useCallback(() => {
     setSummary(originalValues.summary);
@@ -731,15 +744,17 @@ export const TailoringWorkspace: React.FC<TailoringWorkspaceProps> = (
               </p>
               <p className="mt-0.5 text-[11px] text-muted-foreground/75">
                 {isDraftReady
-                  ? "Review optional sections before generating the PDF."
-                  : "Add a summary and headline to generate the PDF."}
+                  ? props.job.status === "ready"
+                    ? "Review optional sections before generating the PDF."
+                    : "Review optional sections, then mark this job Ready."
+                  : "Add a summary and headline to continue."}
               </p>
             </div>
           </div>
           <AutosaveStatusIcon status={autosaveStatus} />
         </div>
 
-        <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-1">
+        <div className="grid gap-2">
           <Button
             onClick={handleGenerateAll}
             disabled={Boolean(generateTarget) || isGeneratingPdf}
@@ -753,20 +768,22 @@ export const TailoringWorkspace: React.FC<TailoringWorkspaceProps> = (
             )}
             Generate all
           </Button>
-          <Button
-            onClick={handleGeneratePdf}
-            disabled={
-              Boolean(generateTarget) || isGeneratingPdf || !isDraftReady
-            }
-            size="sm"
-          >
-            {isGeneratingPdf ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <FileText className="h-4 w-4" />
-            )}
-            Generate PDF
-          </Button>
+          {props.job.status === "ready" ? (
+            <Button
+              onClick={handleGeneratePdf}
+              disabled={
+                Boolean(generateTarget) || isGeneratingPdf || !isDraftReady
+              }
+              size="sm"
+            >
+              {isGeneratingPdf ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <FileText className="h-4 w-4" />
+              )}
+              Generate PDF
+            </Button>
+          ) : null}
         </div>
       </div>
 

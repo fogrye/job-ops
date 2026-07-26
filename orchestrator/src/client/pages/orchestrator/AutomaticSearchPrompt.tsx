@@ -53,7 +53,7 @@ export function AutomaticSearchPrompt({
   onSearchPromptChange,
   onGenerateSearchPlan,
   onConfigureManually,
-  showSponsorInfo = true,
+  showSponsorInfo = false,
 }: AutomaticSearchPromptProps) {
   return (
     <div className="mx-auto flex w-full max-w-[40rem] flex-col">

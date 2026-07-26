@@ -40,14 +40,13 @@ describe("useSettings", () => {
     expect(api.getSettings).toHaveBeenCalledTimes(1);
   });
 
-  it("uses default values when settings are null", async () => {
-    vi.mocked(api.getSettings).mockResolvedValue(null as any);
+  it("hides sponsor info when settings are unavailable", async () => {
+    vi.mocked(api.getSettings).mockResolvedValue(null as never);
 
     const { result } = renderHookWithQueryClient(() => useSettings());
 
     await waitFor(() => {
-      // settings is null, so showSponsorInfo should default to true
-      expect(result.current.showSponsorInfo).toBe(true);
+      expect(result.current.showSponsorInfo).toBe(false);
       expect(result.current.renderMarkdownInJobDescriptions).toBe(true);
     });
   });

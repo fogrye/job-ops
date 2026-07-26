@@ -127,12 +127,8 @@ export async function scoreJobsStep(args: {
         suitabilityScore: score,
         suitabilityReason: reason,
         jobBrief,
-        ...(sponsorSummary
-          ? {
-              sponsorMatchScore: sponsorSummary.sponsorMatchScore,
-              sponsorMatchNames: sponsorSummary.sponsorMatchNames ?? undefined,
-            }
-          : {}),
+        sponsorMatchScore: sponsorSummary?.sponsorMatchScore ?? null,
+        sponsorMatchNames: sponsorSummary?.sponsorMatchNames ?? null,
         ...(shouldAutoSkip ? { status: "skipped" } : {}),
       });
 

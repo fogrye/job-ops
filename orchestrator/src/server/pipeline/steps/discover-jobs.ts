@@ -91,6 +91,26 @@ function containsBlockedKeyword(
   );
 }
 
+function containsBlockedPositionKeyword(
+  value: string | null | undefined,
+  blockedKeywordsLowerCase: string[],
+): boolean {
+  if (!value || blockedKeywordsLowerCase.length === 0) return false;
+  const titleTokens = new Set(
+    value
+      .toLowerCase()
+      .split(/[^\p{L}\p{N}]+/u)
+      .filter(Boolean),
+  );
+  return blockedKeywordsLowerCase.some((keyword) => {
+    const keywordTokens = keyword.split(/[^\p{L}\p{N}]+/u).filter(Boolean);
+    return (
+      keywordTokens.length > 0 &&
+      keywordTokens.every((token) => titleTokens.has(token))
+    );
+  });
+}
+
 function getLegacyLocationSelection(
   intent: NonNullable<PipelineConfig["locationIntent"]>,
 ): string {
@@ -497,7 +517,7 @@ export async function discoverJobsStep(args: {
                 job.employer,
                 liveBlockedCompanyKeywordsLowerCase,
               ) &&
-              !containsBlockedKeyword(
+              !containsBlockedPositionKeyword(
                 job.title,
                 liveBlockedPositionKeywordsLowerCase,
               ),
@@ -677,7 +697,10 @@ export async function discoverJobsStep(args: {
             job.employer,
             blockedCompanyKeywordsLowerCase,
           ) &&
-          !containsBlockedKeyword(job.title, blockedPositionKeywordsLowerCase),
+          !containsBlockedPositionKeyword(
+            job.title,
+            blockedPositionKeywordsLowerCase,
+          ),
       );
       const droppedCount =
         locationFilteredJobs.length - filteredDiscoveredJobs.length;

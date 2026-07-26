@@ -1,7 +1,7 @@
 import { getDefaultPromptTemplate } from "@shared/prompt-template-definitions.js";
 import { createAppSettings } from "@shared/testing/factories.js";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import * as api from "../api";
@@ -124,11 +124,26 @@ const hostedPlatformLlmStatus = {
   hostedTenantConfigured: true,
 };
 
-const renderPage = () => {
-  return render(
-    <MemoryRouter initialEntries={["/settings"]}>
+const renderPage = (initialEntry = "/settings") =>
+  render(
+    <MemoryRouter initialEntries={[initialEntry]}>
       <SettingsPage />
     </MemoryRouter>,
+  );
+
+const SettingsHashNavigator = () => {
+  const navigate = useNavigate();
+
+  return (
+    <>
+      <button type="button" onClick={() => navigate("/settings#account")}>
+        Open account settings
+      </button>
+      <button type="button" onClick={() => navigate("/settings#unknown")}>
+        Open unknown settings
+      </button>
+      <SettingsPage />
+    </>
   );
 };
 
@@ -223,6 +238,48 @@ describe("SettingsPage", () => {
       configurable: true,
       value: originalScrollIntoView,
     });
+  });
+
+  it("renders account settings from #account on initial navigation", async () => {
+    vi.mocked(api.getSettings).mockResolvedValue(baseSettings);
+
+    renderPage("/settings#account");
+
+    expect(await screen.findByLabelText(/new password/i)).toBeInTheDocument();
+  });
+
+  it("renders account settings after hash navigation", async () => {
+    vi.mocked(api.getSettings).mockResolvedValue(baseSettings);
+
+    render(
+      <MemoryRouter initialEntries={["/settings"]}>
+        <SettingsHashNavigator />
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(
+      screen.getByRole("button", { name: /open account settings/i }),
+    );
+
+    expect(await screen.findByLabelText(/new password/i)).toBeInTheDocument();
+  });
+
+  it("returns to the default section for an unrecognized hash", async () => {
+    vi.mocked(api.getSettings).mockResolvedValue(baseSettings);
+
+    render(
+      <MemoryRouter initialEntries={["/settings#account"]}>
+        <SettingsHashNavigator />
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByLabelText(/new password/i)).toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole("button", { name: /open unknown settings/i }),
+    );
+
+    expect(await screen.findByLabelText(/default model/i)).toBeInTheDocument();
+    expect(screen.queryByLabelText(/new password/i)).not.toBeInTheDocument();
   });
 
   it("saves trimmed model overrides", async () => {

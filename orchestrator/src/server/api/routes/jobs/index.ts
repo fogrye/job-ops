@@ -32,10 +32,15 @@ const redactSponsorData = (value: unknown): unknown => {
 
 jobsRouter.use((_req, res, next) => {
   void (async () => {
-    const showSponsorInfo =
-      settingsRegistry.showSponsorInfo.parse(
-        (await settingsRepo.getSetting("showSponsorInfo")) ?? undefined,
-      ) ?? settingsRegistry.showSponsorInfo.default();
+    let showSponsorInfo = false;
+    try {
+      showSponsorInfo =
+        settingsRegistry.showSponsorInfo.parse(
+          (await settingsRepo.getSetting("showSponsorInfo")) ?? undefined,
+        ) ?? settingsRegistry.showSponsorInfo.default();
+    } catch {
+      // Fail closed: Jobs must remain available without sponsor data.
+    }
     if (!showSponsorInfo) {
       const sendJson = res.json.bind(res);
       res.json = ((body: unknown) =>

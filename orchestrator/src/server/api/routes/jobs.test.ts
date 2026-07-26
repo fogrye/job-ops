@@ -1937,6 +1937,47 @@ describe.sequential("Jobs API routes", () => {
     expect(scoreJobSuitability).not.toHaveBeenCalled();
   });
 
+  it("preserves generic fetch timeout failures without rescoring", async () => {
+    const { createJob } = await import("@server/repositories/jobs");
+    const { requestTimeout } = await import("@infra/errors");
+    const { scoreJobSuitability } = await import("@server/services/scorer");
+    const { fetchJobDescriptionFromUrl } = await import(
+      "@server/services/source-job-description"
+    );
+
+    vi.mocked(scoreJobSuitability).mockClear();
+    vi.mocked(fetchJobDescriptionFromUrl).mockRejectedValueOnce(
+      requestTimeout("Source fetch timed out"),
+    );
+
+    const job = await createJob({
+      source: "gradcracker",
+      title: "Graduate Engineer",
+      employer: "Acme",
+      jobUrl: "https://gradcracker.example/jobs/44",
+      jobDescription: "Stale description",
+    });
+    const res = await fetch(`${baseUrl}/api/jobs/actions`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "refresh_description",
+        jobIds: [job.id],
+      }),
+    });
+    const body = await res.json();
+
+    expect(body.data.results[0]).toMatchObject({
+      ok: false,
+      error: { code: "REQUEST_TIMEOUT", message: "Source fetch timed out" },
+    });
+    expect(scoreJobSuitability).not.toHaveBeenCalled();
+
+    const detailRes = await fetch(`${baseUrl}/api/jobs/${job.id}`);
+    const detailBody = await detailRes.json();
+    expect(detailBody.data.jobDescription).toBe("Stale description");
+  });
+
   it("dispatches refresh-description in the background and reports status via polling", async () => {
     const { createJob } = await import("@server/repositories/jobs");
     const { scoreJobSuitability } = await import("@server/services/scorer");
@@ -2232,6 +2273,33 @@ describe.sequential("Jobs API routes", () => {
       "sponsorMatchScore",
     );
     expect(disabledListBody.data.jobs[0]).not.toHaveProperty("jobBrief");
+  });
+
+  it("keeps Jobs available and redacts sponsor data when settings lookup fails", async () => {
+    const { createJob, updateJob } = await import("@server/repositories/jobs");
+    const settingsRepo = await import("@server/repositories/settings");
+    const job = await createJob({
+      source: "manual",
+      title: "Privacy fallback role",
+      employer: "Acme",
+      jobUrl: "https://example.com/job/privacy-fallback",
+    });
+    await updateJob(job.id, {
+      sponsorMatchScore: 100,
+      sponsorMatchNames: '["ACME CORP SPONSOR"]',
+    });
+    vi.spyOn(settingsRepo, "getSetting").mockRejectedValueOnce(
+      new Error("settings unavailable"),
+    );
+
+    const res = await fetch(`${baseUrl}/api/jobs?view=full`);
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body.ok).toBe(true);
+    expect(body.data.jobs[0].id).toBe(job.id);
+    expect(body.data.jobs[0]).not.toHaveProperty("sponsorMatchScore");
+    expect(body.data.jobs[0]).not.toHaveProperty("sponsorMatchNames");
   });
 
   describe("Application Tracking", () => {

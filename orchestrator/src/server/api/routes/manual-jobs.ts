@@ -19,9 +19,22 @@ import { type Request, type Response, Router } from "express";
 import { z } from "zod";
 
 export const manualJobsRouter = Router();
+const httpUrlSchema = z
+  .string()
+  .trim()
+  .url()
+  .max(2000)
+  .refine((value) => {
+    try {
+      const protocol = new URL(value).protocol;
+      return protocol === "http:" || protocol === "https:";
+    } catch {
+      return false;
+    }
+  }, "URL must use HTTP or HTTPS");
 
 const manualJobFetchSchema = z.object({
-  url: z.string().trim().url().max(2000),
+  url: httpUrlSchema,
 });
 
 const manualJobInferenceSchema = z.object({
@@ -41,7 +54,7 @@ const manualJobImportSchema = z.object({
     sourceJobId: z.string().trim().max(500).optional(),
     title: z.string().trim().min(1).max(500),
     employer: z.string().trim().min(1).max(500),
-    jobUrl: z.string().trim().url().max(2000),
+    jobUrl: httpUrlSchema,
     applicationLink: z.string().trim().url().max(2000).optional(),
     location: z.string().trim().max(200).optional(),
     salary: z.string().trim().max(200).optional(),
