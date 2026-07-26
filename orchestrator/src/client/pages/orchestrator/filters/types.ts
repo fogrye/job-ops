@@ -89,7 +89,7 @@ export type SortFilterPillProps = Pick<
 
 export type OrchestratorTabRowProps = Pick<
   OrchestratorFiltersProps,
-  "counts" | "onOpenCommandBar" | "onResetFilters"
+  "activeTab" | "counts" | "onOpenCommandBar" | "onResetFilters" | "onTabChange"
 > & {
   isFiltersOpen: boolean;
   onFiltersOpenChange: (open: boolean) => void;

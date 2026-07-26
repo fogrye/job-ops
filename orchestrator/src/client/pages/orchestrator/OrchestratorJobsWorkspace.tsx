@@ -76,6 +76,9 @@ interface OrchestratorJobsWorkspaceProps {
   onPauseRefreshChange: (paused: boolean) => void;
   onRetrySelectedJob: () => void;
   statusActionInFlightRef: React.MutableRefObject<boolean>;
+  onStartTailoring: () => void;
+  startTailoringToken: number;
+  onStartTailoringConsumed: () => void;
 }
 
 export const OrchestratorJobsWorkspace: React.FC<
@@ -135,6 +138,9 @@ export const OrchestratorJobsWorkspace: React.FC<
   onPauseRefreshChange,
   onRetrySelectedJob,
   statusActionInFlightRef,
+  onStartTailoring,
+  startTailoringToken,
+  onStartTailoringConsumed,
 }) => (
   <>
     <OrchestratorSummary stats={stats} isPipelineRunning={isPipelineRunning} />
@@ -206,6 +212,9 @@ export const OrchestratorJobsWorkspace: React.FC<
             onJobMutation={onJobMutation}
             onPauseRefreshChange={onPauseRefreshChange}
             onRetrySelectedJob={onRetrySelectedJob}
+            onStartTailoring={onStartTailoring}
+            startTailoringToken={startTailoringToken}
+            onStartTailoringConsumed={onStartTailoringConsumed}
             statusActionInFlightRef={statusActionInFlightRef}
           />
         )}

@@ -1613,11 +1613,6 @@ describe("OrchestratorPage", () => {
     await waitFor(() => {
       expect(locationText()).toContain("/all");
     });
-
-    pressKey("5");
-    await waitFor(() => {
-      expect(locationText()).toContain("/archive");
-    });
   });
 
   it("opens the In Progress board directly", async () => {
@@ -1730,18 +1725,14 @@ describe("OrchestratorPage", () => {
     fireEvent.click(screen.getByTestId("select-job-2"));
 
     pressKey("r");
-    await waitFor(() => {
-      expect(toast.message).toHaveBeenCalledWith("Moving job to Ready...");
-      expect(api.processJob).toHaveBeenCalledWith("job-2");
-    });
-    expect(mockSeedJob).toHaveBeenCalledWith(readyJob);
+    await Promise.resolve();
+    expect(api.processJob).not.toHaveBeenCalled();
   });
 
   it("toggles the help dialog with shortcut", async () => {
     window.matchMedia = createMatchMedia(
       true,
     ) as unknown as typeof window.matchMedia;
-
     render(
       <MemoryRouter initialEntries={["/jobs/ready"]}>
         <Routes>

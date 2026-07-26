@@ -51,6 +51,13 @@ jobsMutationsRouter.patch("/:id", async (req: Request, res: Response) => {
     if (currentJob.closedAt != null && Object.hasOwn(input, "status")) {
       throw badRequest("Closed jobs cannot change status");
     }
+    if (
+      input.closedAt === null &&
+      currentJob.outcome != null &&
+      !Object.hasOwn(input, "outcome")
+    ) {
+      throw badRequest("Declined jobs cannot be restored");
+    }
 
     const isTurningTracerLinksOn =
       input.tracerLinksEnabled === true && !currentJob.tracerLinksEnabled;

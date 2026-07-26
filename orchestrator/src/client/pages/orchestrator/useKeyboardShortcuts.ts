@@ -1,4 +1,3 @@
-import * as api from "@client/api";
 import {
   useMarkAsAppliedMutation,
   useSkipJobMutation,
@@ -33,6 +32,7 @@ type UseKeyboardShortcutsArgs = {
   requestScrollToJob: (id: string, opts?: { ensureSelected?: boolean }) => void;
   setActiveTab: (tab: FilterTab) => void;
   navigateToStatus: (status: JobStatus, id: string) => void;
+  startTailoring: () => void;
   onJobMutation: (job: Job) => void;
   statusActionInFlightRef: MutableRefObject<boolean>;
   setIsCommandBarOpen: (open: boolean) => void;
@@ -60,6 +60,7 @@ export function useKeyboardShortcuts(args: UseKeyboardShortcutsArgs): void {
     setActiveTab,
     navigateToStatus,
     onJobMutation,
+    startTailoring,
     statusActionInFlightRef,
     setIsCommandBarOpen,
     setIsHelpDialogOpen,
@@ -137,7 +138,6 @@ export function useKeyboardShortcuts(args: UseKeyboardShortcutsArgs): void {
       [SHORTCUTS.tabDiscovered.key]: () => setActiveTab("discovered"),
       [SHORTCUTS.tabApplied.key]: () => setActiveTab("applied"),
       [SHORTCUTS.tabAll.key]: () => setActiveTab("all"),
-      "5": () => setActiveTab("archive"),
       [SHORTCUTS.prevTabArrow.key]: (e) => {
         e.preventDefault();
         navigateTab(-1);
@@ -212,44 +212,8 @@ export function useKeyboardShortcuts(args: UseKeyboardShortcutsArgs): void {
 
       [SHORTCUTS.moveToReady.key]: () => {
         if (activeTab !== "discovered") return;
-        if (statusActionInFlightRef.current) return;
-
-        if (selectedJobIds.size > 0) {
-          statusActionInFlightRef.current = true;
-          void runJobAction("move_to_ready").finally(() => {
-            statusActionInFlightRef.current = false;
-          });
-          return;
-        }
-
-        if (!selectedJob) return;
-
-        statusActionInFlightRef.current = true;
-        const jobId = selectedJob.id;
-        toast.message("Moving job to Ready...");
-
-        api
-          .processJob(jobId)
-          .then((updatedJob) => {
-            onJobMutation(updatedJob);
-            toast.success("Job moved to Ready", {
-              description: "Your tailored PDF has been generated.",
-            });
-            navigateToStatus("ready", jobId);
-            void Promise.resolve()
-              .then(loadJobs)
-              .catch(() => {});
-          })
-          .catch((err: unknown) => {
-            const msg =
-              err instanceof Error
-                ? err.message
-                : "Failed to move job to ready";
-            toast.error(msg);
-          })
-          .finally(() => {
-            statusActionInFlightRef.current = false;
-          });
+        if (!selectedJob || selectedJob.status !== "discovered") return;
+        startTailoring();
       },
 
       [SHORTCUTS.viewPdf.key]: () => {
