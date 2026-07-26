@@ -996,7 +996,7 @@ export const JobDetailPanel: React.FC<JobDetailPanelProps> = ({
                 <>
                   {primaryBusy ? (
                     <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  ) : selectedJob.status === "ready" ? (
+                  ) : ["ready", "applied"].includes(selectedJob.status) ? (
                     <CheckCircle2 className="h-3.5 w-3.5" />
                   ) : selectedJob.status === "discovered" ? (
                     <Sparkles className="h-3.5 w-3.5" />

@@ -104,6 +104,31 @@ describe("JobPageRightSidebar actions", () => {
     ).toBeGreaterThan(0);
   });
 
+  it("uses one height for status action controls", () => {
+    const ready = renderRightSidebar();
+    expect(ready.getByRole("button", { name: /mark applied/i })).toHaveClass(
+      "h-9",
+    );
+    ready.unmount();
+
+    const discovered = renderRightSidebar({ status: "discovered" });
+    expect(
+      discovered.getByRole("button", { name: /start tailoring/i }),
+    ).toHaveClass("h-9");
+    discovered.unmount();
+
+    const applied = renderRightSidebar({ status: "applied" });
+    expect(
+      applied.getByRole("button", { name: /move to in progress/i }),
+    ).toHaveClass("h-9");
+    applied.unmount();
+
+    const inProgress = renderRightSidebar({ status: "in_progress" });
+    expect(inProgress.getByRole("button", { name: /log event/i })).toHaveClass(
+      "h-9",
+    );
+  });
+
   it("hides Check sponsorship status when sponsorship is disabled", () => {
     renderRightSidebar({}, { showSponsorInfo: false });
 

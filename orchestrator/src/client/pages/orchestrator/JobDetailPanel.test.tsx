@@ -771,6 +771,12 @@ describe("JobDetailPanel", () => {
       onJobMutation,
     });
 
+    expect(
+      screen
+        .getByRole("button", { name: /move to in progress/i })
+        .querySelector("svg.lucide-circle-check"),
+    ).toBeInTheDocument();
+
     fireEvent.click(
       screen.getByRole("button", { name: /move to in progress/i }),
     );

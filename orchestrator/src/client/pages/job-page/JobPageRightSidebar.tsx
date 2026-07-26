@@ -105,7 +105,7 @@ export const JobPageRightSidebar: React.FC<JobPageRightSidebarProps> = ({
             asChild
             size="sm"
             variant="outline"
-            className="w-full justify-start"
+            className="h-9 w-full justify-start"
           >
             <a href={jobLink} target="_blank" rel="noopener noreferrer">
               <ExternalLink className="mr-1.5 h-3.5 w-3.5" />
@@ -118,7 +118,7 @@ export const JobPageRightSidebar: React.FC<JobPageRightSidebarProps> = ({
           <Button
             size="sm"
             variant="outline"
-            className="w-full justify-start"
+            className="h-9 w-full justify-start"
             onClick={onStartTailoring}
             disabled={isBusy}
           >
@@ -130,7 +130,7 @@ export const JobPageRightSidebar: React.FC<JobPageRightSidebarProps> = ({
         {isReady && (
           <Button
             size="sm"
-            className="w-full justify-start"
+            className="h-9 w-full justify-start"
             variant="outline"
             onClick={onMarkApplied}
             disabled={isBusy}
@@ -143,7 +143,7 @@ export const JobPageRightSidebar: React.FC<JobPageRightSidebarProps> = ({
         {isApplied && (
           <Button
             size="sm"
-            className="w-full justify-start"
+            className="h-9 w-full justify-start"
             variant="outline"
             onClick={onMoveToInProgress}
             disabled={isBusy}
@@ -156,7 +156,7 @@ export const JobPageRightSidebar: React.FC<JobPageRightSidebarProps> = ({
         {isInProgress && (
           <Button
             size="sm"
-            className="w-full justify-start"
+            className="h-9 w-full justify-start"
             variant="outline"
             onClick={onOpenLogEvent}
             disabled={!canLogEvents || isBusy}
