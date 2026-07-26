@@ -190,6 +190,25 @@ export const useOrchestratorData = (selectedJobId: string | null) => {
     [queryClient],
   );
 
+  const seedJob = useCallback(
+    (job: Job) => {
+      selectedJobCacheRef.current.set(job.id, job);
+      queryClient.setQueryData(queryKeys.jobs.detail(job.id), job);
+      setJobListItems((current) => {
+        const index = current.findIndex((item) => item.id === job.id);
+        if (index === -1) return [...current, job];
+        const next = current.slice();
+        next[index] = job;
+        return next;
+      });
+      if (selectedJobId === job.id) {
+        setSelectedJob(job);
+        setSelectedJobRequestState(null);
+      }
+    },
+    [queryClient, selectedJobId],
+  );
+
   const loadJobs = useCallback(async () => {
     const seq = ++requestSeqRef.current;
     pendingLoadCountRef.current += 1;
@@ -474,6 +493,7 @@ export const useOrchestratorData = (selectedJobId: string | null) => {
     selectedJobListItem,
     selectedJobLoadState,
     retrySelectedJob,
+    seedJob,
     stats,
     isLoading,
     isPipelineRunning,

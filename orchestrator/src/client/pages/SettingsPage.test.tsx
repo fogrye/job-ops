@@ -264,6 +264,26 @@ describe("SettingsPage", () => {
     expect(await screen.findByLabelText(/new password/i)).toBeInTheDocument();
   });
 
+  it("clears a retained settings search when hash navigation opens Account", async () => {
+    vi.mocked(api.getSettings).mockResolvedValue(baseSettings);
+
+    render(
+      <MemoryRouter initialEntries={["/settings"]}>
+        <SettingsHashNavigator />
+      </MemoryRouter>,
+    );
+
+    fireEvent.change(await screen.findByPlaceholderText("Search settings"), {
+      target: { value: "model" },
+    });
+    fireEvent.click(
+      screen.getByRole("button", { name: /open account settings/i }),
+    );
+
+    expect(await screen.findByLabelText(/new password/i)).toBeInTheDocument();
+    expect(screen.getByPlaceholderText("Search settings")).toHaveValue("");
+  });
+
   it("returns to the default section for an unrecognized hash", async () => {
     vi.mocked(api.getSettings).mockResolvedValue(baseSettings);
 

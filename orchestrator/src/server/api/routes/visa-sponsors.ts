@@ -5,11 +5,10 @@ import {
   toAppError,
 } from "@infra/errors";
 import { fail, ok } from "@infra/http";
-import * as settingsRepo from "@server/repositories/settings";
+import { resolveShowSponsorInfo } from "@server/services/sponsor-visibility";
 import * as visaSponsors from "@server/services/visa-sponsors/index";
 import { getVisaSponsorProviderRegistry } from "@server/services/visa-sponsors/providers/registry";
 import { normalizeCountryKey } from "@shared/location-support.js";
-import { settingsRegistry } from "@shared/settings-registry";
 import type {
   VisaSponsorSearchResponse,
   VisaSponsorStatusResponse,
@@ -20,18 +19,10 @@ import { z } from "zod";
 
 export const visaSponsorsRouter = Router();
 
-async function sponsorInfoEnabled(): Promise<boolean> {
-  return (
-    settingsRegistry.showSponsorInfo.parse(
-      (await settingsRepo.getSetting("showSponsorInfo")) ?? undefined,
-    ) ?? settingsRegistry.showSponsorInfo.default()
-  );
-}
-
 visaSponsorsRouter.use((req, res, next) => {
   void (async () => {
     try {
-      if (await sponsorInfoEnabled()) {
+      if (await resolveShowSponsorInfo()) {
         next();
         return;
       }

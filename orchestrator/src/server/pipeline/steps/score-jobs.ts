@@ -6,9 +6,9 @@ import {
   type SuitabilityResult,
   scoreJobSuitability,
 } from "@server/services/scorer";
+import { resolveShowSponsorInfo } from "@server/services/sponsor-visibility";
 import * as visaSponsors from "@server/services/visa-sponsors/index";
 import { asyncPool } from "@server/utils/async-pool";
-import { settingsRegistry } from "@shared/settings-registry";
 import type { Job } from "@shared/types";
 import { progressHelpers, updateProgress } from "../progress";
 import type { ScoredJob } from "./types";
@@ -31,10 +31,7 @@ export async function scoreJobsStep(args: {
   const autoSkipThreshold = autoSkipThresholdRaw
     ? parseInt(autoSkipThresholdRaw, 10)
     : null;
-  const showSponsorInfo =
-    settingsRegistry.showSponsorInfo.parse(
-      (await settingsRepo.getSetting("showSponsorInfo")) ?? undefined,
-    ) ?? settingsRegistry.showSponsorInfo.default();
+  const showSponsorInfo = await resolveShowSponsorInfo();
 
   updateProgress({
     step: "scoring",

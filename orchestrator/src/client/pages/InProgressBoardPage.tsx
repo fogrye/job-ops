@@ -119,7 +119,7 @@ export const InProgressBoardPage: React.FC = () => {
         view: "list",
       });
 
-      const jobs = response.jobs;
+      const jobs = response.jobs.filter((job) => job.closedAt == null);
       const eventResults = await Promise.allSettled(
         jobs.map((job) => api.getJobStageEvents(job.id)),
       );

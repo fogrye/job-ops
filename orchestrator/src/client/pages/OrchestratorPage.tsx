@@ -38,6 +38,7 @@ export const OrchestratorPage: React.FC = () => {
     pipelineTerminalEvent,
     setIsRefreshPaused,
     loadJobs,
+    seedJob,
   } = useOrchestratorData(navigation.selectedJobId);
 
   useNavigationRefresh(loadJobs);
@@ -158,6 +159,7 @@ export const OrchestratorPage: React.FC = () => {
             isLoading={isLoading}
             isPipelineRunning={isPipelineRunning}
             loadJobs={loadJobs}
+            seedJob={seedJob}
             setIsRefreshPaused={setIsRefreshPaused}
             filters={filters}
             showSponsorInfo={showSponsorInfo}

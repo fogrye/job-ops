@@ -17,8 +17,10 @@ interface OrchestratorMobileJobDrawerProps {
   onSelectJobId: (jobId: string | null) => void;
   onNavigateToStatus: (status: JobStatus, jobId: string) => void;
   onJobUpdated: () => Promise<void>;
+  onJobMutation: (job: Job) => void;
   onPauseRefreshChange: (paused: boolean) => void;
   onRetrySelectedJob: () => void;
+  statusActionInFlightRef: React.MutableRefObject<boolean>;
 }
 
 export const OrchestratorMobileJobDrawer: React.FC<
@@ -34,8 +36,10 @@ export const OrchestratorMobileJobDrawer: React.FC<
   onSelectJobId,
   onNavigateToStatus,
   onJobUpdated,
+  onJobMutation,
   onPauseRefreshChange,
   onRetrySelectedJob,
+  statusActionInFlightRef,
 }) => (
   <Drawer open={open} onOpenChange={onOpenChange}>
     <DrawerContent className="max-h-[90vh]">
@@ -59,8 +63,10 @@ export const OrchestratorMobileJobDrawer: React.FC<
           onSelectJobId={onSelectJobId}
           onNavigateToStatus={onNavigateToStatus}
           onJobUpdated={onJobUpdated}
+          onJobMutation={onJobMutation}
           onPauseRefreshChange={onPauseRefreshChange}
           onRetrySelectedJob={onRetrySelectedJob}
+          statusActionInFlightRef={statusActionInFlightRef}
         />
       </div>
     </DrawerContent>

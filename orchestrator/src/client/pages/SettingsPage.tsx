@@ -1653,6 +1653,7 @@ export const SettingsPage: React.FC = () => {
         group.items.some((item) => item.id === sectionId),
       )
     ) {
+      if (sectionId === "account") setSettingsSearch("");
       setActiveSection(sectionId);
       const parentGroup = visibleNavGroups.find((g) =>
         g.items.some((i) => i.id === sectionId),

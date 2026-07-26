@@ -98,4 +98,27 @@ describe("useSettings", () => {
     expect(result.current.isLoading).toBe(false);
     expect(result.current.settings).toBeNull();
   });
+
+  it("hides stale sponsor info after a refresh error", async () => {
+    const cachedSettings = createAppSettings({
+      showSponsorInfo: { value: true, default: true, override: null },
+    });
+    const mockError = new Error("Failed to refresh");
+    vi.mocked(api.getSettings)
+      .mockResolvedValueOnce(cachedSettings)
+      .mockRejectedValueOnce(mockError);
+
+    const { result } = renderHookWithQueryClient(() => useSettings());
+    await waitFor(() => expect(result.current.showSponsorInfo).toBe(true));
+
+    await act(async () => {
+      await expect(result.current.refreshSettings()).rejects.toBe(mockError);
+    });
+
+    await waitFor(() => {
+      expect(result.current.settings).toEqual(cachedSettings);
+      expect(result.current.error).toBe(mockError);
+      expect(result.current.showSponsorInfo).toBe(false);
+    });
+  });
 });

@@ -72,6 +72,12 @@ export const SHORTCUTS = {
     label: "All Jobs tab",
     group: "tabs",
   },
+  tabFive: {
+    key: "5",
+    displayKey: "5",
+    label: "Archive tab",
+    group: "tabs",
+  },
   prevTabArrow: {
     key: "ArrowLeft",
     displayKey: "\u2190",

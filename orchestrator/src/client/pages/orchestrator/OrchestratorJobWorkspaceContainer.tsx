@@ -29,6 +29,7 @@ interface OrchestratorJobWorkspaceContainerProps {
   isLoading: boolean;
   isPipelineRunning: boolean;
   loadJobs: () => Promise<void>;
+  seedJob: (job: Job) => void;
   setIsRefreshPaused: (paused: boolean) => void;
   showSponsorInfo: boolean;
   filters: ReturnType<typeof useOrchestratorFilters>;
@@ -49,6 +50,7 @@ export const OrchestratorJobWorkspaceContainer: React.FC<
   isLoading,
   isPipelineRunning,
   loadJobs,
+  seedJob,
   setIsRefreshPaused,
   filters,
   showSponsorInfo,
@@ -57,6 +59,7 @@ export const OrchestratorJobWorkspaceContainer: React.FC<
   openRunMode,
 }) => {
   const jobListHandleRef = useRef<VirtualListHandle | null>(null);
+  const statusActionInFlightRef = useRef(false);
   const activeJobs = useFilteredJobs(jobs, {
     activeTab: navigation.activeTab,
     dateFilter: filters.dateFilter,
@@ -145,6 +148,8 @@ export const OrchestratorJobWorkspaceContainer: React.FC<
     requestScrollToJob,
     setActiveTab: handleTabChange,
     navigateToStatus: navigation.navigateToStatus,
+    onJobMutation: seedJob,
+    statusActionInFlightRef,
     setIsCommandBarOpen: ui.setIsCommandBarOpen,
     setIsHelpDialogOpen: ui.setIsHelpDialogOpen,
     clearSelection,
@@ -273,8 +278,10 @@ export const OrchestratorJobWorkspaceContainer: React.FC<
           onSelectJobId={navigation.handleSelectJobId}
           onNavigateToStatus={navigation.navigateToStatus}
           onJobUpdated={loadJobs}
+          onJobMutation={seedJob}
           onPauseRefreshChange={setIsRefreshPaused}
           onRetrySelectedJob={retrySelectedJob}
+          statusActionInFlightRef={statusActionInFlightRef}
         />
       </div>
 
@@ -308,8 +315,10 @@ export const OrchestratorJobWorkspaceContainer: React.FC<
           onSelectJobId={navigation.handleSelectJobId}
           onNavigateToStatus={navigation.navigateToStatus}
           onJobUpdated={loadJobs}
+          onJobMutation={seedJob}
           onPauseRefreshChange={setIsRefreshPaused}
           onRetrySelectedJob={retrySelectedJob}
+          statusActionInFlightRef={statusActionInFlightRef}
         />
       )}
 

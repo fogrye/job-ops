@@ -72,8 +72,10 @@ interface OrchestratorJobsWorkspaceProps {
   onSelectJobId: (jobId: string | null) => void;
   onNavigateToStatus: (status: JobStatus, jobId: string) => void;
   onJobUpdated: () => Promise<void>;
+  onJobMutation: (job: Job) => void;
   onPauseRefreshChange: (paused: boolean) => void;
   onRetrySelectedJob: () => void;
+  statusActionInFlightRef: React.MutableRefObject<boolean>;
 }
 
 export const OrchestratorJobsWorkspace: React.FC<
@@ -129,8 +131,10 @@ export const OrchestratorJobsWorkspace: React.FC<
   onSelectJobId,
   onNavigateToStatus,
   onJobUpdated,
+  onJobMutation,
   onPauseRefreshChange,
   onRetrySelectedJob,
+  statusActionInFlightRef,
 }) => (
   <>
     <OrchestratorSummary stats={stats} isPipelineRunning={isPipelineRunning} />
@@ -199,8 +203,10 @@ export const OrchestratorJobsWorkspace: React.FC<
             onSelectJobId={onSelectJobId}
             onNavigateToStatus={onNavigateToStatus}
             onJobUpdated={onJobUpdated}
+            onJobMutation={onJobMutation}
             onPauseRefreshChange={onPauseRefreshChange}
             onRetrySelectedJob={onRetrySelectedJob}
+            statusActionInFlightRef={statusActionInFlightRef}
           />
         )}
       </div>

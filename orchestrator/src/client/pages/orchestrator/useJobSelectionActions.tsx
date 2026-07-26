@@ -59,18 +59,23 @@ export function useJobSelectionActions({
     [activeJobs, selectedJobIds],
   );
 
-  const canSkipSelected = useMemo(() => canSkip(selectedJobs), [selectedJobs]);
+  const selectedJobsAreOpen = selectedJobs.every((job) => job.closedAt == null);
+
+  const canSkipSelected = useMemo(
+    () => selectedJobsAreOpen && canSkip(selectedJobs),
+    [selectedJobs, selectedJobsAreOpen],
+  );
   const canMoveSelected = useMemo(
-    () => canMoveToReady(selectedJobs),
-    [selectedJobs],
+    () => selectedJobsAreOpen && canMoveToReady(selectedJobs),
+    [selectedJobs, selectedJobsAreOpen],
   );
   const canRescoreSelected = useMemo(
-    () => canRescore(selectedJobs),
-    [selectedJobs],
+    () => selectedJobsAreOpen && canRescore(selectedJobs),
+    [selectedJobs, selectedJobsAreOpen],
   );
   const canRefreshDescriptionSelected = useMemo(
-    () => canRefreshDescription(selectedJobs),
-    [selectedJobs],
+    () => selectedJobsAreOpen && canRefreshDescription(selectedJobs),
+    [selectedJobs, selectedJobsAreOpen],
   );
 
   useEffect(() => {

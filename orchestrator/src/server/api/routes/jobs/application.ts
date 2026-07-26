@@ -5,13 +5,12 @@ import { trackServerProductEvent } from "@infra/product-analytics";
 import { isDemoMode } from "@server/config/demo";
 import { resolveRequestOrigin } from "@server/infra/request-origin";
 import * as jobsRepo from "@server/repositories/jobs";
-import * as settingsRepo from "@server/repositories/settings";
 import { trackCanonicalActivationEvent } from "@server/services/activation-funnel";
 import { transitionStage } from "@server/services/applicationTracking";
 import { simulateApplyJob } from "@server/services/demo-simulator";
 import { notifyJobCompleteWebhook } from "@server/services/jobs/webhooks";
+import { resolveShowSponsorInfo } from "@server/services/sponsor-visibility";
 import * as visaSponsors from "@server/services/visa-sponsors/index";
-import { settingsRegistry } from "@shared/settings-registry";
 import { type Request, type Response, Router } from "express";
 import { hydrateJobPdfFreshness, requireJob, toJobsRouteError } from "./shared";
 
@@ -23,10 +22,7 @@ jobsApplicationRouter.post(
     try {
       const job = await requireJob(req.params.id);
 
-      const showSponsorInfo =
-        settingsRegistry.showSponsorInfo.parse(
-          (await settingsRepo.getSetting("showSponsorInfo")) ?? undefined,
-        ) ?? settingsRegistry.showSponsorInfo.default();
+      const showSponsorInfo = await resolveShowSponsorInfo();
       if (!showSponsorInfo) {
         return ok(res, {
           ...(await hydrateJobPdfFreshness(job)),
@@ -88,14 +84,20 @@ jobsApplicationRouter.post(
   "/:id/apply",
   async (req: Request, res: Response) => {
     try {
+      const job = await requireJob(req.params.id);
+      if (job.closedAt != null) {
+        return fail(
+          res,
+          badRequest("Archived jobs cannot be marked as applied"),
+        );
+      }
+
       if (isDemoMode()) {
-        const updatedJob = await simulateApplyJob(req.params.id);
+        const updatedJob = await simulateApplyJob(job.id);
         return okWithMeta(res, await hydrateJobPdfFreshness(updatedJob), {
           simulated: true,
         });
       }
-
-      const job = await requireJob(req.params.id);
 
       const appliedAtDate = new Date();
       const appliedAt = appliedAtDate.toISOString();

@@ -1,4 +1,4 @@
-import type { JobListItem, StageEvent } from "@shared/types";
+import type { JobListItem, JobsListResponse, StageEvent } from "@shared/types";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { MemoryRouter } from "react-router-dom";
@@ -61,6 +61,13 @@ vi.mock("../api", () => ({
   transitionJobStage: vi.fn(),
   updateJobStageEvent: vi.fn(),
 }));
+
+const mockGetListJobs = vi.mocked<
+  (options: {
+    statuses?: string[];
+    view?: "list";
+  }) => Promise<JobsListResponse<JobListItem>>
+>(api.getJobs);
 
 vi.mock("@/client/lib/celebrate", () => ({
   celebrateOffer: vi.fn(),
@@ -196,6 +203,42 @@ describe("InProgressBoardPage", () => {
     });
 
     expect(await screen.findByText("Backend Engineer")).toBeInTheDocument();
+  });
+
+  it("excludes closed in-progress jobs from the board", async () => {
+    mockGetListJobs.mockResolvedValue({
+      jobs: [
+        makeJob({ id: "open-job", title: "Open Role" }),
+        makeJob({
+          id: "closed-job",
+          title: "Declined Role",
+          outcome: "rejected",
+          closedAt: 1_700_000_000,
+        }),
+      ],
+      total: 2,
+      byStatus: {
+        discovered: 0,
+        processing: 0,
+        ready: 0,
+        applied: 0,
+        in_progress: 2,
+        skipped: 0,
+        expired: 0,
+      },
+      revision: "r2",
+    } satisfies JobsListResponse<JobListItem>);
+
+    render(
+      <MemoryRouter>
+        <InProgressBoardPage />
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText("Open Role")).toBeInTheDocument();
+    expect(screen.queryByText("Declined Role")).not.toBeInTheDocument();
+    expect(api.getJobStageEvents).toHaveBeenCalledTimes(1);
+    expect(api.getJobStageEvents).toHaveBeenCalledWith("open-job");
   });
 
   it("shows cards even when no stage events are present", async () => {

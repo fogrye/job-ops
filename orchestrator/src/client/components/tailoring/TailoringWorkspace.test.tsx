@@ -71,8 +71,10 @@ vi.mock("./useTailoringDraft", () => ({
 
 function WorkspaceHarness({
   onBusyChange,
+  onTailoringCompleted,
 }: {
   onBusyChange?: (busy: boolean) => void;
+  onTailoringCompleted?: (job: Job) => void | Promise<void>;
 }) {
   const [startToken, setStartToken] = useState(0);
   const [mounted, setMounted] = useState(true);
@@ -94,6 +96,7 @@ function WorkspaceHarness({
           mode="editor"
           job={job}
           onGenerationChange={onBusyChange}
+          onTailoringCompleted={onTailoringCompleted}
           onStartGenerationConsumed={() => setStartToken(0)}
           onUpdate={vi.fn().mockResolvedValue(undefined)}
           startGenerationToken={startToken}
@@ -149,5 +152,37 @@ describe("TailoringWorkspace start lifecycle", () => {
     await act(async () => {
       resolveSummary(createJob({ id: "job-1", status: "discovered" }));
     });
+  });
+  it("stays busy until automatic completion finishes", async () => {
+    let resolveCompletion: () => void = () => {};
+    const pendingCompletion = new Promise<void>((resolve) => {
+      resolveCompletion = resolve;
+    });
+    vi.mocked(api.summarizeJob).mockResolvedValue(
+      createJob({
+        id: "job-1",
+        status: "discovered",
+        tailoredSummary: "Summary",
+        tailoredSkills: "Skills",
+      }),
+    );
+    const onBusyChange = vi.fn();
+    const onTailoringCompleted = vi.fn(() => pendingCompletion);
+
+    render(
+      <WorkspaceHarness
+        onBusyChange={onBusyChange}
+        onTailoringCompleted={onTailoringCompleted}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Start" }));
+
+    await waitFor(() => expect(onTailoringCompleted).toHaveBeenCalledTimes(1));
+    expect(onBusyChange).toHaveBeenLastCalledWith(true);
+    expect(api.summarizeJob).toHaveBeenCalledTimes(1);
+
+    await act(async () => resolveCompletion());
+
+    await waitFor(() => expect(onBusyChange).toHaveBeenLastCalledWith(false));
   });
 });

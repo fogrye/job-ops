@@ -91,24 +91,16 @@ function containsBlockedKeyword(
   );
 }
 
-function containsBlockedPositionKeyword(
-  value: string | null | undefined,
-  blockedKeywordsLowerCase: string[],
-): boolean {
-  if (!value || blockedKeywordsLowerCase.length === 0) return false;
-  const titleTokens = new Set(
-    value
-      .toLowerCase()
-      .split(/[^\p{L}\p{N}]+/u)
-      .filter(Boolean),
+function createBlockedPositionMatcher(blockedKeywords: string[]) {
+  const patterns = blockedKeywords.map(
+    (keyword) =>
+      new RegExp(
+        `(?<![\\p{L}\\p{N}])${keyword.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?![\\p{L}\\p{N}])`,
+        "iu",
+      ),
   );
-  return blockedKeywordsLowerCase.some((keyword) => {
-    const keywordTokens = keyword.split(/[^\p{L}\p{N}]+/u).filter(Boolean);
-    return (
-      keywordTokens.length > 0 &&
-      keywordTokens.every((token) => titleTokens.has(token))
-    );
-  });
+  return (value: string | null | undefined): boolean =>
+    Boolean(value && patterns.some((pattern) => pattern.test(value)));
 }
 
 function getLegacyLocationSelection(
@@ -492,11 +484,14 @@ export async function discoverJobsStep(args: {
     },
     async () => {
       const settledJobs: CreateJobInput[] = [...(args.fanoutSeedJobs ?? [])];
+      const blockedPositionKeywords = parseBlockedKeywords(
+        settings.blockedPositionKeywords,
+      );
+      const matchesBlockedPosition = createBlockedPositionMatcher(
+        blockedPositionKeywords,
+      );
       const liveBlockedCompanyKeywordsLowerCase = parseBlockedKeywords(
         settings.blockedCompanyKeywords,
-      ).map((value) => value.toLowerCase());
-      const liveBlockedPositionKeywordsLowerCase = parseBlockedKeywords(
-        settings.blockedPositionKeywords,
       ).map((value) => value.toLowerCase());
       const filterForFanout = (jobs: CreateJobInput[]) =>
         jobs
@@ -516,11 +511,7 @@ export async function discoverJobsStep(args: {
               !containsBlockedKeyword(
                 job.employer,
                 liveBlockedCompanyKeywordsLowerCase,
-              ) &&
-              !containsBlockedPositionKeyword(
-                job.title,
-                liveBlockedPositionKeywordsLowerCase,
-              ),
+              ) && !matchesBlockedPosition(job.title),
           );
       const updateFanoutResults = () => {
         progressHelpers.updateFanoutResults(
@@ -682,13 +673,7 @@ export async function discoverJobsStep(args: {
       const blockedCompanyKeywords = parseBlockedKeywords(
         settings.blockedCompanyKeywords,
       );
-      const blockedPositionKeywords = parseBlockedKeywords(
-        settings.blockedPositionKeywords,
-      );
       const blockedCompanyKeywordsLowerCase = blockedCompanyKeywords.map(
-        (value) => value.toLowerCase(),
-      );
-      const blockedPositionKeywordsLowerCase = blockedPositionKeywords.map(
         (value) => value.toLowerCase(),
       );
       const filteredDiscoveredJobs = locationFilteredJobs.filter(
@@ -696,11 +681,7 @@ export async function discoverJobsStep(args: {
           !containsBlockedKeyword(
             job.employer,
             blockedCompanyKeywordsLowerCase,
-          ) &&
-          !containsBlockedPositionKeyword(
-            job.title,
-            blockedPositionKeywordsLowerCase,
-          ),
+          ) && !matchesBlockedPosition(job.title),
       );
       const droppedCount =
         locationFilteredJobs.length - filteredDiscoveredJobs.length;

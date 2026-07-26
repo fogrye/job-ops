@@ -1,11 +1,54 @@
-import { lookup } from "node:dns/promises";
-import { isIP } from "node:net";
+import { Resolver } from "node:dns/promises";
+import { BlockList, isIP } from "node:net";
 import { AppError, requestTimeout } from "@infra/errors";
 import { JSDOM } from "jsdom";
+import { Agent, type Response, fetch as undiciFetch } from "undici";
 
 const FETCH_TIMEOUT_MS = 15_000;
 const MAX_HTML_BYTES = 2 * 1024 * 1024;
 const MAX_REDIRECTS = 5;
+
+type CheckedUrl = {
+  url: URL;
+  hostname: string;
+  address: string;
+  family: 4 | 6;
+};
+
+const blockedIpv4 = new BlockList();
+for (const [network, prefix] of [
+  ["0.0.0.0", 8],
+  ["10.0.0.0", 8],
+  ["100.64.0.0", 10],
+  ["127.0.0.0", 8],
+  ["169.254.0.0", 16],
+  ["172.16.0.0", 12],
+  ["192.0.0.0", 24],
+  ["192.0.2.0", 24],
+  ["192.88.99.0", 24],
+  ["192.168.0.0", 16],
+  ["198.18.0.0", 15],
+  ["198.51.100.0", 24],
+  ["203.0.113.0", 24],
+  ["224.0.0.0", 4],
+  ["240.0.0.0", 4],
+] as const) {
+  blockedIpv4.addSubnet(network, prefix, "ipv4");
+}
+blockedIpv4.addAddress("168.63.129.16", "ipv4");
+
+const blockedIpv6 = new BlockList();
+for (const [network, prefix] of [
+  ["::", 128],
+  ["::1", 128],
+  ["2001:db8::", 32],
+  ["fc00::", 7],
+  ["fe80::", 10],
+  ["fec0::", 10],
+  ["ff00::", 8],
+] as const) {
+  blockedIpv6.addSubnet(network, prefix, "ipv6");
+}
 const JOB_CONTENT_SELECTOR = [
   "[data-job-description]",
   '[data-testid*="job-description" i]',
@@ -51,28 +94,6 @@ function upstreamFailure(cause?: unknown): AppError {
   });
 }
 
-function isBlockedIpv4(address: string): boolean {
-  const [first, second, third, fourth] = address
-    .split(".")
-    .map((part) => Number.parseInt(part, 10));
-
-  return (
-    first === 0 ||
-    first === 10 ||
-    first === 127 ||
-    first >= 224 ||
-    (first === 100 && second >= 64 && second <= 127) ||
-    (first === 100 && second === 100 && third === 100) ||
-    (first === 169 && second === 254) ||
-    (first === 172 && second >= 16 && second <= 31) ||
-    (first === 192 &&
-      (second === 0 || second === 168 || (second === 88 && third === 99))) ||
-    (first === 198 && (second === 18 || second === 19 || second === 51)) ||
-    (first === 203 && second === 0 && third === 113) ||
-    (first === 168 && second === 63 && third === 129 && fourth === 16)
-  );
-}
-
 function ipv6Segments(address: string): number[] {
   const lastColon = address.lastIndexOf(":");
   const lastPart = address.slice(lastColon + 1);
@@ -101,36 +122,63 @@ function isBlockedIpv6(address: string): boolean {
     .every((segment, index) =>
       index === 5 ? segment === 0 || segment === 0xffff : segment === 0,
     );
+
   if (isIpv4Embedded) {
-    return isBlockedIpv4(
+    return blockedIpv4.check(
       [
         segments[6] >> 8,
         segments[6] & 0xff,
         segments[7] >> 8,
         segments[7] & 0xff,
       ].join("."),
+      "ipv4",
     );
   }
 
-  const isLoopback =
-    segments.slice(0, 7).every((segment) => segment === 0) && segments[7] === 1;
-  const isUnspecified = segments.every((segment) => segment === 0);
-  const isLinkLocal = (segments[0] & 0xffc0) === 0xfe80;
-  const isPrivate = (segments[0] & 0xfe00) === 0xfc00;
-  const isMulticast = (segments[0] & 0xff00) === 0xff00;
-  const isSiteLocal = (segments[0] & 0xffc0) === 0xfec0;
-
-  return (
-    isLoopback ||
-    isUnspecified ||
-    isLinkLocal ||
-    isPrivate ||
-    isMulticast ||
-    isSiteLocal
-  );
+  return blockedIpv6.check(address, "ipv6");
 }
 
-async function validateExternalHttpUrl(value: string): Promise<URL> {
+async function resolveAddress(
+  hostname: string,
+  signal: AbortSignal,
+): Promise<{ address: string; family: 4 | 6 }> {
+  const resolver = new Resolver();
+  const cancel = () => resolver.cancel();
+  signal.throwIfAborted();
+  signal.addEventListener("abort", cancel, { once: true });
+
+  try {
+    let addresses: string[] = [];
+    let cause: unknown;
+    try {
+      addresses = await resolver.resolve4(hostname);
+    } catch (error) {
+      cause = error;
+    }
+    if (addresses.length === 0 && !signal.aborted) {
+      try {
+        addresses = await resolver.resolve6(hostname);
+      } catch (error) {
+        cause = error;
+      }
+    }
+    signal.throwIfAborted();
+
+    const address = addresses[0];
+    const family = address ? isIP(address) : 0;
+    if (!address || (family !== 4 && family !== 6)) {
+      throw upstreamFailure(cause);
+    }
+    return { address, family };
+  } finally {
+    signal.removeEventListener("abort", cancel);
+  }
+}
+
+async function validateExternalHttpUrl(
+  value: string,
+  signal: AbortSignal,
+): Promise<CheckedUrl> {
   let url: URL;
   try {
     url = new URL(value);
@@ -147,27 +195,28 @@ async function validateExternalHttpUrl(value: string): Promise<URL> {
   }
 
   const hostname = url.hostname.replace(/^\[|\]$/g, "");
-  const addresses =
-    isIP(hostname) === 0
-      ? await lookup(hostname, { all: true, verbatim: true }).catch((error) => {
-          throw upstreamFailure(error);
-        })
-      : [{ address: hostname }];
-
   if (
-    addresses.length === 0 ||
-    addresses.some(({ address }) => {
-      const family = isIP(address);
-      return (
-        family === 0 ||
-        (family === 4 ? isBlockedIpv4(address) : isBlockedIpv6(address))
-      );
-    })
+    hostname === "localhost" ||
+    hostname.endsWith(".localhost") ||
+    hostname.endsWith(".local")
   ) {
     throw rejectedUrl("This URL must resolve to a public address.");
   }
 
-  return url;
+  const literalFamily = isIP(hostname);
+  const checkedAddress: Pick<CheckedUrl, "address" | "family"> =
+    literalFamily === 4 || literalFamily === 6
+      ? { address: hostname, family: literalFamily }
+      : await resolveAddress(hostname, signal);
+  const { address, family } = checkedAddress;
+
+  if (
+    family === 4 ? blockedIpv4.check(address, "ipv4") : isBlockedIpv6(address)
+  ) {
+    throw rejectedUrl("This URL must resolve to a public address.");
+  }
+
+  return { url, hostname, address, family };
 }
 
 async function readHtml(response: Response): Promise<string> {
@@ -209,51 +258,74 @@ async function readHtml(response: Response): Promise<string> {
   return Buffer.concat(chunks, bytes).toString("utf8");
 }
 
-async function fetchHtml(url: URL, signal: AbortSignal): Promise<string> {
-  let target = url;
+async function fetchHtml(
+  initialTarget: CheckedUrl,
+  signal: AbortSignal,
+): Promise<string> {
+  let target = initialTarget;
   for (
     let redirectCount = 0;
     redirectCount <= MAX_REDIRECTS;
     redirectCount += 1
   ) {
-    const response = await fetch(target, {
-      signal,
-      redirect: "manual",
-      headers: {
-        "User-Agent":
-          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        Accept: "text/html,application/xhtml+xml;q=0.9",
+    const requestTarget = target;
+    const dispatcher = new Agent({
+      connect: {
+        lookup(_hostname, _options, callback) {
+          callback(null, requestTarget.address, requestTarget.family);
+        },
+        ...(requestTarget.url.protocol === "https:"
+          ? { servername: requestTarget.hostname }
+          : {}),
       },
     });
+    let redirected: URL | undefined;
 
-    if (response.status >= 300 && response.status < 400) {
-      const location = response.headers.get("location");
-      if (!location) {
-        throw upstreamFailure();
-      }
-      if (redirectCount === MAX_REDIRECTS) {
-        throw rejectedUrl("This URL redirects too many times.");
-      }
-      let redirected: URL;
-      try {
-        redirected = new URL(location, target);
-      } catch {
-        throw rejectedUrl("This URL includes an invalid redirect.");
-      }
-      target = await validateExternalHttpUrl(redirected.href);
-      continue;
-    }
-
-    if (!response.ok) {
-      throw new AppError({
-        status: 502,
-        code: "UPSTREAM_ERROR",
-        message: buildFetchFailureMessage(response.status),
-        details: { upstreamStatus: response.status },
+    try {
+      const response = await undiciFetch(requestTarget.url, {
+        dispatcher,
+        signal,
+        redirect: "manual",
+        headers: {
+          "User-Agent":
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+          Accept: "text/html,application/xhtml+xml;q=0.9",
+        },
       });
+
+      try {
+        if (response.status >= 300 && response.status < 400) {
+          const location = response.headers.get("location");
+          if (!location) throw upstreamFailure();
+          if (redirectCount === MAX_REDIRECTS) {
+            throw rejectedUrl("This URL redirects too many times.");
+          }
+          try {
+            redirected = new URL(location, requestTarget.url);
+          } catch {
+            throw rejectedUrl("This URL includes an invalid redirect.");
+          }
+        } else if (!response.ok) {
+          throw new AppError({
+            status: 502,
+            code: "UPSTREAM_ERROR",
+            message: buildFetchFailureMessage(response.status),
+            details: { upstreamStatus: response.status },
+          });
+        } else {
+          return await readHtml(response);
+        }
+      } finally {
+        if (!response.bodyUsed) {
+          await response.body?.cancel().catch(() => undefined);
+        }
+      }
+    } finally {
+      await dispatcher.close();
     }
 
-    return readHtml(response);
+    if (!redirected) throw upstreamFailure();
+    target = await validateExternalHttpUrl(redirected.href, signal);
   }
 
   throw rejectedUrl("This URL redirects too many times.");
@@ -329,10 +401,11 @@ function isStatusPage(document: Document): boolean {
 export async function fetchJobDescriptionFromUrl(url: string): Promise<string> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+  timeout.unref();
 
   try {
     const html = await fetchHtml(
-      await validateExternalHttpUrl(url),
+      await validateExternalHttpUrl(url, controller.signal),
       controller.signal,
     );
     const dom = new JSDOM(html);
@@ -370,10 +443,8 @@ export async function fetchJobDescriptionFromUrl(url: string): Promise<string> {
       dom.window.close();
     }
   } catch (error) {
+    if (controller.signal.aborted) throw requestTimeout();
     if (error instanceof AppError) throw error;
-    if (error instanceof Error && error.name === "AbortError") {
-      throw requestTimeout();
-    }
     throw upstreamFailure(error);
   } finally {
     clearTimeout(timeout);

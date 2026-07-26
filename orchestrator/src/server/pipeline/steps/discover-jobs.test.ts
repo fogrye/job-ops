@@ -1,5 +1,7 @@
 import { runWithRequestContext } from "@infra/request-context";
-import type { PipelineConfig } from "@shared/types";
+import { getExtractorRegistry } from "@server/extractors/registry";
+import { getAllSettings } from "@server/repositories/settings";
+import type { ExtractorManifest, PipelineConfig } from "@shared/types";
 import type { ExtractorRuntimeContext } from "@shared/types/extractors";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { getProgress, resetProgress, subscribeToProgress } from "../progress";
@@ -739,11 +741,8 @@ describe("discoverJobsStep", () => {
     ).not.toHaveBeenCalled();
   });
 
-  it("keeps company substring matching and uses whole position tokens", async () => {
-    const settingsRepo = await import("@server/repositories/settings");
-    const registryModule = await import("@server/extractors/registry");
-
-    const jobspyManifest = {
+  it("matches literal position blockers at Unicode alphanumeric boundaries", async () => {
+    const jobspyManifest: ExtractorManifest = {
       id: "jobspy",
       displayName: "JobSpy",
       providesSources: ["indeed", "linkedin", "glassdoor"],
@@ -770,35 +769,78 @@ describe("discoverJobsStep", () => {
           },
           {
             source: "linkedin",
-            title: "International Sales Engineer",
+            title: "International Engineer",
             employer: "Northwind",
             jobUrl: "https://example.com/job-4",
           },
           {
             source: "linkedin",
-            title: "Senior-Intern Engineer",
+            title: "C Developer",
             employer: "Adventure Works",
             jobUrl: "https://example.com/job-5",
+          },
+          {
+            source: "linkedin",
+            title: "C++ Developer",
+            employer: "Tailspin Toys",
+            jobUrl: "https://example.com/job-6",
+          },
+          {
+            source: "linkedin",
+            title: "Sales Engineer",
+            employer: "Litware",
+            jobUrl: "https://example.com/job-7",
+          },
+          {
+            source: "linkedin",
+            title: "Engineer, Enterprise Sales",
+            employer: "Proseware",
+            jobUrl: "https://example.com/job-8",
+          },
+          {
+            source: "linkedin",
+            title: "Prédéveloppeur",
+            employer: "Woodgrove",
+            jobUrl: "https://example.com/job-9",
+          },
+          {
+            source: "linkedin",
+            title: "Développeur",
+            employer: "Trey Research",
+            jobUrl: "https://example.com/job-10",
+          },
+          {
+            source: "linkedin",
+            title: "Sales-Engineer",
+            employer: "Wide World Importers",
+            jobUrl: "https://example.com/job-11",
           },
         ],
       }),
     };
 
-    vi.mocked(settingsRepo.getAllSettings).mockResolvedValue({
+    vi.mocked(getAllSettings).mockResolvedValue({
       searchTerms: JSON.stringify(["engineer"]),
       blockedCompanyKeywords: JSON.stringify(["recruit", "staffing"]),
-      blockedPositionKeywords: JSON.stringify(["SENIOR"]),
-    } as any);
+      blockedPositionKeywords: JSON.stringify([
+        "SENIOR",
+        "intern",
+        "C++",
+        "sales engineer",
+        "DÉVELOPPEUR",
+      ]),
+    });
 
-    vi.mocked(registryModule.getExtractorRegistry).mockResolvedValue({
-      manifests: new Map([["jobspy", jobspyManifest as any]]),
+    vi.mocked(getExtractorRegistry).mockResolvedValue({
+      manifests: new Map([["jobspy", jobspyManifest]]),
       manifestBySource: new Map([
-        ["indeed", jobspyManifest as any],
-        ["linkedin", jobspyManifest as any],
-        ["glassdoor", jobspyManifest as any],
+        ["indeed", jobspyManifest],
+        ["linkedin", jobspyManifest],
+        ["glassdoor", jobspyManifest],
       ]),
       availableSources: ["indeed", "linkedin", "glassdoor"],
-    } as any);
+      locationCapabilitiesBySource: {},
+    });
 
     const result = await discoverJobsStep({
       mergedConfig: {
@@ -810,8 +852,12 @@ describe("discoverJobsStep", () => {
     expect(result.discoveredJobs.map((job) => job.employer)).toEqual([
       "Contoso",
       "Northwind",
+      "Adventure Works",
+      "Proseware",
+      "Woodgrove",
+      "Wide World Importers",
     ]);
-    expect(getProgress().fanout).toMatchObject({ results: 5, unique: 2 });
+    expect(getProgress().fanout).toMatchObject({ results: 11, unique: 6 });
   });
 
   it("applies shared city filtering for sources without native city filtering", async () => {

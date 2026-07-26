@@ -912,6 +912,7 @@ export const AutomaticRunTab: React.FC<AutomaticRunTabProps> = ({
 
                 <AutomaticRankingPreferencesCard
                   scoringInstructions={scoringInstructions}
+                  showSponsorInfo={showSponsorInfo}
                   onScoringInstructionsChange={(value) =>
                     setValue("scoringInstructions", value, {
                       shouldDirty: true,

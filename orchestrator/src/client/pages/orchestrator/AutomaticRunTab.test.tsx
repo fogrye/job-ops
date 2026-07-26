@@ -221,6 +221,33 @@ describe("AutomaticRunTab", () => {
     expect(
       screen.queryByRole("button", { name: "Visa-friendly roles" }),
     ).not.toBeInTheDocument();
+    openConfigureDetails();
+    expect(screen.getByLabelText("Ranking preferences")).not.toHaveAttribute(
+      "placeholder",
+      expect.stringContaining("visa sponsorship"),
+    );
+  });
+
+  it("keeps sponsor ranking language when sponsor info is enabled", () => {
+    render(
+      <AutomaticRunTab
+        open
+        settings={null}
+        showSponsorInfo
+        enabledSources={["linkedin"]}
+        pipelineSources={["linkedin"]}
+        onToggleSource={vi.fn()}
+        onSetPipelineSources={vi.fn()}
+        isPipelineRunning={false}
+        onSaveAndRun={vi.fn().mockResolvedValue(undefined)}
+      />,
+    );
+
+    openConfigureDetails();
+    expect(screen.getByLabelText("Ranking preferences")).toHaveAttribute(
+      "placeholder",
+      expect.stringContaining("visa sponsorship"),
+    );
   });
 
   it("generates search settings without starting the search", async () => {

@@ -133,6 +133,10 @@ export async function executeJobActionForJob(
       });
     }
 
+    if (job.closedAt != null) {
+      throw badRequest("Closed jobs cannot be changed", { jobId });
+    }
+
     if (action === "skip") {
       if (!SKIPPABLE_STATUSES.has(job.status)) {
         throw badRequest(`Job is not skippable from status "${job.status}"`, {
@@ -320,14 +324,20 @@ export async function refreshJobDescriptionFromSourceAndRescore(
     const manifest = (await getExtractorRegistry()).manifestBySource.get(
       job.source as ExtractorSourceId,
     );
-    const refreshed = manifest?.refreshJobDescription
-      ? await manifest
-          .refreshJobDescription({
-            jobUrl: job.jobUrl,
-            sourceJobId: job.sourceJobId,
-          })
-          .catch(() => undefined)
-      : await fetchJobDescriptionFromUrl(job.jobUrl).catch((error) => {
+    let refreshed: string | undefined;
+    if (manifest?.refreshJobDescription) {
+      try {
+        refreshed = await manifest.refreshJobDescription({
+          jobUrl: job.jobUrl,
+          sourceJobId: job.sourceJobId,
+        });
+      } catch {
+        // The stored source URL remains the provider-independent fallback.
+      }
+    }
+    if (!refreshed?.trim()) {
+      refreshed = await fetchJobDescriptionFromUrl(job.jobUrl).catch(
+        (error) => {
           if (error instanceof AppError) throw error;
           throw new AppError({
             status: 502,
@@ -336,9 +346,11 @@ export async function refreshJobDescriptionFromSourceAndRescore(
               "Couldn't fetch an updated description from the source site.",
             cause: error,
           });
-        });
+        },
+      );
+    }
 
-    if (!refreshed) {
+    if (!refreshed.trim()) {
       throw new AppError({
         status: 502,
         code: "UPSTREAM_ERROR",
@@ -351,13 +363,15 @@ export async function refreshJobDescriptionFromSourceAndRescore(
     });
   } catch (error) {
     const mapped = mapErrorForResult(error);
+    const resultError = {
+      code: mapped.code,
+      message: mapped.message,
+      ...(mapped.details !== undefined ? { details: mapped.details } : {}),
+    };
     return {
       jobId,
       ok: false,
-      error: {
-        code: mapped.code,
-        message: mapped.message,
-      },
+      error: resultError,
     };
   }
 }
@@ -370,10 +384,13 @@ export function mapJobActionFailure(
       ? failure.error.code
       : "INTERNAL_ERROR"
   ) as AppErrorCode;
+  const details =
+    "details" in failure.error ? failure.error.details : undefined;
 
   return new AppError({
     status: STATUS_BY_APP_ERROR_CODE[code],
     code,
     message: failure.error.message,
+    ...(details !== undefined ? { details } : {}),
   });
 }

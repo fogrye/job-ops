@@ -1,5 +1,4 @@
-import * as settingsRepo from "@server/repositories/settings";
-import { settingsRegistry } from "@shared/settings-registry";
+import { resolveShowSponsorInfo } from "@server/services/sponsor-visibility";
 import { Router } from "express";
 import { jobsActionsRouter } from "./actions";
 import { jobsApplicationRouter } from "./application";
@@ -32,15 +31,7 @@ const redactSponsorData = (value: unknown): unknown => {
 
 jobsRouter.use((_req, res, next) => {
   void (async () => {
-    let showSponsorInfo = false;
-    try {
-      showSponsorInfo =
-        settingsRegistry.showSponsorInfo.parse(
-          (await settingsRepo.getSetting("showSponsorInfo")) ?? undefined,
-        ) ?? settingsRegistry.showSponsorInfo.default();
-    } catch {
-      // Fail closed: Jobs must remain available without sponsor data.
-    }
+    const showSponsorInfo = await resolveShowSponsorInfo();
     if (!showSponsorInfo) {
       const sendJson = res.json.bind(res);
       res.json = ((body: unknown) =>

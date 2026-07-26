@@ -86,6 +86,7 @@ let mockAutomaticRunValues: AutomaticRunValues = {
 const mockJobListScrollToIndex = vi.fn();
 let mockIsLoading = false;
 let mockLoadJobs = vi.fn();
+const mockSeedJob = vi.fn();
 
 const jobFixture = createJob({
   id: "job-1",
@@ -157,6 +158,7 @@ vi.mock("./orchestrator/useOrchestratorData", () => ({
     pipelineTerminalEvent: mockPipelineTerminalEvent,
     setIsRefreshPaused: vi.fn(),
     loadJobs: mockLoadJobs,
+    seedJob: mockSeedJob,
   }),
 }));
 
@@ -337,9 +339,23 @@ vi.mock("./orchestrator/OrchestratorFilters", () => ({
 }));
 
 vi.mock("./orchestrator/JobDetailPanel", () => ({
-  JobDetailPanel: ({ selectedJob }: { selectedJob: Job | null }) => (
+  JobDetailPanel: ({
+    selectedJob,
+    onNavigateToStatus,
+  }: {
+    selectedJob: Job | null;
+    onNavigateToStatus: (status: Job["status"], jobId: string) => void;
+  }) => (
     <div data-testid="detail-panel">
       {selectedJob?.appliedDuplicateMatch ? "Previously Applied" : "No match"}
+      {selectedJob ? (
+        <button
+          type="button"
+          onClick={() => onNavigateToStatus("in_progress", selectedJob.id)}
+        >
+          Open In Progress
+        </button>
+      ) : null}
     </div>
   ),
 }));
@@ -1597,6 +1613,40 @@ describe("OrchestratorPage", () => {
     await waitFor(() => {
       expect(locationText()).toContain("/all");
     });
+
+    pressKey("5");
+    await waitFor(() => {
+      expect(locationText()).toContain("/archive");
+    });
+  });
+
+  it("opens the In Progress board directly", async () => {
+    window.matchMedia = createMatchMedia(
+      true,
+    ) as unknown as typeof window.matchMedia;
+
+    render(
+      <MemoryRouter initialEntries={["/jobs/ready/job-1"]}>
+        <LocationWatcher />
+        <Routes>
+          <Route path="/jobs/:tab/:jobId" element={<OrchestratorPage />} />
+          <Route
+            path="/applications/in-progress"
+            element={<div>In Progress Board</div>}
+          />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Open In Progress" }),
+    );
+
+    await waitFor(() =>
+      expect(screen.getByTestId("location")).toHaveTextContent(
+        "/applications/in-progress",
+      ),
+    );
   });
 
   it("opens the listing from summary data while full job details load", () => {
@@ -1632,6 +1682,10 @@ describe("OrchestratorPage", () => {
     window.matchMedia = createMatchMedia(
       true,
     ) as unknown as typeof window.matchMedia;
+    const appliedJob = createJob({ id: "job-1", status: "applied" });
+    const readyJob = createJob({ id: "job-2", status: "ready" });
+    vi.mocked(api.markAsApplied).mockResolvedValue(appliedJob);
+    vi.mocked(api.processJob).mockResolvedValue(readyJob);
 
     render(
       <MemoryRouter initialEntries={["/jobs/ready"]}>
@@ -1659,6 +1713,7 @@ describe("OrchestratorPage", () => {
         expect.anything(),
       );
     });
+    expect(mockSeedJob).toHaveBeenCalledWith(appliedJob);
 
     // Switch to discovered for move-to-ready shortcut
     pressKey("2");
@@ -1679,6 +1734,7 @@ describe("OrchestratorPage", () => {
       expect(toast.message).toHaveBeenCalledWith("Moving job to Ready...");
       expect(api.processJob).toHaveBeenCalledWith("job-2");
     });
+    expect(mockSeedJob).toHaveBeenCalledWith(readyJob);
   });
 
   it("toggles the help dialog with shortcut", async () => {

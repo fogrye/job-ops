@@ -1,4 +1,4 @@
-import { AppError } from "@infra/errors";
+import { AppError, badRequest } from "@infra/errors";
 import { fail, ok } from "@infra/http";
 import { logger } from "@infra/logger";
 import { resolveRequestOrigin } from "@server/infra/request-origin";
@@ -46,6 +46,10 @@ jobsMutationsRouter.patch("/:id", async (req: Request, res: Response) => {
       });
       fail(res, err);
       return;
+    }
+
+    if (currentJob.closedAt != null && Object.hasOwn(input, "status")) {
+      throw badRequest("Closed jobs cannot change status");
     }
 
     const isTurningTracerLinksOn =

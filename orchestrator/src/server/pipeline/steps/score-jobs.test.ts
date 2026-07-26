@@ -130,6 +130,23 @@ describe("scoreJobsStep auto-skip behavior", () => {
       }),
     );
   });
+
+  it("continues scoring without sponsor data when visibility lookup fails", async () => {
+    vi.mocked(settingsRepo.getSetting)
+      .mockResolvedValueOnce(null)
+      .mockRejectedValueOnce(new Error("settings unavailable"));
+
+    await scoreJobsStep({ profile: {} });
+
+    expect(visaSponsors.searchSponsors).not.toHaveBeenCalled();
+    expect(jobsRepo.updateJob).toHaveBeenCalledWith(
+      "job-1",
+      expect.objectContaining({
+        sponsorMatchScore: null,
+        sponsorMatchNames: null,
+      }),
+    );
+  });
   it("clears sponsor fields when the job has no employer", async () => {
     vi.mocked(jobsRepo.getUnscoredDiscoveredJobs).mockResolvedValue([
       createJob({

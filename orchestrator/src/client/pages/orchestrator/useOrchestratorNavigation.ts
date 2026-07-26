@@ -90,10 +90,14 @@ export function useOrchestratorNavigation({
 
   const navigateToStatus = useCallback(
     (status: JobStatus, id: string) => {
+      if (status === "in_progress") {
+        navigate("/applications/in-progress");
+        return;
+      }
       const targetTab = tabs.find((item) => item.statuses.includes(status))?.id;
       if (targetTab) navigateWithContext(targetTab, id);
     },
-    [navigateWithContext],
+    [navigate, navigateWithContext],
   );
 
   const navigateToCommandJob = useCallback(

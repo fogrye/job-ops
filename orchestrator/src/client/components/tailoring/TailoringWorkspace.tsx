@@ -47,7 +47,7 @@ interface TailoringWorkspaceEditorProps extends TailoringWorkspaceBaseProps {
   startGenerationToken?: number;
   onStartGenerationConsumed?: () => void;
   onGenerationChange?: (isGenerating: boolean) => void;
-  onTailoringCompleted?: (job: Job) => void;
+  onTailoringCompleted?: (job: Job) => void | Promise<void>;
 }
 
 type TailoringWorkspaceProps = TailoringWorkspaceEditorProps;
@@ -449,10 +449,13 @@ export const TailoringWorkspace: React.FC<TailoringWorkspaceProps> = (
       applyIncomingDraft(updatedJob);
       setAiBaseline(toBaselineFromJob(updatedJob));
       toast.success("Draft content generated");
-      props.onTailoringCompleted?.(updatedJob);
-      void Promise.resolve()
-        .then(props.onUpdate)
-        .catch(() => {});
+      if (props.onTailoringCompleted) {
+        await props.onTailoringCompleted(updatedJob);
+      } else {
+        void Promise.resolve()
+          .then(props.onUpdate)
+          .catch(() => {});
+      }
       void api
         .getJobTailoredExperienceView(props.job.id)
         .then((view) => {
