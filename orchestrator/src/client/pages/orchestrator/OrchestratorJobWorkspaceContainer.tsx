@@ -238,7 +238,13 @@ export const OrchestratorJobWorkspaceContainer: React.FC<
 
   return (
     <>
-      <div className={selectedJobIds.size > 0 ? "pb-24 lg:pb-0" : undefined}>
+      <div
+        className={
+          selectedJobIds.size > 0
+            ? "pb-24 lg:flex lg:min-h-0 lg:min-w-0 lg:flex-1 lg:flex-col lg:pb-0"
+            : "lg:flex lg:min-h-0 lg:min-w-0 lg:flex-1 lg:flex-col"
+        }
+      >
         <OrchestratorJobsWorkspace
           stats={stats}
           isPipelineRunning={isPipelineRunning}

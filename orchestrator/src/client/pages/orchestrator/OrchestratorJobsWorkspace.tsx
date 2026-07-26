@@ -154,7 +154,7 @@ export const OrchestratorJobsWorkspace: React.FC<
   <>
     <OrchestratorSummary stats={stats} isPipelineRunning={isPipelineRunning} />
 
-    <section className="mt-6 space-y-4">
+    <section className="mt-6 space-y-4 lg:flex lg:min-h-0 lg:flex-1 lg:flex-col lg:gap-4 lg:space-y-0">
       <JobCommandBar
         jobs={jobs}
         onSelectJob={onCommandSelectJob}
@@ -193,7 +193,7 @@ export const OrchestratorJobsWorkspace: React.FC<
         filteredCount={filteredCount}
       />
 
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,400px)_minmax(0,1fr)]">
+      <div className="grid gap-4 lg:min-h-0 lg:flex-1 lg:grid-cols-[minmax(0,400px)_minmax(0,1fr)]">
         <JobListPanel
           ref={jobListHandleRef}
           isLoading={isLoading}

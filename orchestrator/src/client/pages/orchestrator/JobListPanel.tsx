@@ -107,7 +107,7 @@ export const JobListPanel = forwardRef<VirtualListHandle, JobListPanelProps>(
 
     if (isLoading && jobs.length === 0) {
       return (
-        <div className="min-w-0 max-h-[calc(100vh-8rem)] overflow-y-auto rounded-xl border border-border bg-card shadow-sm lg:sticky lg:top-24">
+        <div className="min-w-0 max-h-[calc(100vh-8rem)] overflow-y-auto rounded-xl border border-border bg-card shadow-sm lg:h-full lg:min-h-0 lg:max-h-none lg:sticky lg:top-24">
           <div className="flex flex-col items-center justify-center gap-3 px-6 py-12 text-center">
             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
             <div className="text-sm text-muted-foreground">Loading jobs...</div>
@@ -118,7 +118,7 @@ export const JobListPanel = forwardRef<VirtualListHandle, JobListPanelProps>(
 
     if (activeJobs.length === 0) {
       return (
-        <div className="min-w-0 max-h-[calc(100vh-8rem)] overflow-y-auto rounded-xl border border-border bg-card shadow-sm lg:sticky lg:top-24">
+        <div className="min-w-0 max-h-[calc(100vh-8rem)] overflow-y-auto rounded-xl border border-border bg-card shadow-sm lg:h-full lg:min-h-0 lg:max-h-none lg:sticky lg:top-24">
           <div className="flex flex-col items-center justify-center gap-4 px-6 py-12 text-center">
             <div className="text-base font-semibold">No jobs found</div>
             <p className="max-w-md text-sm text-muted-foreground">
@@ -148,38 +148,38 @@ export const JobListPanel = forwardRef<VirtualListHandle, JobListPanelProps>(
     }
 
     return (
-      <div
-        ref={scrollElementRef}
-        data-testid="job-list-scroll-container"
-        onScroll={(event) => setScrollTop(event.currentTarget.scrollTop)}
-        className="min-w-0 max-h-[calc(100vh-8rem)] overflow-y-auto rounded-xl border border-border bg-card shadow-sm lg:sticky lg:top-24"
-      >
-        <div className="divide-y divide-border/40">
-          <div className="flex items-center justify-between gap-3 px-4 py-2 opacity-100 transition-opacity sm:opacity-50 sm:hover:opacity-100">
-            <label
-              htmlFor="job-list-select-all"
-              className="flex items-center gap-2 text-xs text-muted-foreground"
-            >
-              <Checkbox
-                id="job-list-select-all"
-                checked={
+      <div className="flex min-w-0 max-h-[calc(100vh-8rem)] min-h-0 flex-col overflow-hidden rounded-xl border border-border bg-card shadow-sm lg:h-full lg:max-h-none lg:sticky lg:top-24">
+        <div className="flex shrink-0 items-center justify-between gap-3 border-b border-border/40 bg-card px-4 py-2 opacity-100">
+          <label
+            htmlFor="job-list-select-all"
+            className="flex items-center gap-2 text-xs text-muted-foreground"
+          >
+            <Checkbox
+              id="job-list-select-all"
+              checked={
+                activeJobs.length > 0 &&
+                activeJobs.every((job) => selectedJobIds.has(job.id))
+              }
+              onCheckedChange={() => {
+                const allSelected =
                   activeJobs.length > 0 &&
-                  activeJobs.every((job) => selectedJobIds.has(job.id))
-                }
-                onCheckedChange={() => {
-                  const allSelected =
-                    activeJobs.length > 0 &&
-                    activeJobs.every((job) => selectedJobIds.has(job.id));
-                  onToggleSelectAll(!allSelected);
-                }}
-                aria-label="Select all filtered jobs"
-              />
-              Select all filtered
-            </label>
-            <span className="text-xs text-muted-foreground tabular-nums">
-              {selectedJobIds.size} selected
-            </span>
-          </div>
+                  activeJobs.every((job) => selectedJobIds.has(job.id));
+                onToggleSelectAll(!allSelected);
+              }}
+              aria-label="Select all filtered jobs"
+            />
+            Select all filtered
+          </label>
+          <span className="text-xs text-muted-foreground tabular-nums">
+            {selectedJobIds.size} selected
+          </span>
+        </div>
+        <div
+          ref={scrollElementRef}
+          data-testid="job-list-scroll-container"
+          onScroll={(event) => setScrollTop(event.currentTarget.scrollTop)}
+          className="min-h-0 max-h-[calc(100vh-8rem)] flex-1 overflow-y-auto lg:max-h-none"
+        >
           <div
             className="relative"
             style={{
