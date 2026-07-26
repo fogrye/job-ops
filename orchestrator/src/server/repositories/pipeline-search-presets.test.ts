@@ -35,6 +35,8 @@ describe.sequential("pipeline search presets repository", () => {
   // post-application-integrations.test.ts's real-DB test pattern.
   beforeEach(async () => {
     vi.resetModules();
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-01-01T00:00:00.000Z"));
     tempDir = await mkdtemp(join(tmpdir(), "job-ops-search-presets-repo-"));
     process.env.DATA_DIR = tempDir;
     process.env.NODE_ENV = "test";
@@ -49,6 +51,7 @@ describe.sequential("pipeline search presets repository", () => {
     // freshly-loaded db module for this test's DATA_DIR.
     const { closeDb } = await import("../db/index");
     closeDb();
+    vi.useRealTimers();
     await rm(tempDir, { recursive: true, force: true });
     vi.clearAllMocks();
   });
@@ -85,6 +88,7 @@ describe.sequential("pipeline search presets repository", () => {
           name: "First",
           config: buildConfig(),
         });
+        vi.advanceTimersByTime(1);
         return presetsRepo.createPipelineSearchPreset({
           name: "Second",
           config: buildConfig(),
@@ -136,6 +140,7 @@ describe.sequential("pipeline search presets repository", () => {
         config: buildConfig(),
       }),
     );
+    vi.advanceTimersByTime(1);
     const presetB = await runWithRequestContext({ userId: "user-b" }, () =>
       presetsRepo.createPipelineSearchPreset({
         name: "User B preset",
