@@ -20,10 +20,6 @@ export interface ShortcutDef {
 
 // ─── Definitions ─────────────────────────────────────────────────────────────
 
-export const APPLIED_CLOSE_SHORTCUT_KEYS = {
-  rejected: "r",
-  ghosted: "g",
-} as const;
 
 export const SHORTCUTS = {
   // Navigation
@@ -113,15 +109,15 @@ export const SHORTCUTS = {
     scope: ["ready"],
   },
   reject: {
-    key: APPLIED_CLOSE_SHORTCUT_KEYS.rejected,
-    displayKey: APPLIED_CLOSE_SHORTCUT_KEYS.rejected,
+    key: "r",
+    displayKey: "r",
     label: "Reject application",
     group: "actions",
     scope: ["applied"],
   },
   ghost: {
-    key: APPLIED_CLOSE_SHORTCUT_KEYS.ghosted,
-    displayKey: APPLIED_CLOSE_SHORTCUT_KEYS.ghosted,
+    key: "g",
+    displayKey: "g",
     label: "Mark as ghosted",
     group: "actions",
     scope: ["applied"],
