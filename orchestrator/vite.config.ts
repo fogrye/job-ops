@@ -25,6 +25,7 @@ function readAppVersion(): string {
 }
 
 const appVersion = readAppVersion();
+const apiTarget = `http://localhost:${process.env.VITE_API_PORT ?? "3001"}`;
 
 declare global {
   // eslint-disable-next-line no-var
@@ -79,15 +80,15 @@ export default defineConfig({
     port: 5173,
     proxy: {
       "/api": {
-        target: "http://localhost:3001",
+        target: apiTarget,
         changeOrigin: true,
       },
       "/pdfs": {
-        target: "http://localhost:3001",
+        target: apiTarget,
         changeOrigin: true,
       },
       "/stats": {
-        target: "http://localhost:3001",
+        target: apiTarget,
         changeOrigin: true,
       },
     },

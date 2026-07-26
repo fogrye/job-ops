@@ -61,11 +61,14 @@ function createMockResponse(): Response & {
 describe.sequential("Auth read-only enforcement", () => {
   beforeEach(() => {
     process.env.JOBOPS_TEST_AUTH_BYPASS = "0";
+    process.env.JOBOPS_LOCAL_DEV_BYPASS = "0";
+    process.env.JOBOPS_LISTEN_HOST = "0.0.0.0";
   });
 
   afterEach(() => {
     process.env = { ...originalEnv };
     process.env.JOBOPS_TEST_AUTH_BYPASS = "0";
+    process.env.JOBOPS_LOCAL_DEV_BYPASS = "0";
     vi.clearAllMocks();
   });
 
@@ -97,6 +100,57 @@ describe.sequential("Auth read-only enforcement", () => {
 
     expect(next).not.toHaveBeenCalled();
     expect(res.statusCode).toBe(401);
+  });
+
+  it("allows API access only through the loopback local development bypass", async () => {
+    process.env.NODE_ENV = "development";
+    process.env.JOBOPS_LOCAL_DEV_BYPASS = "true";
+    process.env.JOBOPS_LISTEN_HOST = "127.0.0.1";
+
+    const { middleware } = createAuthGuard();
+    const req = createMockRequest({ method: "GET", path: "/api/jobs" });
+    const res = createMockResponse();
+    const next = vi.fn() as NextFunction;
+
+    middleware(req, res, next);
+
+    expect(next).toHaveBeenCalledOnce();
+    expect(countUsers).not.toHaveBeenCalled();
+    expect(res.status).not.toHaveBeenCalled();
+  });
+
+  it("keeps the local development bypass disabled outside development", async () => {
+    process.env.NODE_ENV = "staging";
+    process.env.JOBOPS_LOCAL_DEV_BYPASS = "true";
+    process.env.JOBOPS_LISTEN_HOST = "127.0.0.1";
+    vi.mocked(countUsers).mockResolvedValue(1);
+
+    const { middleware } = createAuthGuard();
+    const req = createMockRequest({ method: "GET", path: "/api/jobs" });
+    const res = createMockResponse();
+    const next = vi.fn() as NextFunction;
+
+    middleware(req, res, next);
+    await vi.waitFor(() => expect(res.statusCode).toBe(401));
+
+    expect(next).not.toHaveBeenCalled();
+  });
+
+  it("keeps the local development bypass disabled off loopback", async () => {
+    process.env.NODE_ENV = "development";
+    process.env.JOBOPS_LOCAL_DEV_BYPASS = "true";
+    process.env.JOBOPS_LISTEN_HOST = "0.0.0.0";
+    vi.mocked(countUsers).mockResolvedValue(1);
+
+    const { middleware } = createAuthGuard();
+    const req = createMockRequest({ method: "GET", path: "/api/jobs" });
+    const res = createMockResponse();
+    const next = vi.fn() as NextFunction;
+
+    middleware(req, res, next);
+    await vi.waitFor(() => expect(res.statusCode).toBe(401));
+
+    expect(next).not.toHaveBeenCalled();
   });
 
   it("allows Resume Studio asset content without auth for PDF rendering", async () => {

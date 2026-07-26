@@ -6,8 +6,9 @@
   "main": "src/server/index.ts",
   "scripts": {
     "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\"",
+    "dev:visual": "NODE_ENV=development DATA_DIR=./data VITE_BYPASS_ONBOARDING=true JOBOPS_LOCAL_DEV_BYPASS=true npm run db:migrate && NODE_ENV=development DATA_DIR=./data VITE_BYPASS_ONBOARDING=true JOBOPS_LOCAL_DEV_BYPASS=true JOBOPS_LISTEN_HOST=127.0.0.1 VITE_HOST=127.0.0.1 PORT=${JOBOPS_API_PORT:-3101} VITE_API_PORT=${JOBOPS_API_PORT:-3101} VITE_PORT=${JOBOPS_WEB_PORT:-5173} npm run dev",
     "dev:server": "tsx watch src/server/index.ts",
-    "dev:client": "vite --host",
+    "dev:client": "vite --host ${VITE_HOST:-0.0.0.0} --port ${VITE_PORT:-5173}",
     "ladle": "ladle serve",
     "check:all": "npm run check:types && npm run check:fix && npm run format:fix",
     "ci": "biome ci",
