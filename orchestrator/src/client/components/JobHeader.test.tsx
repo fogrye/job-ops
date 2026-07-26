@@ -82,6 +82,15 @@ describe("JobHeader", () => {
     const outcomeLabel = screen.getByText("Offer accepted");
     expect(outcomeLabel.querySelector("span")).toHaveClass("bg-emerald-500");
   });
+  it("shows a closed fallback when no outcome was recorded", () => {
+    renderWithRouter(
+      <JobHeader
+        job={{ ...mockJob, status: "applied", closedAt: 123, outcome: null }}
+      />,
+    );
+
+    expect(screen.getByText("Closed")).toBeInTheDocument();
+  });
 
   it("renders lightweight list data without full-detail indicators", () => {
     const {

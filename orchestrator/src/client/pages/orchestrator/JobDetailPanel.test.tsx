@@ -584,6 +584,14 @@ describe("JobDetailPanel", () => {
           node?.tagName === "P" && node.textContent === "Hello world",
       ),
     ).toBeInTheDocument();
+    expect(
+      screen
+        .getByText(
+          (_, node) =>
+            node?.tagName === "P" && node.textContent === "Hello world",
+        )
+        .closest("div.max-h-none"),
+    ).toBeInTheDocument();
   });
   it("collapses the description when navigating to another job", async () => {
     const rendered = await renderJobDetailPanel({

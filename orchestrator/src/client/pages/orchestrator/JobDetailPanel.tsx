@@ -1215,6 +1215,7 @@ export const JobDetailPanel: React.FC<JobDetailPanelProps> = ({
             defaultOpen={false}
             open={isJobDescriptionOpen}
             onOpenChange={setIsJobDescriptionOpen}
+            maxHeightClassName="max-h-none"
             description={selectedJob.jobDescription}
             jobUrl={selectedJob.jobUrl}
             onSave={handleSaveDescription}

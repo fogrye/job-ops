@@ -193,6 +193,14 @@ export const JobHeader: React.FC<JobHeaderProps> = ({
     : { jobPageBackTo: `${location.pathname}${location.search}` };
   const deadline = formatDate(job.deadline);
   const postingAge = formatPostingAgeLabel(job.datePosted);
+  const closureLabel = job.outcome
+    ? OUTCOME_LABELS[job.outcome]
+    : job.closedAt != null
+      ? "Closed"
+      : null;
+  const closureDotColor = job.outcome
+    ? outcomeDotColors[job.outcome]
+    : "bg-slate-500";
   const jobStatusTooltip =
     job.status === "discovered" ? (
       <p className="text-xs">Found by the pipeline. Not tailored yet.</p>
@@ -273,11 +281,15 @@ export const JobHeader: React.FC<JobHeaderProps> = ({
             tooltipClassName="max-w-xs"
             className={jobStatusTooltip ? "cursor-help" : undefined}
           />
-          {job.outcome && (
+          {closureLabel && (
             <StatusIndicator
-              dotColor={outcomeDotColors[job.outcome]}
-              label={OUTCOME_LABELS[job.outcome]}
-              tooltip={`Application closed as ${OUTCOME_LABELS[job.outcome]}.`}
+              dotColor={closureDotColor}
+              label={closureLabel}
+              tooltip={
+                job.outcome
+                  ? `Application closed as ${closureLabel}.`
+                  : "Application closed without an outcome."
+              }
               tooltipClassName="max-w-xs"
               className="cursor-help"
             />
