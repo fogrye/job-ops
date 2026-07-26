@@ -286,6 +286,35 @@ const renderJobPage = (initialEntry: RouterInitialEntry = "/job/job-1/notes") =>
     </MemoryRouter>,
   );
 
+describe("JobPage overview", () => {
+  it("renders vacancy brief blocks when sponsor information is disabled", async () => {
+    vi.mocked(api.getSettings).mockResolvedValue(
+      createAppSettings({
+        showSponsorInfo: { value: false, default: true, override: false },
+      }),
+    );
+    vi.mocked(api.getJob).mockResolvedValue(
+      createJob({
+        jobBrief: JSON.stringify({
+          role_summary: "Build backend services.",
+          they_want: ["TypeScript"],
+          specifics: ["TypeScript"],
+          company_offers: [],
+          practical_details: [],
+          missing_or_unclear: [],
+          repeated_signals: [],
+        }),
+      }) as Job,
+    );
+
+    renderJobPage("/job/job-1");
+
+    expect(await screen.findByText("Build backend services.")).toBeVisible();
+    expect(screen.getByText("Highlights")).toBeVisible();
+    expect(screen.getByText("They want")).toBeVisible();
+  });
+});
+
 describe("JobPage notes", () => {
   it("renders notes at the public /notes URL", async () => {
     renderJobPage("/job/job-1/notes");

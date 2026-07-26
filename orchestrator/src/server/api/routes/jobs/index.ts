@@ -15,7 +15,6 @@ const SPONSOR_RESPONSE_FIELDS: Record<string, true> = {
   sponsorMatchScore: true,
   sponsorMatchNames: true,
   matchResults: true,
-  jobBrief: true,
 };
 
 const redactSponsorData = (value: unknown): unknown => {

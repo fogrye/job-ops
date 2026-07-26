@@ -2550,12 +2550,16 @@ describe.sequential("Jobs API routes", () => {
       },
     ]);
 
-    const { createJob } = await import("@server/repositories/jobs");
+    const { createJob, updateJob } = await import("@server/repositories/jobs");
     const job = await createJob({
       source: "manual",
       title: "Sponsored Dev",
       employer: "Acme",
       jobUrl: "https://example.com/job/4",
+    });
+    await updateJob(job.id, {
+      jobBrief:
+        '{"role_summary":"Build backend services.","they_want":[],"specifics":["TypeScript"],"company_offers":[],"practical_details":[],"missing_or_unclear":[],"repeated_signals":[]}',
     });
 
     const res = await fetch(`${baseUrl}/api/jobs/${job.id}/check-sponsor`, {
@@ -2591,7 +2595,9 @@ describe.sequential("Jobs API routes", () => {
     expect(disabledListBody.data.jobs[0]).not.toHaveProperty(
       "sponsorMatchScore",
     );
-    expect(disabledListBody.data.jobs[0]).not.toHaveProperty("jobBrief");
+    expect(disabledListBody.data.jobs[0].jobBrief).toContain(
+      '"specifics":["TypeScript"]',
+    );
   });
 
   it("keeps Jobs available and redacts sponsor data when settings lookup fails", async () => {
