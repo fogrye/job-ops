@@ -77,6 +77,7 @@ ARG BUILDARCH
 
 # Copy package files for dependency installation.
 COPY package*.json ./
+COPY scripts/install-git-hooks.mjs ./scripts/install-git-hooks.mjs
 COPY docs-site/package*.json ./docs-site/
 COPY shared/package*.json ./shared/
 COPY orchestrator/package*.json ./orchestrator/
