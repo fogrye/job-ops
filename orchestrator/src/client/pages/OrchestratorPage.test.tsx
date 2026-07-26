@@ -1632,6 +1632,40 @@ describe("OrchestratorPage", () => {
     await waitFor(() => {
       expect(locationText()).toContain("/all");
     });
+
+    pressKey("5");
+    await waitFor(() => {
+      expect(locationText()).toContain("/archive");
+    });
+  });
+
+  it("opens the In Progress board directly", async () => {
+    window.matchMedia = createMatchMedia(
+      true,
+    ) as unknown as typeof window.matchMedia;
+
+    render(
+      <MemoryRouter initialEntries={["/jobs/ready/job-1"]}>
+        <LocationWatcher />
+        <Routes>
+          <Route path="/jobs/:tab/:jobId" element={<OrchestratorPage />} />
+          <Route
+            path="/applications/in-progress"
+            element={<div>In Progress Board</div>}
+          />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Open In Progress" }),
+    );
+
+    await waitFor(() =>
+      expect(screen.getByTestId("location")).toHaveTextContent(
+        "/applications/in-progress",
+      ),
+    );
   });
 
   it("opens the In Progress board directly", async () => {

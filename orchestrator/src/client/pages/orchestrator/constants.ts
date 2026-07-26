@@ -210,6 +210,7 @@ export const tabs: Array<{
   },
   { id: "applied", label: "Applied", statuses: ["applied"] },
   { id: "all", label: "All Jobs", statuses: [] },
+  { id: "archive", label: "Archive", statuses: [] },
 ];
 
 export const jobMatchesTab = (

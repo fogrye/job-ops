@@ -222,7 +222,9 @@ const getPrimaryAction = (job: Job): string => {
   if (job.closedAt != null) return "Archived";
   if (job.status === "processing") return "Processing";
   if (job.status === "ready") return "Mark Applied";
-  if (job.status === "discovered") return "Start Tailoring";
+  if (job.status === "discovered") {
+    return canCompleteTailoring ? "Finish Tailoring" : "Start Tailoring";
+  }
   if (job.status === "applied") return "Move to In Progress";
   if (job.status === "in_progress") return "In Progress";
   if (job.status === "skipped") return "Skipped";
@@ -323,6 +325,7 @@ export const JobDetailPanel: React.FC<JobDetailPanelProps> = ({
   );
   const uploadPdfInputRef = useRef<HTMLInputElement | null>(null);
   const previousSelectionKeyRef = useRef<string | null>(null);
+  const tailoringStartTokenRef = useRef(0);
   const markAsAppliedMutation = useMarkAsAppliedMutation();
   const skipJobMutation = useSkipJobMutation();
   const { isRescoring, rescoreJob } = useRescoreJob(onJobUpdated);
@@ -355,6 +358,7 @@ export const JobDetailPanel: React.FC<JobDetailPanelProps> = ({
   );
   const hasTailoredSummary = Boolean(selectedJob?.tailoredSummary);
   const hasTailoredSkills = Boolean(selectedJob?.tailoredSkills);
+  const canCompleteTailoring = hasTailoredSummary && hasTailoredSkills;
   const hasResumePdf = Boolean(selectedJob?.pdfPath);
   const hasJobListing = Boolean(jobLink && jobLink !== "#");
   const hasOpenedJobListing = selectedJob

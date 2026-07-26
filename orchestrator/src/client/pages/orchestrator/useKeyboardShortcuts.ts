@@ -138,6 +138,7 @@ export function useKeyboardShortcuts(args: UseKeyboardShortcutsArgs): void {
       [SHORTCUTS.tabDiscovered.key]: () => setActiveTab("discovered"),
       [SHORTCUTS.tabApplied.key]: () => setActiveTab("applied"),
       [SHORTCUTS.tabAll.key]: () => setActiveTab("all"),
+      "5": () => setActiveTab("archive"),
       [SHORTCUTS.prevTabArrow.key]: (e) => {
         e.preventDefault();
         navigateTab(-1);
